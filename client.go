@@ -32,7 +32,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		Message:      make(chan []byte),
 		Username:     newUserId,
 		Followers:    followers,
-		NewRoom: make(chan *chatserver.TwoUserRoomPayload),
+		NewRoom:      make(chan *chatserver.TwoUserRoomPayload),
 		PrivateRooms: make(map[string]*chatserver.TwoUserRoom),
 	}
 
@@ -40,11 +40,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		u := chatserver.OnlineUsers[username]
 		if u != nil {
 			newRoom := chatserver.CreateTwoUserRoom(u.Username)
-			newUser.NewRoom <- &chatserver.TwoUserRoomPayload {
-				Room: newRoom, SecondPairId: username,
+			newUser.NewRoom <- &chatserver.TwoUserRoomPayload{
+				Room: newRoom, Id: username,
 			}
-			u.NewRoom <- &chatserver.TwoUserRoomPayload {
-				Room: newRoom, SecondPairId: newUserId,
+			u.NewRoom <- &chatserver.TwoUserRoomPayload{
+				Room: newRoom, Id: newUserId,
 			}
 			newRoom.Join(newUser)
 			defer newRoom.Leave()

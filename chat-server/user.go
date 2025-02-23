@@ -11,16 +11,16 @@ type User struct {
 	Message      chan []byte
 	Username     string
 	Followers    []string
-	NewRoom 	chan *TwoUserRoomPayload
+	NewRoom      chan *TwoUserRoomPayload
 	PrivateRooms map[string]*TwoUserRoom
 }
 
 func (user *User) ListenForNewRoom() {
 	for {
 		select {
-		case newRoom := <- NewRoom:
+		case newRoom := <-NewRoom:
 			if user.NewRoom != nil {
-				user.PrivateRooms[newRoom.SecondPairId] = newRoom.Room
+				user.PrivateRooms[newRoom.Id] = newRoom.Room
 			}
 		}
 	}
