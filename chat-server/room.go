@@ -5,7 +5,7 @@ import (
 )
 
 type Room interface {
-	Leave()
+	Leave(user *User)
 	Join(user *User) error
 	Forward(channel chan []byte, message []byte)
 }
@@ -26,8 +26,8 @@ var PrivateRooms = make(map[string]*TwoUserRoom)
 
 var NewRoom chan *TwoUserRoomPayload
 
-func (twoUserRoom *TwoUserRoom) Leave() {
-	twoUserRoom.leave <- nil
+func (twoUserRoom *TwoUserRoom) Leave(user *User) {
+	twoUserRoom.leave <- user
 }
 
 func (twoUserRoom *TwoUserRoom) Join(user *User) error {
@@ -46,8 +46,7 @@ func (twoUserRoom *TwoUserRoom) Forward(message []byte) {
 type MultiUserRoom struct {
 }
 
-func (multiUserRoom *MultiUserRoom) Leave() {
-
+func (multiUserRoom *MultiUserRoom) Leave(user *User) {
 }
 
 func (multiUserRoom *MultiUserRoom) Join(user *User) error {
@@ -57,7 +56,7 @@ func (multiUserRoom *MultiUserRoom) Join(user *User) error {
 func (multiUserRoom *MultiUserRoom) Forward(message []byte) {
 }
 
-func CreateTwoUserRoom(id string) *TwoUserRoom {
+func CreateTwoUserRoom() *TwoUserRoom {
 	return &TwoUserRoom{
 		leave:            make(chan *User),
 		join:             make(chan *User),
@@ -66,7 +65,7 @@ func CreateTwoUserRoom(id string) *TwoUserRoom {
 	}
 }
 
-func (twoUserRoom *TwoUserRoom) run() {
+func (twoUserRoom *TwoUserRoom) Run() {
 	for {
 		select {
 		case user := <-twoUserRoom.join:

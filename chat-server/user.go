@@ -4,15 +4,16 @@ import (
 	"fmt"
 
 	"github.com/gorilla/websocket"
-	"github.com/te6lim/go-chat/socket"
 )
 
 type User struct {
+	Conn *websocket.Conn
 	Message      chan []byte
 	Username     string
 	Followers    []string
 	NewRoom      chan *TwoUserRoomPayload
 	PrivateRooms map[string]*TwoUserRoom
+	RequestToJoinRoom chan string
 }
 
 func (user *User) ListenForNewRoom() {
@@ -30,26 +31,24 @@ var OnlineUsers = make(map[string]*User)
 var NewUser chan *User
 var LoggedOutUser chan *User
 
-func (user *User) ReadFromConnection(connectionKey string) {
-	defer socket.Connections[connectionKey].Close()
-	connection := socket.Connections[connectionKey]
+func (user *User) ReadFromConnection() {
+	defer user.Conn.Close()
 	for {
-		_, message, err := connection.ReadMessage()
+		_, message, err := user.Conn.ReadMessage()
 		if err != nil {
 			fmt.Println("Connection error: ", err)
 			return
 		}
-		PrivateRooms[connectionKey].Forward(message)
+		PrivateRooms[user.Username].Forward(message)
 	}
 }
 
-func (user *User) WriteToConnection(connectionKey string) {
-	defer socket.Connections[connectionKey].Close()
-	connection := socket.Connections[connectionKey]
+func (user *User) WriteToConnection() {
+	defer user.Conn.Close()
 	for m := range user.Message {
-		err := connection.WriteMessage(websocket.TextMessage, m)
+		err := user.Conn.WriteMessage(websocket.TextMessage, m)
 		if err != nil {
-			fmt.Println("COnnection error: ", err)
+			fmt.Println("Connection error: ", err)
 			return
 		}
 	}
@@ -63,6 +62,17 @@ func ListenForActiveUsers() {
 
 		case loggedOutUser := <-LoggedOutUser:
 			OnlineUsers[loggedOutUser.Username] = nil
+		}
+	}
+}
+
+func (user *User) ListenForJoinRoomRequest() {
+	for {
+		select {
+		case roomWith := <- user.RequestToJoinRoom:
+			if user.PrivateRooms[roomWith] != nil {
+				user.PrivateRooms[roomWith].Join(user)
+			}
 		}
 	}
 }
