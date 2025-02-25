@@ -7,22 +7,18 @@ import (
 )
 
 type User struct {
-	Conn *websocket.Conn
-	Message      chan []byte
-	Username     string
-	Followers    []string
-	NewRoom      chan *TwoUserRoomPayload
-	PrivateRooms map[string]*TwoUserRoom
+	Message           chan Message
+	Username          string
+	Followers         []string
+	NewRoom           chan *TwoUserRoomPayload
+	PrivateRooms      map[string]*TwoUserRoom
 	RequestToJoinRoom chan string
 }
 
 func (user *User) ListenForNewRoom() {
-	for {
-		select {
-		case newRoom := <-NewRoom:
-			if user.NewRoom != nil {
-				user.PrivateRooms[newRoom.Id] = newRoom.Room
-			}
+	for newRoom := range NewRoom {
+		if user.NewRoom != nil {
+			user.PrivateRooms[newRoom.Id] = newRoom.Room
 		}
 	}
 }
@@ -31,22 +27,24 @@ var OnlineUsers = make(map[string]*User)
 var NewUser chan *User
 var LoggedOutUser chan *User
 
-func (user *User) ReadFromConnection() {
-	defer user.Conn.Close()
+func (user *User) ReadFromConnectionWith(otherUser *User) {
+	privateRoom := user.PrivateRooms[otherUser.Username]
+	defer privateRoom.Conn.Close()
 	for {
-		_, message, err := user.Conn.ReadMessage()
+		_, message, err := privateRoom.Conn.ReadMessage()
 		if err != nil {
 			fmt.Println("Connection error: ", err)
 			return
 		}
-		PrivateRooms[user.Username].Forward(message)
+		user.PrivateRooms[otherUser.Username].Forward(Message{Text: message, Sender: ""})
 	}
 }
 
-func (user *User) WriteToConnection() {
-	defer user.Conn.Close()
+func (user *User) WriteToConnectionWith(otherUser *User) {
+	privateRoom := user.PrivateRooms[otherUser.Username]
+	defer privateRoom.Conn.Close()
 	for m := range user.Message {
-		err := user.Conn.WriteMessage(websocket.TextMessage, m)
+		err := privateRoom.Conn.WriteMessage(websocket.TextMessage, m.Text)
 		if err != nil {
 			fmt.Println("Connection error: ", err)
 			return
@@ -67,12 +65,9 @@ func ListenForActiveUsers() {
 }
 
 func (user *User) ListenForJoinRoomRequest() {
-	for {
-		select {
-		case roomWith := <- user.RequestToJoinRoom:
-			if user.PrivateRooms[roomWith] != nil {
-				user.PrivateRooms[roomWith].Join(user)
-			}
+	for roomWith := range user.RequestToJoinRoom {
+		if user.PrivateRooms[roomWith] != nil {
+			user.PrivateRooms[roomWith].Join(user)
 		}
 	}
 }

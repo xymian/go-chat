@@ -10,20 +10,19 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var Upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-	ReadBufferSize:  1024,
-    WriteBufferSize: 1024,
-}
-
 var Counter = 0
 
 func main() {
 }
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	var Upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
 	conn, err := Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -40,38 +39,35 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	newUserId := fmt.Sprint(Counter)
 
 	newUser := &chatserver.User{
-		Conn:         conn,
-		Message:      make(chan []byte),
+		Message:      make(chan chatserver.Message),
 		Username:     newUserId,
 		Followers:    followers,
 		NewRoom:      make(chan *chatserver.TwoUserRoomPayload),
 		PrivateRooms: make(map[string]*chatserver.TwoUserRoom),
 		RequestToJoinRoom: make(chan string),
 	}
+	chatserver.NewUser <- newUser
 	newUser.ListenForJoinRoomRequest()
 
-	newRoom := chatserver.CreateTwoUserRoom()
+	newRoom := chatserver.CreateTwoUserRoom(conn)
 	defer newRoom.Leave(newUser)
 
 	for _, username := range followers {
-		u := chatserver.OnlineUsers[username]
-		if u != nil {
+		otherUser := chatserver.OnlineUsers[username]
+		if otherUser != nil {
 			newUser.NewRoom <- &chatserver.TwoUserRoomPayload{
 				Room: newRoom, Id: username,
 			}
-			u.NewRoom <- &chatserver.TwoUserRoomPayload{
+			otherUser.NewRoom <- &chatserver.TwoUserRoomPayload{
 				Room: newRoom, Id: newUserId,
 			}
 			newRoom.Run()
 			newRoom.Join(newUser)
-			u.RequestToJoinRoom <- newUserId
+			otherUser.RequestToJoinRoom <- newUserId
+			go newUser.WriteToConnectionWith(otherUser)
+			newUser.ReadFromConnectionWith(otherUser)
 		}
 	}
-
-	go newUser.WriteToConnection()
-	newUser.ReadFromConnection()
-
-	chatserver.NewUser <- newUser
 
 	Counter++
 }

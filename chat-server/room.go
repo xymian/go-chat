@@ -2,6 +2,8 @@ package chatserver
 
 import (
 	"errors"
+
+	"github.com/gorilla/websocket"
 )
 
 type Room interface {
@@ -11,10 +13,11 @@ type Room interface {
 }
 
 type TwoUserRoom struct {
+	Conn             *websocket.Conn
 	leave            chan *User
 	join             chan *User
 	participants     map[*User]bool
-	ForwardedMessage chan []byte
+	ForwardedMessage chan Message
 }
 
 type TwoUserRoomPayload struct {
@@ -39,7 +42,7 @@ func (twoUserRoom *TwoUserRoom) Join(user *User) error {
 	return nil
 }
 
-func (twoUserRoom *TwoUserRoom) Forward(message []byte) {
+func (twoUserRoom *TwoUserRoom) Forward(message Message) {
 	twoUserRoom.ForwardedMessage <- message
 }
 
@@ -56,12 +59,13 @@ func (multiUserRoom *MultiUserRoom) Join(user *User) error {
 func (multiUserRoom *MultiUserRoom) Forward(message []byte) {
 }
 
-func CreateTwoUserRoom() *TwoUserRoom {
+func CreateTwoUserRoom(websocketConnection *websocket.Conn) *TwoUserRoom {
 	return &TwoUserRoom{
+		Conn:             websocketConnection,
 		leave:            make(chan *User),
 		join:             make(chan *User),
 		participants:     make(map[*User]bool),
-		ForwardedMessage: make(chan []byte),
+		ForwardedMessage: make(chan Message),
 	}
 }
 
@@ -89,12 +93,9 @@ func (twoUserRoom *TwoUserRoom) Run() {
 }
 
 func (user *User) ListenForAddedRooms() {
-	for {
-		select {
-		case newRoom := <-NewRoom:
-			if user.PrivateRooms[newRoom.Id] != nil {
-				user.PrivateRooms[newRoom.Id] = newRoom.Room
-			}
+	for newRoom := range NewRoom {
+		if user.PrivateRooms[newRoom.Id] != nil {
+			user.PrivateRooms[newRoom.Id] = newRoom.Room
 		}
 	}
 }
