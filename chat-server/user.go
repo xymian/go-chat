@@ -20,7 +20,6 @@ type User struct {
 func (user *User) ListenForNewRoom() {
 	for newRoom := range user.NewRoom {
 		user.PrivateRooms[newRoom.Id] = newRoom.Room
-		newRoom.Room.Tracer.Trace("New room added")
 	}
 }
 
@@ -28,27 +27,40 @@ var OnlineUsers = make(map[string]*User)
 var NewUser chan *User = make(chan *User)
 var LoggedOutUser chan *User = make(chan *User)
 
-func (user *User) ReadFromConnectionWith(otherUser *User) {
-	privateRoom := user.PrivateRooms[otherUser.Username]
-	defer privateRoom.Conn.Close()
-	for {
-		_, message, err := privateRoom.Conn.ReadMessage()
-		if err != nil {
-			fmt.Println("Connection error: ", err)
-			return
+func (user *User) ReadFromConnectionWith(otherUser string) {
+	privateRoom := user.PrivateRooms[otherUser]
+	defer func() {
+		if privateRoom != nil {
+			defer privateRoom.Conn.Close()
 		}
-		user.PrivateRooms[otherUser.Username].Forward(Message{Text: message, Sender: ""})
+	}()
+	for {
+		if privateRoom != nil {
+			_, message, err := privateRoom.Conn.ReadMessage()
+			if err != nil {
+				fmt.Println("Connection error: ", err)
+				return
+			}
+			privateRoom.Forward(Message{Text: message, Sender: ""})
+		}
 	}
 }
 
-func (user *User) WriteToConnectionWith(otherUser *User) {
-	privateRoom := user.PrivateRooms[otherUser.Username]
-	defer privateRoom.Conn.Close()
+func (user *User) WriteToConnectionWith(otherUser string) {
+	privateRoom := user.PrivateRooms[otherUser]
+	defer func() {
+		if privateRoom != nil {
+			privateRoom.Conn.Close()
+		}
+	}()
+
 	for m := range user.Message {
-		err := privateRoom.Conn.WriteMessage(websocket.TextMessage, m.Text)
-		if err != nil {
-			fmt.Println("Connection error: ", err)
-			return
+		if privateRoom != nil {
+			err := privateRoom.Conn.WriteMessage(websocket.TextMessage, m.Text)
+			if err != nil {
+				fmt.Println("Connection error: ", err)
+				return
+			}
 		}
 	}
 }
@@ -58,11 +70,11 @@ func ListenForActiveUsers() {
 		select {
 		case newUser := <-NewUser:
 			OnlineUsers[newUser.Username] = newUser
-			newUser.Tracer.Trace("New user ", newUser.Username, " is online")
+			newUser.Tracer.Trace("\nNew User", newUser.Username, " is online")
 
 		case loggedOutUser := <-LoggedOutUser:
 			OnlineUsers[loggedOutUser.Username] = nil
-			loggedOutUser.Tracer.Trace("User ", loggedOutUser.Username, " logged out")
+			loggedOutUser.Tracer.Trace("User", loggedOutUser.Username, " logged out")
 		}
 	}
 }

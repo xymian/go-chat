@@ -35,11 +35,6 @@ func (twoUserRoom *TwoUserRoom) Leave(user *User) {
 
 func (twoUserRoom *TwoUserRoom) Join(user *User) error {
 	twoUserRoom.join <- user
-		/*for member := range twoUserRoom.participants {
-			user.WriteToConnectionWith(member)
-			user.ReadFromConnectionWith(member)
-		}*/
-		//twoUserRoom.Leave(user)
 	return nil
 }
 
@@ -76,7 +71,7 @@ func (twoUserRoom *TwoUserRoom) Run() {
 		case user := <-twoUserRoom.join:
 			if user != nil {
 				twoUserRoom.participants[user] = true
-				twoUserRoom.Tracer.Trace("User ", user.Username, " joined the room")
+				twoUserRoom.Tracer.Trace("User", user.Username, " joined the room")
 			}
 
 		case user := <-twoUserRoom.leave:
@@ -84,13 +79,14 @@ func (twoUserRoom *TwoUserRoom) Run() {
 				twoUserRoom.participants[user] = false
 				delete(twoUserRoom.participants, user)
 				close(user.Message)
-				twoUserRoom.Tracer.Trace("User ", user.Username, " left the room")
+				twoUserRoom.Tracer.Trace("User", user.Username, " left the room")
 			}
 
 		case message := <-twoUserRoom.ForwardedMessage:
+			twoUserRoom.Tracer.Trace("member count: ", len(twoUserRoom.participants))
 			for user := range twoUserRoom.participants {
 				user.Message <- message
-				twoUserRoom.Tracer.Trace("Forwarded message: ", message.Text, " to ", user.Username)
+				twoUserRoom.Tracer.Trace("Forwarded message: ", message.Text, " to User", user.Username)
 			}
 		}
 	}

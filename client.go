@@ -42,16 +42,17 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	go newUser.ListenForNewRoom()
 
 	otherUser := chatserver.OnlineUsers[user]
+	var room *chatserver.TwoUserRoom
 	if otherUser != nil {
-		room := otherUser.PrivateRooms[fmt.Sprint(Counter)]
+		room = otherUser.PrivateRooms[fmt.Sprint(Counter)]
 		go func() { 
 			newUser.NewRoom <- &chatserver.TwoUserRoomPayload{
 				Room: room, Id: user,
 			}
+			room.Tracer.Trace("New room added")
 		}()
-		room.Join(newUser)
 	} else {
-		room := chatserver.CreateTwoUserRoom()
+		room = chatserver.CreateTwoUserRoom()
 		go func() { 
 			newUser.NewRoom <- &chatserver.TwoUserRoomPayload{
 				Room: room, Id: user,
@@ -63,8 +64,21 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			log.Fatal("WebSocket dial error:", err)
 		}
 		go room.Run()
-		go room.Join(newUser)
 	}
-	
+
+	go room.Join(newUser)
+	//defer room.Leave(newUser)
+
+	go newUser.WriteToConnectionWith(user)
+	go newUser.ReadFromConnectionWith(user)
+
+	go func() {
+		room.ForwardedMessage <- chatserver.Message{
+			Text: []byte {
+				'h', 'e', 'l', 'l', 'o', byte(Counter),
+			},
+			Sender: newUser.Username,
+		}
+	}()
 	Counter++
 }

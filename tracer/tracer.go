@@ -14,6 +14,5 @@ type EventTracer struct {
 }
 
 func (t *EventTracer) Trace(a...interface{}) {
-	fmt.Fprint(t.Out, a...)
-	fmt.Fprintln(t.Out)
+	fmt.Fprintln(t.Out, a...)
 }
