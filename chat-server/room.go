@@ -1,9 +1,12 @@
 package chatserver
 
 import (
-	"errors"
+	"log"
+	"net/http"
+	"os"
 
 	"github.com/gorilla/websocket"
+	"github.com/te6lim/go-chat/tracer"
 )
 
 type Room interface {
@@ -18,6 +21,7 @@ type TwoUserRoom struct {
 	join             chan *User
 	participants     map[*User]bool
 	ForwardedMessage chan Message
+	Tracer *tracer.EventTracer
 }
 
 type TwoUserRoomPayload struct {
@@ -25,20 +29,17 @@ type TwoUserRoomPayload struct {
 	Id   string
 }
 
-var PrivateRooms = make(map[string]*TwoUserRoom)
-
-var NewRoom chan *TwoUserRoomPayload
-
 func (twoUserRoom *TwoUserRoom) Leave(user *User) {
 	twoUserRoom.leave <- user
 }
 
 func (twoUserRoom *TwoUserRoom) Join(user *User) error {
-	if twoUserRoom.join == nil {
-		twoUserRoom.join <- user
-	} else {
-		return errors.New("Room is full")
-	}
+	twoUserRoom.join <- user
+		/*for member := range twoUserRoom.participants {
+			user.WriteToConnectionWith(member)
+			user.ReadFromConnectionWith(member)
+		}*/
+		//twoUserRoom.Leave(user)
 	return nil
 }
 
@@ -59,13 +60,13 @@ func (multiUserRoom *MultiUserRoom) Join(user *User) error {
 func (multiUserRoom *MultiUserRoom) Forward(message []byte) {
 }
 
-func CreateTwoUserRoom(websocketConnection *websocket.Conn) *TwoUserRoom {
+func CreateTwoUserRoom() *TwoUserRoom {
 	return &TwoUserRoom{
-		Conn:             websocketConnection,
 		leave:            make(chan *User),
 		join:             make(chan *User),
 		participants:     make(map[*User]bool),
 		ForwardedMessage: make(chan Message),
+		Tracer: &tracer.EventTracer{Out: os.Stdout},
 	}
 }
 
@@ -75,6 +76,7 @@ func (twoUserRoom *TwoUserRoom) Run() {
 		case user := <-twoUserRoom.join:
 			if user != nil {
 				twoUserRoom.participants[user] = true
+				twoUserRoom.Tracer.Trace("User ", user.Username, " joined the room")
 			}
 
 		case user := <-twoUserRoom.leave:
@@ -82,20 +84,29 @@ func (twoUserRoom *TwoUserRoom) Run() {
 				twoUserRoom.participants[user] = false
 				delete(twoUserRoom.participants, user)
 				close(user.Message)
+				twoUserRoom.Tracer.Trace("User ", user.Username, " left the room")
 			}
 
 		case message := <-twoUserRoom.ForwardedMessage:
 			for user := range twoUserRoom.participants {
 				user.Message <- message
+				twoUserRoom.Tracer.Trace("Forwarded message: ", message.Text, " to ", user.Username)
 			}
 		}
 	}
 }
 
-func (user *User) ListenForAddedRooms() {
-	for newRoom := range NewRoom {
-		if user.PrivateRooms[newRoom.Id] != nil {
-			user.PrivateRooms[newRoom.Id] = newRoom.Room
-		}
+func (room *TwoUserRoom) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var Upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
 	}
+	conn, err := Upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	room.Conn = conn
 }

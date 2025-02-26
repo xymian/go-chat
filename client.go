@@ -4,70 +4,67 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-
-	chatserver "github.com/te6lim/go-chat/chat-server"
+	"os"
 
 	"github.com/gorilla/websocket"
+	chatserver "github.com/te6lim/go-chat/chat-server"
+	"github.com/te6lim/go-chat/tracer"
 )
 
 var Counter = 0
 
 func main() {
+	go chatserver.ListenForActiveUsers()
+	http.HandleFunc("/chat", handleWebSocket)
+	log.Println("Server started on localhost:8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	var Upgrader = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-	}
-	conn, err := Upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-
-	chatserver.ListenForActiveUsers()
-
-	followers := []string{}
-	for f := range chatserver.OnlineUsers {
-		followers = append(followers, f)
-	}
-
+	user := r.URL.Query().Get("user")
+	fmt.Fprintln(w, "Welcome to chat room with: ", user)
 	newUserId := fmt.Sprint(Counter)
 
 	newUser := &chatserver.User{
-		Message:      make(chan chatserver.Message),
-		Username:     newUserId,
-		Followers:    followers,
-		NewRoom:      make(chan *chatserver.TwoUserRoomPayload),
-		PrivateRooms: make(map[string]*chatserver.TwoUserRoom),
+		Message:           make(chan chatserver.Message),
+		Username:          newUserId,
+		NewRoom:           make(chan *chatserver.TwoUserRoomPayload),
+		PrivateRooms:      make(map[string]*chatserver.TwoUserRoom),
 		RequestToJoinRoom: make(chan string),
+		Tracer:            &tracer.EventTracer{Out: os.Stdout},
 	}
-	chatserver.NewUser <- newUser
-	newUser.ListenForJoinRoomRequest()
+	
+	go func() {
+		chatserver.NewUser <- newUser
+	}()
+	go newUser.ListenForNewRoom()
 
-	newRoom := chatserver.CreateTwoUserRoom(conn)
-	defer newRoom.Leave(newUser)
-
-	for _, username := range followers {
-		otherUser := chatserver.OnlineUsers[username]
-		if otherUser != nil {
+	otherUser := chatserver.OnlineUsers[user]
+	if otherUser != nil {
+		room := otherUser.PrivateRooms[fmt.Sprint(Counter)]
+		go func() { 
 			newUser.NewRoom <- &chatserver.TwoUserRoomPayload{
-				Room: newRoom, Id: username,
+				Room: room, Id: user,
 			}
-			otherUser.NewRoom <- &chatserver.TwoUserRoomPayload{
-				Room: newRoom, Id: newUserId,
+		}()
+		room.Join(newUser)
+	} else {
+		room := chatserver.CreateTwoUserRoom()
+		go func() { 
+			newUser.NewRoom <- &chatserver.TwoUserRoomPayload{
+				Room: room, Id: user,
 			}
-			newRoom.Run()
-			newRoom.Join(newUser)
-			otherUser.RequestToJoinRoom <- newUserId
-			go newUser.WriteToConnectionWith(otherUser)
-			newUser.ReadFromConnectionWith(otherUser)
+		}()
+		http.Handle("/room", room)
+		_, _,err := websocket.DefaultDialer.Dial("ws://localhost:8080/room", nil)
+		if err != nil {
+			log.Fatal("WebSocket dial error:", err)
 		}
+		go room.Run()
+		go room.Join(newUser)
 	}
-
+	
 	Counter++
 }
