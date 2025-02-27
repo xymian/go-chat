@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/gorilla/websocket"
 	chatserver "github.com/te6lim/go-chat/chat-server"
@@ -30,55 +29,48 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	newUser := &chatserver.User{
 		Message:           make(chan chatserver.Message),
 		Username:          newUserId,
-		NewRoom:           make(chan *chatserver.TwoUserRoomPayload),
+		Session:           make(chan *chatserver.UserSession),
 		PrivateRooms:      make(map[string]*chatserver.TwoUserRoom),
 		RequestToJoinRoom: make(chan string),
-		Tracer:            &tracer.EventTracer{Out: os.Stdout},
+		Tracer:            tracer.New(),
 	}
+
+	chatserver.NewUser <- newUser
 	
-	go func() {
-		chatserver.NewUser <- newUser
-	}()
 	go newUser.ListenForNewRoom()
 
 	otherUser := chatserver.OnlineUsers[user]
 	var room *chatserver.TwoUserRoom
+	var session *chatserver.UserSession
+
 	if otherUser != nil {
-		room = otherUser.PrivateRooms[fmt.Sprint(Counter)]
-		go func() { 
-			newUser.NewRoom <- &chatserver.TwoUserRoomPayload{
-				Room: room, Id: user,
-			}
-			room.Tracer.Trace("New room added")
-		}()
+		room = otherUser.PrivateRooms[newUserId]
+		session = chatserver.CreateSession(newUser, room, otherUser.Username)
+		newUser.Session <- session
 	} else {
 		room = chatserver.CreateTwoUserRoom()
-		go func() { 
-			newUser.NewRoom <- &chatserver.TwoUserRoomPayload{
-				Room: room, Id: user,
-			}
-		}()
-		http.Handle("/room", room)
-		_, _,err := websocket.DefaultDialer.Dial("ws://localhost:8080/room", nil)
+		session = chatserver.CreateSession(newUser, room, user)
+		http.Handle("/room", session)
+		_, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080/room", nil)
 		if err != nil {
 			log.Fatal("WebSocket dial error:", err)
 		}
+
+		newUser.Session <- session
+		room.Tracer.Trace("New room added")
 		go room.Run()
 	}
 
-	go room.Join(newUser)
-	//defer room.Leave(newUser)
+	session.Join()
 
-	go newUser.WriteToConnectionWith(user)
-	go newUser.ReadFromConnectionWith(user)
+	go session.WriteToConnectionWith()
+	go session.ReadFromConnectionWith()
 
-	go func() {
-		room.ForwardedMessage <- chatserver.Message{
-			Text: []byte {
-				'h', 'e', 'l', 'l', 'o', byte(Counter),
-			},
-			Sender: newUser.Username,
-		}
-	}()
+	room.ForwardedMessage <- chatserver.Message{
+		Text: []byte{
+			'h', 'e', 'l', 'l', 'o', byte(Counter),
+		},
+		Sender: newUser.Username,
+	}
 	Counter++
 }

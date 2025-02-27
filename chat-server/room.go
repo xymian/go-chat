@@ -1,9 +1,7 @@
 package chatserver
 
 import (
-	"log"
-	"net/http"
-	"os"
+	"errors"
 
 	"github.com/gorilla/websocket"
 	"github.com/te6lim/go-chat/tracer"
@@ -21,12 +19,7 @@ type TwoUserRoom struct {
 	join             chan *User
 	participants     map[*User]bool
 	ForwardedMessage chan Message
-	Tracer *tracer.EventTracer
-}
-
-type TwoUserRoomPayload struct {
-	Room *TwoUserRoom
-	Id   string
+	Tracer           tracer.Tracer
 }
 
 func (twoUserRoom *TwoUserRoom) Leave(user *User) {
@@ -34,8 +27,11 @@ func (twoUserRoom *TwoUserRoom) Leave(user *User) {
 }
 
 func (twoUserRoom *TwoUserRoom) Join(user *User) error {
-	twoUserRoom.join <- user
-	return nil
+	if len(twoUserRoom.participants) < 2 {
+		twoUserRoom.join <- user
+		return nil
+	}
+	return errors.New("Room is full. Please create another room with this user")
 }
 
 func (twoUserRoom *TwoUserRoom) Forward(message Message) {
@@ -61,7 +57,7 @@ func CreateTwoUserRoom() *TwoUserRoom {
 		join:             make(chan *User),
 		participants:     make(map[*User]bool),
 		ForwardedMessage: make(chan Message),
-		Tracer: &tracer.EventTracer{Out: os.Stdout},
+		Tracer:           tracer.New(),
 	}
 }
 
@@ -90,19 +86,4 @@ func (twoUserRoom *TwoUserRoom) Run() {
 			}
 		}
 	}
-}
-
-func (room *TwoUserRoom) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var Upgrader = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-	}
-	conn, err := Upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	room.Conn = conn
 }

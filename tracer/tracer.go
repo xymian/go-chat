@@ -3,16 +3,23 @@ package tracer
 import (
 	"fmt"
 	"io"
+	"os"
 )
 
 type Tracer interface {
 	Trace(a...interface{})
 }
 
-type EventTracer struct {
-	Out io.Writer
+type eventTracer struct {
+	out io.Writer
 }
 
-func (t *EventTracer) Trace(a...interface{}) {
-	fmt.Fprintln(t.Out, a...)
+func (t *eventTracer) Trace(a...interface{}) {
+	fmt.Fprintln(t.out, a...)
+}
+
+func New() Tracer {
+	return &eventTracer{
+		out: os.Stdout,
+	}
 }
