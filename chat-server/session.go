@@ -51,7 +51,7 @@ func (session *UserSession) ReadFromConnectionWith() {
 	privateRoom := session.user.PrivateRooms[session.withUser]
 	defer func() {
 		if privateRoom != nil {
-			defer privateRoom.Conn.Close()
+			privateRoom.Conn.Close()
 		}
 	}()
 	for {
