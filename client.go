@@ -37,10 +37,10 @@ func handleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	otherUser := chatserver.OnlineUsers[user]
 	session := chatserver.CreateSession(newUser, user)
 	if otherUser != nil {
-		//go func() { otherUser.RequestToJoinRoom <- newUser.Username }()
+		otherUser.RequestToJoinRoom <- newUser.Username
 	}
 
-	go session.ForwardMessageToRoom(
+	session.ForwardMessageToRoom(
 		chatserver.Message{
 			Text: []byte{
 				'h', 'e', 'l', 'l', 'o',

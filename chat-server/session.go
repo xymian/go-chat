@@ -20,24 +20,23 @@ func CreateSession(user *User, withUser string) *UserSession {
 		room = OnlineUsers[withUser].PrivateRooms[user.Username]
 	}
 
-	if (room == nil) {
-		room = createTwoUserRoom()
-	}
-
 	session := &UserSession{
 		Room:     room,
 		User:     user,
 		WithUser: withUser,
 	}
 
-	endpoint := fmt.Sprintf("/%s+%s", user.Username, withUser)
-	socketURL := fmt.Sprintf("ws://localhost:8080%s", endpoint)
-	http.Handle(endpoint, session)
-	_, _, err := websocket.DefaultDialer.Dial(socketURL, nil)
-	if err != nil {
-		log.Fatal("WebSocket dial error:", err)
+	if session.Room == nil {
+		session.Room = createTwoUserRoom()
+		endpoint := fmt.Sprintf("/%s+%s", user.Username, withUser)
+		socketURL := fmt.Sprintf("ws://localhost:8080%s", endpoint)
+		http.Handle(endpoint, session)
+		_, _, err := websocket.DefaultDialer.Dial(socketURL, nil)
+		if err != nil {
+			log.Fatal("WebSocket dial error:", err)
+		}
+		go session.Room.Run()
 	}
-	go session.Room.Run()
 
 	session.User.Session <- session
 	session.Join()
