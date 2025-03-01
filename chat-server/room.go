@@ -13,7 +13,7 @@ type Room interface {
 	Forward(channel chan []byte, message []byte)
 }
 
-type TwoUserRoom struct {
+type twoUserRoom struct {
 	Conn             *websocket.Conn
 	leave            chan *User
 	join             chan *User
@@ -22,11 +22,11 @@ type TwoUserRoom struct {
 	Tracer           tracer.Tracer
 }
 
-func (twoUserRoom *TwoUserRoom) Leave(user *User) {
+func (twoUserRoom *twoUserRoom) Leave(user *User) {
 	twoUserRoom.leave <- user
 }
 
-func (twoUserRoom *TwoUserRoom) Join(user *User) error {
+func (twoUserRoom *twoUserRoom) Join(user *User) error {
 	if len(twoUserRoom.participants) < 2 {
 		twoUserRoom.join <- user
 		return nil
@@ -34,7 +34,7 @@ func (twoUserRoom *TwoUserRoom) Join(user *User) error {
 	return errors.New("Room is full. Please create another room with this user")
 }
 
-func (twoUserRoom *TwoUserRoom) Forward(message Message) {
+func (twoUserRoom *twoUserRoom) Forward(message Message) {
 	twoUserRoom.ForwardedMessage <- message
 }
 
@@ -51,8 +51,8 @@ func (multiUserRoom *MultiUserRoom) Join(user *User) error {
 func (multiUserRoom *MultiUserRoom) Forward(message []byte) {
 }
 
-func CreateTwoUserRoom() *TwoUserRoom {
-	return &TwoUserRoom{
+func createTwoUserRoom() *twoUserRoom {
+	return &twoUserRoom{
 		leave:            make(chan *User),
 		join:             make(chan *User),
 		participants:     make(map[*User]bool),
@@ -61,22 +61,18 @@ func CreateTwoUserRoom() *TwoUserRoom {
 	}
 }
 
-func (twoUserRoom *TwoUserRoom) Run() {
+func (twoUserRoom *twoUserRoom) Run() {
 	for {
 		select {
 		case user := <-twoUserRoom.join:
-			if user != nil {
-				twoUserRoom.participants[user] = true
-				twoUserRoom.Tracer.Trace("User", user.Username, " joined the room")
-			}
+			twoUserRoom.participants[user] = true
+			twoUserRoom.Tracer.Trace("User", user.Username, " joined the room")
 
 		case user := <-twoUserRoom.leave:
-			if user != nil {
-				twoUserRoom.participants[user] = false
-				delete(twoUserRoom.participants, user)
-				close(user.Message)
-				twoUserRoom.Tracer.Trace("User", user.Username, " left the room")
-			}
+			twoUserRoom.participants[user] = false
+			delete(twoUserRoom.participants, user)
+			close(user.Message)
+			twoUserRoom.Tracer.Trace("User", user.Username, " left the room")
 
 		case message := <-twoUserRoom.ForwardedMessage:
 			twoUserRoom.Tracer.Trace("member count: ", len(twoUserRoom.participants))

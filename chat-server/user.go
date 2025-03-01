@@ -9,14 +9,26 @@ type User struct {
 	Username          string
 	Followers         []string
 	Session           chan *UserSession
-	PrivateRooms      map[string]*TwoUserRoom
+	PrivateRooms      map[string]*twoUserRoom
 	RequestToJoinRoom chan string
 	Tracer            tracer.Tracer
 }
 
+func CreateNewUser(username string) *User {
+	return &User{
+		Message:           make(chan Message),
+		Username:          username,
+		Session:           make(chan *UserSession),
+		PrivateRooms:      make(map[string]*twoUserRoom),
+		RequestToJoinRoom: make(chan string),
+		Tracer:            tracer.New(),
+	}
+}
+
 func (user *User) ListenForNewRoom() {
 	for session := range user.Session {
-		user.PrivateRooms[session.withUser] = session.room
+		user.PrivateRooms[session.WithUser] = session.Room
+		session.Room.Tracer.Trace(user.Username, " is in session with ", session.WithUser)
 	}
 }
 
@@ -34,6 +46,18 @@ func ListenForActiveUsers() {
 		case loggedOutUser := <-LoggedOutUser:
 			OnlineUsers[loggedOutUser.Username] = nil
 			loggedOutUser.Tracer.Trace("User", loggedOutUser.Username, " logged out")
+		}
+	}
+}
+
+func (user *User) ListenForJoinRoomRequest() {
+	for from := range user.RequestToJoinRoom {
+		if (user.PrivateRooms[from] == nil) {
+			requestingUser := OnlineUsers[from]
+			if requestingUser != nil {
+				user.Tracer.Trace("listen for room request got a value")
+				user.Session <- CreateSession(user, requestingUser.Username)
+			}
 		}
 	}
 }
