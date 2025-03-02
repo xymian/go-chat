@@ -40,12 +40,35 @@ func handleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 		otherUser.RequestToJoinRoom <- newUser.Username
 	}
 
-	session.ForwardMessageToRoom(
+	session.User.Session <- session
+	session.Join()
+
+	go session.Write()
+	go session.Read()
+
+	/* session.ForwardMessageToRoom(
 		chatserver.Message{
 			Text: []byte{
 				'h', 'e', 'l', 'l', 'o',
 			},
 			Sender: newUser.Username,
 		},
-	)
+	) */
+
+	//session.Room.Conn.WriteMessage(websocket.TextMessage, []byte("hello"))
+
+	session.User.Message <- chatserver.Message{
+		Text:   []byte("hello"),
+		Sender: newUser.Username,
+	}
+
+	session.User.Message <- chatserver.Message{
+		Text:   []byte("hello"),
+		Sender: newUser.Username,
+	}
+
+	session.User.Message <- chatserver.Message{
+		Text:   []byte("hello"),
+		Sender: newUser.Username,
+	}
 }

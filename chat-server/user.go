@@ -52,11 +52,11 @@ func ListenForActiveUsers() {
 
 func (user *User) ListenForJoinRoomRequest() {
 	for from := range user.RequestToJoinRoom {
-		if (user.PrivateRooms[from] == nil) {
+		if user.PrivateRooms[from] == nil {
 			requestingUser := OnlineUsers[from]
 			if requestingUser != nil {
-				user.Tracer.Trace("listen for room request got a value")
-				user.Session <- CreateSession(user, requestingUser.Username)
+				user.Tracer.Trace(from, " is requesting to chat with ", user.Username)
+				CreateSession(user, requestingUser.Username)
 			}
 		}
 	}

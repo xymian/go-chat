@@ -38,12 +38,6 @@ func CreateSession(user *User, withUser string) *UserSession {
 		go session.Room.Run()
 	}
 
-	session.User.Session <- session
-	session.Join()
-
-	go session.WriteToConnectionWith()
-	go session.ReadFromConnectionWith()
-
 	return session
 }
 
@@ -70,44 +64,39 @@ func (session *UserSession) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	session.Room.Conn = conn
 }
 
-func (session *UserSession) ReadFromConnectionWith() {
-	privateRoom := session.User.PrivateRooms[session.WithUser]
+func (session *UserSession) Read() {
 	defer func() {
-		if privateRoom != nil {
-			privateRoom.Conn.Close()
-		}
+		session.Room.Conn.Close()
+		session.Room.Tracer.Trace("connection closed")
 	}()
 	for {
-		if privateRoom != nil {
-			_, message, err := privateRoom.Conn.ReadMessage()
-			if err != nil {
-				fmt.Println("Connection error: ", err)
-				return
-			}
-			privateRoom.Forward(Message{Text: message, Sender: ""})
+		_, message, err := session.Room.Conn.ReadMessage()
+		session.Room.Tracer.Trace("read from room")
+		if err != nil {
+			fmt.Println("Connection error: ", err)
+			return
 		}
+		session.Room.Tracer.Trace("message read")
+		session.ForwardMessageToRoom(Message{Text: message, Sender: ""})
 	}
 }
 
-func (session *UserSession) WriteToConnectionWith() {
-	privateRoom := session.User.PrivateRooms[session.WithUser]
+func (session *UserSession) Write() {
 	defer func() {
-		if privateRoom != nil {
-			privateRoom.Conn.Close()
-		}
+		session.Room.Conn.Close()
+		session.Room.Tracer.Trace("connection closed")
 	}()
 
 	for m := range session.User.Message {
-		if privateRoom != nil {
-			err := privateRoom.Conn.WriteMessage(websocket.TextMessage, m.Text)
-			if err != nil {
-				fmt.Println("Connection error: ", err)
-				return
-			}
+		err := session.Room.Conn.WriteMessage(websocket.TextMessage, m.Text)
+		session.Room.Tracer.Trace("message was sent...")
+		if err != nil {
+			fmt.Println("Connection error: ", err)
+			return
 		}
 	}
 }
 
 func (session *UserSession) ForwardMessageToRoom(message Message) {
-	session.Room.ForwardedMessage <- message
+	session.Room.Forward(message)
 }
