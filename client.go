@@ -8,13 +8,32 @@ import (
 	chatserver "github.com/te6lim/go-chat/chat-server"
 )
 
+var sesh chan *chatserver.UserSession = make(chan *chatserver.UserSession)
+
+func listenForActiveSession(action func(s *chatserver.UserSession)) {
+	for session := range sesh {
+		session.Room.Tracer.Trace("user input set up")
+		action(session)
+	}
+}
+
 func main() {
 	go chatserver.ListenForActiveUsers()
+	go listenForActiveSession(func(session *chatserver.UserSession) {
+		var message string
+		fmt.Println("Enter your message: ")
+		fmt.Scanln(&message)
+		
+		session.User.Message <- chatserver.Message{
+			Text: message, Sender: session.User.Username,
+		}
+	})
 	http.HandleFunc("/chat", handleTwoUserChat)
 	log.Println("Server started on localhost:8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("yay")
 }
 
 func handleTwoUserChat(w http.ResponseWriter, r *http.Request) {
@@ -43,9 +62,10 @@ func handleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	session.User.Session <- session
 	session.Join()
 
-	go session.Write()
-	go session.Read()
+	go session.ReadMessages()
+	go session.WriteMessages()
 
+	sesh <- session
 	/* session.ForwardMessageToRoom(
 		chatserver.Message{
 			Text: []byte{
@@ -55,20 +75,9 @@ func handleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 		},
 	) */
 
-	//session.Room.Conn.WriteMessage(websocket.TextMessage, []byte("hello"))
-
+	/* session.Room.Tracer.Trace("sending message...")
 	session.User.Message <- chatserver.Message{
-		Text:   []byte("hello"),
+		Text:   "hello",
 		Sender: newUser.Username,
-	}
-
-	session.User.Message <- chatserver.Message{
-		Text:   []byte("hello"),
-		Sender: newUser.Username,
-	}
-
-	session.User.Message <- chatserver.Message{
-		Text:   []byte("hello"),
-		Sender: newUser.Username,
-	}
+	} */
 }

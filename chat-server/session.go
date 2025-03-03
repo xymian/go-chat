@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -61,39 +62,45 @@ func (session *UserSession) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	conn.SetPingHandler(func(appData string) error {
+		conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		return nil
+	})
 	session.Room.Conn = conn
 }
 
-func (session *UserSession) Read() {
+func (session *UserSession) ReadMessages() {
 	defer func() {
 		session.Room.Conn.Close()
 		session.Room.Tracer.Trace("connection closed")
 	}()
 	for {
-		_, message, err := session.Room.Conn.ReadMessage()
 		session.Room.Tracer.Trace("read from room")
+		var newMessage *Message
+		err := session.Room.Conn.ReadJSON(&newMessage)
 		if err != nil {
 			fmt.Println("Connection error: ", err)
 			return
 		}
 		session.Room.Tracer.Trace("message read")
-		session.ForwardMessageToRoom(Message{Text: message, Sender: ""})
+		session.ForwardMessageToRoom(*newMessage)
 	}
 }
 
-func (session *UserSession) Write() {
+func (session *UserSession) WriteMessages() {
 	defer func() {
 		session.Room.Conn.Close()
 		session.Room.Tracer.Trace("connection closed")
 	}()
 
-	for m := range session.User.Message {
-		err := session.Room.Conn.WriteMessage(websocket.TextMessage, m.Text)
-		session.Room.Tracer.Trace("message was sent...")
+	for message := range session.User.Message {
+		session.Room.Tracer.Trace("writing to room")
+		err := session.Room.Conn.WriteJSON(message)
 		if err != nil {
 			fmt.Println("Connection error: ", err)
 			return
 		}
+		session.Room.Tracer.Trace("message was sent...")
 	}
 }
 

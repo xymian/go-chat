@@ -5,6 +5,6 @@ import (
 )
 
 type Message struct {
-	Text []byte
+	Text string
 	Sender string
 }
