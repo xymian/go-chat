@@ -1,10 +1,14 @@
 package chatserver
 
 import (
+	"fmt"
+
+	"github.com/gorilla/websocket"
 	"github.com/te6lim/go-chat/tracer"
 )
 
 type User struct {
+	Conn *websocket.Conn
 	Message           chan Message
 	Username          string
 	Followers         []string
@@ -59,5 +63,21 @@ func (user *User) ListenForJoinRoomRequest() {
 				CreateSession(user, requestingUser.Username)
 			}
 		}
+	}
+}
+
+func (user *User) SendMessage() {
+	defer func() {
+		user.Conn.Close()
+		user.Tracer.Trace("connection closed")
+	}()
+	for message := range user.Message {
+		user.Tracer.Trace("writing to room")
+		err := user.Conn.WriteJSON(message)
+		if err != nil {
+			fmt.Println("Connection error: ", err)
+			return
+		}
+		user.Tracer.Trace("message was sent...")
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -25,18 +24,6 @@ func CreateSession(user *User, withUser string) *UserSession {
 		Room:     room,
 		User:     user,
 		WithUser: withUser,
-	}
-
-	if session.Room == nil {
-		session.Room = createTwoUserRoom()
-		endpoint := fmt.Sprintf("/%s+%s", user.Username, withUser)
-		socketURL := fmt.Sprintf("ws://localhost:8080%s", endpoint)
-		http.Handle(endpoint, session)
-		_, _, err := websocket.DefaultDialer.Dial(socketURL, nil)
-		if err != nil {
-			log.Fatal("WebSocket dial error:", err)
-		}
-		go session.Room.Run()
 	}
 
 	return session
@@ -62,11 +49,13 @@ func (session *UserSession) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	conn.SetPingHandler(func(appData string) error {
-		conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-		return nil
-	})
+
+	defer conn.Close()
+	
 	session.Room.Conn = conn
+	session.User.Session <- session
+	session.Join()
+	session.ReadMessages()
 }
 
 func (session *UserSession) ReadMessages() {
@@ -84,23 +73,6 @@ func (session *UserSession) ReadMessages() {
 		}
 		session.Room.Tracer.Trace("message read")
 		session.ForwardMessageToRoom(*newMessage)
-	}
-}
-
-func (session *UserSession) WriteMessages() {
-	defer func() {
-		session.Room.Conn.Close()
-		session.Room.Tracer.Trace("connection closed")
-	}()
-
-	for message := range session.User.Message {
-		session.Room.Tracer.Trace("writing to room")
-		err := session.Room.Conn.WriteJSON(message)
-		if err != nil {
-			fmt.Println("Connection error: ", err)
-			return
-		}
-		session.Room.Tracer.Trace("message was sent...")
 	}
 }
 

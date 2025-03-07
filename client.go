@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/websocket"
 	chatserver "github.com/te6lim/go-chat/chat-server"
 )
 
@@ -20,10 +21,22 @@ func listenForActiveSession(action func(s *chatserver.UserSession)) {
 func main() {
 	go chatserver.ListenForActiveUsers()
 	go listenForActiveSession(func(session *chatserver.UserSession) {
+
+		if session.User.Conn == nil {
+			endpoint := fmt.Sprintf("/%s+%s", session.User.Username, session.WithUser)
+			socketURL := fmt.Sprintf("ws://localhost:8080%s", endpoint)
+			http.Handle(endpoint, session)
+			conn, _, err := websocket.DefaultDialer.Dial(socketURL, nil)
+			if err != nil {
+				log.Fatal("WebSocket dial error:", err)
+			}
+			session.User.Conn = conn
+		}
+
 		var message string
-		fmt.Println("Enter your message: ")
+		fmt.Print("Enter your message: ")
 		fmt.Scanln(&message)
-		
+
 		session.User.Message <- chatserver.Message{
 			Text: message, Sender: session.User.Username,
 		}
@@ -33,7 +46,7 @@ func main() {
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("yay")
+	fmt.Println("server is running")
 }
 
 func handleTwoUserChat(w http.ResponseWriter, r *http.Request) {
@@ -55,29 +68,14 @@ func handleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 
 	otherUser := chatserver.OnlineUsers[user]
 	session := chatserver.CreateSession(newUser, user)
+	if session.Room == nil {
+		session.Room = chatserver.CreateTwoUserRoom()
+		go session.Room.Run()
+	}
+
+	sesh <- session
+	go session.User.SendMessage()
 	if otherUser != nil {
 		otherUser.RequestToJoinRoom <- newUser.Username
 	}
-
-	session.User.Session <- session
-	session.Join()
-
-	go session.ReadMessages()
-	go session.WriteMessages()
-
-	sesh <- session
-	/* session.ForwardMessageToRoom(
-		chatserver.Message{
-			Text: []byte{
-				'h', 'e', 'l', 'l', 'o',
-			},
-			Sender: newUser.Username,
-		},
-	) */
-
-	/* session.Room.Tracer.Trace("sending message...")
-	session.User.Message <- chatserver.Message{
-		Text:   "hello",
-		Sender: newUser.Username,
-	} */
 }

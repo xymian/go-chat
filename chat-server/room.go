@@ -51,7 +51,7 @@ func (multiUserRoom *MultiUserRoom) Join(user *User) error {
 func (multiUserRoom *MultiUserRoom) Forward(message []byte) {
 }
 
-func createTwoUserRoom() *twoUserRoom {
+func CreateTwoUserRoom() *twoUserRoom {
 	return &twoUserRoom{
 		leave:            make(chan *User),
 		join:             make(chan *User),
@@ -77,8 +77,10 @@ func (twoUserRoom *twoUserRoom) Run() {
 		case message := <-twoUserRoom.ForwardedMessage:
 			twoUserRoom.Tracer.Trace("member count: ", len(twoUserRoom.participants))
 			for user := range twoUserRoom.participants {
-				user.Message <- message
+				if user.Username != message.Sender {
+					user.Message <- message
 				twoUserRoom.Tracer.Trace("Forwarded message: ", message.Text, " to User", user.Username)
+				}
 			}
 		}
 	}
