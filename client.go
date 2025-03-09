@@ -22,10 +22,12 @@ func main() {
 	go chatserver.ListenForActiveUsers()
 	go listenForActiveSession(func(session *chatserver.UserSession) {
 
-		if session.User.Conn == nil {
+		var sharedConnection = session.User.Connections[session.OtherUser]
+		if sharedConnection == nil {
 			otherUser := chatserver.OnlineUsers[session.OtherUser]
-			if otherUser != nil && otherUser.Conn != nil {
-				session.User.Conn = otherUser.Conn
+			if otherUser != nil && otherUser.Connections[session.User.Username] != nil {
+				sharedConnection = otherUser.Connections[session.User.Username]
+				session.SharedConnection <- sharedConnection
 			} else {
 				endpoint := fmt.Sprintf("/%s+%s", session.User.Username, session.OtherUser)
 				socketURL := fmt.Sprintf("ws://localhost:8080%s", endpoint)
@@ -34,7 +36,7 @@ func main() {
 				if err != nil {
 					log.Fatal("WebSocket dial error:", err)
 				}
-				session.User.Conn = conn
+				session.SharedConnection <- conn
 			}
 		}
 
@@ -86,9 +88,9 @@ func handleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	session.JoinRoom()
 
 	sesh <- session
-	go session.User.MessageSender()
-	go session.User.MessageReceiver()
+	go session.MessageSender()
+	go session.MessageReceiver()
 	if otherUser != nil {
-		//otherUser.RequestToJoinRoom <- newUser.Username
+		otherUser.RequestToJoinRoom <- newUser.Username
 	}
 }

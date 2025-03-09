@@ -8,7 +8,7 @@ import (
 )
 
 type User struct {
-	Conn              *websocket.Conn
+	Connections       map[string]*websocket.Conn
 	SendMessage       chan Message
 	ReceiveMessage    chan Message
 	Username          string
@@ -21,6 +21,7 @@ type User struct {
 
 func CreateNewUser(username string) *User {
 	return &User{
+		Connections:       make(map[string]*websocket.Conn),
 		SendMessage:       make(chan Message),
 		ReceiveMessage:    make(chan Message),
 		Username:          username,
@@ -68,13 +69,13 @@ func (user *User) ListenForJoinRoomRequest() {
 	}
 }
 
-func (user *User) MessageSender() {
+func (session *UserSession) MessageSender() {
 	defer func() {
-		user.Conn.Close()
-		user.Tracer.Trace("connection closed")
+		session.User.Connections[session.OtherUser].Close()
+		session.User.Tracer.Trace("connection closed")
 	}()
-	for message := range user.SendMessage {
-		err := user.Conn.WriteJSON(message)
+	for message := range session.User.SendMessage {
+		err := session.User.Connections[session.OtherUser].WriteJSON(message)
 		if err != nil {
 			fmt.Println("Connection error: ", err)
 			return
@@ -82,13 +83,13 @@ func (user *User) MessageSender() {
 	}
 }
 
-func (user *User) MessageReceiver() {
+func (session *UserSession) MessageReceiver() {
 	defer func() {
-		user.Conn.Close()
-		user.Tracer.Trace("connection closed")
+		session.User.Connections[session.OtherUser].Close()
+		session.User.Tracer.Trace("connection closed")
 	}()
-	for message := range user.ReceiveMessage {
-		user.Tracer.Trace("message: ", message.Text, "from", message.Sender, "has been received")
+	for message := range session.User.ReceiveMessage {
+		session.User.Tracer.Trace("message: ", message.Text, "from", message.Sender, "has been received")
 		// save message to db or something
 	}
 }

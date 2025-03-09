@@ -13,6 +13,7 @@ type UserSession struct {
 	Room      *room
 	User      *User
 	OtherUser string
+	SharedConnection chan *websocket.Conn
 }
 
 func CreateSession(user *User, otherUser string) *UserSession {
@@ -25,7 +26,10 @@ func CreateSession(user *User, otherUser string) *UserSession {
 		Room:      room,
 		User:      user,
 		OtherUser: otherUser,
+		SharedConnection: make(chan *websocket.Conn),
 	}
+
+	go session.ListenForSharedConnection()
 
 	return session
 }
@@ -81,4 +85,10 @@ func (session *UserSession) JoinRoom() error {
 		return nil
 	}
 	return errors.New("room is full. please create another room with this user")
+}
+
+func (session *UserSession) ListenForSharedConnection() {
+	for conn := range session.SharedConnection {
+		session.User.Connections[session.OtherUser] = conn
+	}
 }
