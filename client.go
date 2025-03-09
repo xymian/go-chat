@@ -23,22 +23,33 @@ func main() {
 	go listenForActiveSession(func(session *chatserver.UserSession) {
 
 		if session.User.Conn == nil {
-			endpoint := fmt.Sprintf("/%s+%s", session.User.Username, session.WithUser)
-			socketURL := fmt.Sprintf("ws://localhost:8080%s", endpoint)
-			http.Handle(endpoint, session)
-			conn, _, err := websocket.DefaultDialer.Dial(socketURL, nil)
-			if err != nil {
-				log.Fatal("WebSocket dial error:", err)
+			otherUser := chatserver.OnlineUsers[session.OtherUser]
+			if otherUser != nil && otherUser.Conn != nil {
+				session.User.Conn = otherUser.Conn
+			} else {
+				endpoint := fmt.Sprintf("/%s+%s", session.User.Username, session.OtherUser)
+				socketURL := fmt.Sprintf("ws://localhost:8080%s", endpoint)
+				http.Handle(endpoint, session)
+				conn, _, err := websocket.DefaultDialer.Dial(socketURL, nil)
+				if err != nil {
+					log.Fatal("WebSocket dial error:", err)
+				}
+				session.User.Conn = conn
 			}
-			session.User.Conn = conn
 		}
 
-		var message string
-		fmt.Print("Enter your message: ")
-		fmt.Scanln(&message)
+		for {
+			var message string
+			fmt.Print("Enter your message: ")
+			fmt.Scanln(&message)
 
-		session.User.Message <- chatserver.Message{
-			Text: message, Sender: session.User.Username,
+			if message == "/" {
+				break
+			} else {
+				session.User.SendMessage <- chatserver.Message{
+					Text: message, Sender: session.User.Username,
+				}
+			}
 		}
 	})
 	http.HandleFunc("/chat", handleTwoUserChat)
@@ -74,8 +85,9 @@ func handleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sesh <- session
-	go session.User.SendMessage()
+	go session.User.MessageSender()
+	go session.User.MessageReceiver()
 	if otherUser != nil {
-		otherUser.RequestToJoinRoom <- newUser.Username
+		//otherUser.RequestToJoinRoom <- newUser.Username
 	}
 }

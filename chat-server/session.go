@@ -1,6 +1,7 @@
 package chatserver
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,32 +10,24 @@ import (
 )
 
 type UserSession struct {
-	Room     *twoUserRoom
-	User     *User
-	WithUser string
+	Room      *room
+	User      *User
+	OtherUser string
 }
 
-func CreateSession(user *User, withUser string) *UserSession {
-	var room *twoUserRoom
-	if OnlineUsers[withUser] != nil {
-		room = OnlineUsers[withUser].PrivateRooms[user.Username]
+func CreateSession(user *User, otherUser string) *UserSession {
+	var room *room
+	if OnlineUsers[otherUser] != nil {
+		room = OnlineUsers[otherUser].PrivateRooms[user.Username]
 	}
 
 	session := &UserSession{
-		Room:     room,
-		User:     user,
-		WithUser: withUser,
+		Room:      room,
+		User:      user,
+		OtherUser: otherUser,
 	}
 
 	return session
-}
-
-func (session *UserSession) Leave() {
-	session.Room.Leave(session.User)
-}
-
-func (session *UserSession) Join() {
-	session.Room.Join(session.User)
 }
 
 func (session *UserSession) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -51,10 +44,10 @@ func (session *UserSession) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer conn.Close()
-	
+
 	session.Room.Conn = conn
 	session.User.Session <- session
-	session.Join()
+	session.JoinRoom()
 	session.ReadMessages()
 }
 
@@ -64,18 +57,28 @@ func (session *UserSession) ReadMessages() {
 		session.Room.Tracer.Trace("connection closed")
 	}()
 	for {
-		session.Room.Tracer.Trace("read from room")
 		var newMessage *Message
 		err := session.Room.Conn.ReadJSON(&newMessage)
 		if err != nil {
 			fmt.Println("Connection error: ", err)
 			return
 		}
-		session.Room.Tracer.Trace("message read")
 		session.ForwardMessageToRoom(*newMessage)
 	}
 }
 
 func (session *UserSession) ForwardMessageToRoom(message Message) {
-	session.Room.Forward(message)
+	session.Room.ForwardedMessage <- message
+}
+
+func (session *UserSession) LeaveRoom(user *User) {
+	session.Room.leave <- user
+}
+
+func (session *UserSession) JoinRoom() error {
+	if len(session.Room.participants) < 2 {
+		session.Room.join <- session.User
+		return nil
+	}
+	return errors.New("room is full. please create another room with this user")
 }

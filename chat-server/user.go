@@ -8,22 +8,24 @@ import (
 )
 
 type User struct {
-	Conn *websocket.Conn
-	Message           chan Message
+	Conn              *websocket.Conn
+	SendMessage       chan Message
+	ReceiveMessage    chan Message
 	Username          string
 	Followers         []string
 	Session           chan *UserSession
-	PrivateRooms      map[string]*twoUserRoom
+	PrivateRooms      map[string]*room
 	RequestToJoinRoom chan string
 	Tracer            tracer.Tracer
 }
 
 func CreateNewUser(username string) *User {
 	return &User{
-		Message:           make(chan Message),
+		SendMessage:       make(chan Message),
+		ReceiveMessage:    make(chan Message),
 		Username:          username,
 		Session:           make(chan *UserSession),
-		PrivateRooms:      make(map[string]*twoUserRoom),
+		PrivateRooms:      make(map[string]*room),
 		RequestToJoinRoom: make(chan string),
 		Tracer:            tracer.New(),
 	}
@@ -31,8 +33,8 @@ func CreateNewUser(username string) *User {
 
 func (user *User) ListenForNewRoom() {
 	for session := range user.Session {
-		user.PrivateRooms[session.WithUser] = session.Room
-		session.Room.Tracer.Trace(user.Username, " is in session with ", session.WithUser)
+		user.PrivateRooms[session.OtherUser] = session.Room
+		session.Room.Tracer.Trace(user.Username, " is in session with ", session.OtherUser)
 	}
 }
 
@@ -66,18 +68,27 @@ func (user *User) ListenForJoinRoomRequest() {
 	}
 }
 
-func (user *User) SendMessage() {
+func (user *User) MessageSender() {
 	defer func() {
 		user.Conn.Close()
 		user.Tracer.Trace("connection closed")
 	}()
-	for message := range user.Message {
-		user.Tracer.Trace("writing to room")
+	for message := range user.SendMessage {
 		err := user.Conn.WriteJSON(message)
 		if err != nil {
 			fmt.Println("Connection error: ", err)
 			return
 		}
-		user.Tracer.Trace("message was sent...")
+	}
+}
+
+func (user *User) MessageReceiver() {
+	defer func() {
+		user.Conn.Close()
+		user.Tracer.Trace("connection closed")
+	}()
+	for message := range user.ReceiveMessage {
+		user.Tracer.Trace("message: ", message, "has been received")
+		// save message to db or something
 	}
 }

@@ -1,19 +1,11 @@
 package chatserver
 
 import (
-	"errors"
-
 	"github.com/gorilla/websocket"
 	"github.com/te6lim/go-chat/tracer"
 )
 
-type Room interface {
-	Leave(user *User)
-	Join(user *User) error
-	Forward(channel chan []byte, message []byte)
-}
-
-type twoUserRoom struct {
+type room struct {
 	Conn             *websocket.Conn
 	leave            chan *User
 	join             chan *User
@@ -22,37 +14,8 @@ type twoUserRoom struct {
 	Tracer           tracer.Tracer
 }
 
-func (twoUserRoom *twoUserRoom) Leave(user *User) {
-	twoUserRoom.leave <- user
-}
-
-func (twoUserRoom *twoUserRoom) Join(user *User) error {
-	if len(twoUserRoom.participants) < 2 {
-		twoUserRoom.join <- user
-		return nil
-	}
-	return errors.New("Room is full. Please create another room with this user")
-}
-
-func (twoUserRoom *twoUserRoom) Forward(message Message) {
-	twoUserRoom.ForwardedMessage <- message
-}
-
-type MultiUserRoom struct {
-}
-
-func (multiUserRoom *MultiUserRoom) Leave(user *User) {
-}
-
-func (multiUserRoom *MultiUserRoom) Join(user *User) error {
-	return nil
-}
-
-func (multiUserRoom *MultiUserRoom) Forward(message []byte) {
-}
-
-func CreateTwoUserRoom() *twoUserRoom {
-	return &twoUserRoom{
+func CreateTwoUserRoom() *room {
+	return &room{
 		leave:            make(chan *User),
 		join:             make(chan *User),
 		participants:     make(map[*User]bool),
@@ -61,26 +24,23 @@ func CreateTwoUserRoom() *twoUserRoom {
 	}
 }
 
-func (twoUserRoom *twoUserRoom) Run() {
+func (room *room) Run() {
 	for {
 		select {
-		case user := <-twoUserRoom.join:
-			twoUserRoom.participants[user] = true
-			twoUserRoom.Tracer.Trace("User", user.Username, " joined the room")
+		case user := <-room.join:
+			room.participants[user] = true
+			room.Tracer.Trace("User", user.Username, " joined the room")
 
-		case user := <-twoUserRoom.leave:
-			twoUserRoom.participants[user] = false
-			delete(twoUserRoom.participants, user)
-			close(user.Message)
-			twoUserRoom.Tracer.Trace("User", user.Username, " left the room")
+		case user := <-room.leave:
+			room.participants[user] = false
+			delete(room.participants, user)
+			close(user.SendMessage)
+			room.Tracer.Trace("User", user.Username, " left the room")
 
-		case message := <-twoUserRoom.ForwardedMessage:
-			twoUserRoom.Tracer.Trace("member count: ", len(twoUserRoom.participants))
-			for user := range twoUserRoom.participants {
-				if user.Username != message.Sender {
-					user.Message <- message
-				twoUserRoom.Tracer.Trace("Forwarded message: ", message.Text, " to User", user.Username)
-				}
+		case message := <-room.ForwardedMessage:
+			for user := range room.participants {
+				user.ReceiveMessage <- message
+				room.Tracer.Trace("Forwarded message: ", message.Text, " to User", user.Username)
 			}
 		}
 	}
