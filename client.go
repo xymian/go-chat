@@ -83,6 +83,7 @@ func handleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 		session.Room = chatserver.CreateTwoUserRoom()
 		go session.Room.Run()
 	}
+	session.JoinRoom()
 
 	sesh <- session
 	go session.User.MessageSender()

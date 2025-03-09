@@ -88,7 +88,7 @@ func (user *User) MessageReceiver() {
 		user.Tracer.Trace("connection closed")
 	}()
 	for message := range user.ReceiveMessage {
-		user.Tracer.Trace("message: ", message, "has been received")
+		user.Tracer.Trace("message: ", message.Text, "from", message.Sender, "has been received")
 		// save message to db or something
 	}
 }
