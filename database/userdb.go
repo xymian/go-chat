@@ -3,8 +3,8 @@ package database
 import "errors"
 
 type User struct {
-	Username string `json:"username"`
-	Contacts []string `json:"contacts"`
+	Username string          `json:"username"`
+	Contacts map[string]bool `json:"contacts"`
 }
 
 type userdb struct {
@@ -61,4 +61,14 @@ func GetUserdb() *userdb {
 		}
 	}
 	return db
+}
+
+func (db *userdb) AddContact(user *User, username string) {
+	if db.table[username] != nil {
+		if !user.Contacts[username] {
+			user.Contacts[username] = true
+			db.Delete(username)
+			db.InsertUser(*user)
+		}
+	}
 }

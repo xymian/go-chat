@@ -13,7 +13,7 @@ type User struct {
 	ReceiveMessage    chan Message
 	Username          string
 	Followers         []string
-	Session           chan *UserSession
+	Session           chan *ChatSession
 	PrivateRooms      map[string]*room
 	RequestToJoinRoom chan string
 	Tracer            tracer.Tracer
@@ -25,7 +25,7 @@ func CreateNewUser(username string) *User {
 		SendMessage:       make(chan Message),
 		ReceiveMessage:    make(chan Message),
 		Username:          username,
-		Session:           make(chan *UserSession),
+		Session:           make(chan *ChatSession),
 		PrivateRooms:      make(map[string]*room),
 		RequestToJoinRoom: make(chan string),
 		Tracer:            tracer.New(),
@@ -69,7 +69,7 @@ func (user *User) ListenForJoinRoomRequest() {
 	}
 }
 
-func (session *UserSession) MessageSender() {
+func (session *ChatSession) MessageSender() {
 	defer func() {
 		session.User.Connections[session.OtherUser].Close()
 		session.User.Tracer.Trace("connection closed")
@@ -83,7 +83,7 @@ func (session *UserSession) MessageSender() {
 	}
 }
 
-func (session *UserSession) MessageReceiver() {
+func (session *ChatSession) MessageReceiver() {
 	defer func() {
 		session.User.Connections[session.OtherUser].Close()
 		session.User.Tracer.Trace("connection closed")

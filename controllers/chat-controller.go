@@ -2,42 +2,54 @@ package controllers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	chatserver "github.com/te6lim/go-chat/chat-server"
 	"github.com/te6lim/go-chat/config"
+	"github.com/te6lim/go-chat/database"
 )
 
 func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
-	other := mux.Vars(r)["user"]
-	user := mux.Vars(r)["me"]
-	fmt.Fprintln(w, "Welcome to chat room with: ", other)
+	me := mux.Vars(r)["me"]
+
+	user, err := database.GetUserdb().GetUser("te6lim")
+	if err != nil {
+		log.Fatal("no such user!")
+	}
 
 	var newUser *chatserver.User
-	if chatserver.OnlineUsers[user] != nil {
-		newUser = chatserver.OnlineUsers[user]
-		newUser.Tracer.Trace("\nUser", user, " is online")
+	if chatserver.OnlineUsers[me] != nil {
+		newUser = chatserver.OnlineUsers[me]
+		newUser.Tracer.Trace("\nUser", me, " is online")
 	} else {
-		newUser = chatserver.CreateNewUser(user)
+		newUser = chatserver.CreateNewUser(me)
 		chatserver.NewUser <- newUser
 		go newUser.ListenForJoinRoomRequest()
 	}
 
 	go newUser.ListenForNewRoom()
 
-	otherUser := chatserver.OnlineUsers[other]
-	session := chatserver.CreateSession(newUser, other)
-	if session.Room == nil {
-		session.Room = chatserver.CreateTwoUserRoom()
-		go session.Room.Run()
-	}
-	session.JoinRoom()
+	for contact := range user.Contacts {
+		fmt.Fprintln(w, "Welcome to chat room with ", contact)
 
-	config.Session <- session
-	go session.MessageSender()
-	go session.MessageReceiver()
-	if otherUser != nil {
-		otherUser.RequestToJoinRoom <- newUser.Username
+		otherUser := chatserver.OnlineUsers[contact]
+		session := chatserver.CreateSession(newUser, contact)
+		if session.Room == nil {
+			session.Room = chatserver.CreateTwoUserRoom()
+			go session.Room.Run()
+		}
+		session.JoinRoom()
+
+		config.Session <- session
+		go session.MessageSender()
+		go session.MessageReceiver()
+		if otherUser != nil {
+			otherUser.RequestToJoinRoom <- newUser.Username
+		}
 	}
+
+	//for testing purposes
+	config.ShouldCollectUserInput <- true
 }

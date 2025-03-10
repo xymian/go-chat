@@ -9,23 +9,23 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type UserSession struct {
-	Room      *room
-	User      *User
-	OtherUser string
+type ChatSession struct {
+	Room             *room
+	User             *User
+	OtherUser        string
 	SharedConnection chan *websocket.Conn
 }
 
-func CreateSession(user *User, otherUser string) *UserSession {
+func CreateSession(user *User, otherUser string) *ChatSession {
 	var room *room
 	if OnlineUsers[otherUser] != nil {
 		room = OnlineUsers[otherUser].PrivateRooms[user.Username]
 	}
 
-	session := &UserSession{
-		Room:      room,
-		User:      user,
-		OtherUser: otherUser,
+	session := &ChatSession{
+		Room:             room,
+		User:             user,
+		OtherUser:        otherUser,
 		SharedConnection: make(chan *websocket.Conn),
 	}
 
@@ -34,7 +34,7 @@ func CreateSession(user *User, otherUser string) *UserSession {
 	return session
 }
 
-func (session *UserSession) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (session *ChatSession) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var Upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true
@@ -55,7 +55,7 @@ func (session *UserSession) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	session.ReadMessages()
 }
 
-func (session *UserSession) ReadMessages() {
+func (session *ChatSession) ReadMessages() {
 	defer func() {
 		session.Room.Conn.Close()
 		session.Room.Tracer.Trace("connection closed")
@@ -71,15 +71,15 @@ func (session *UserSession) ReadMessages() {
 	}
 }
 
-func (session *UserSession) ForwardMessageToRoom(message Message) {
+func (session *ChatSession) ForwardMessageToRoom(message Message) {
 	session.Room.ForwardedMessage <- message
 }
 
-func (session *UserSession) LeaveRoom(user *User) {
+func (session *ChatSession) LeaveRoom(user *User) {
 	session.Room.leave <- user
 }
 
-func (session *UserSession) JoinRoom() error {
+func (session *ChatSession) JoinRoom() error {
 	if len(session.Room.participants) < 2 {
 		session.Room.join <- session.User
 		return nil
@@ -87,7 +87,7 @@ func (session *UserSession) JoinRoom() error {
 	return errors.New("room is full. please create another room with this user")
 }
 
-func (session *UserSession) ListenForSharedConnection() {
+func (session *ChatSession) ListenForSharedConnection() {
 	for conn := range session.SharedConnection {
 		session.User.Connections[session.OtherUser] = conn
 	}
