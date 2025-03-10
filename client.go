@@ -5,8 +5,10 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	chatserver "github.com/te6lim/go-chat/chat-server"
+	"github.com/te6lim/go-chat/routes"
 )
 
 var sesh chan *chatserver.UserSession = make(chan *chatserver.UserSession)
@@ -19,6 +21,8 @@ func listenForActiveSession(action func(s *chatserver.UserSession)) {
 }
 
 func main() {
+	var router = mux.NewRouter()
+	routes.RegisterUserRoutes(router)
 	go chatserver.ListenForActiveUsers()
 	go listenForActiveSession(func(session *chatserver.UserSession) {
 

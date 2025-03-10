@@ -4,13 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/gorilla/mux"
+
 	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/utils"
 )
 
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	id := r.URL.Query().Get("id")
+	id := mux.Vars(r)["id"]
 	user, err := database.GetUserdb().GetUser(id)
 	if err != nil {
 
@@ -55,7 +57,8 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func Delete(w http.ResponseWriter, r *http.Request) {
-	username := r.URL.Query().Get("id")
+	
+	username := mux.Vars(r)["id"]
 	users := database.GetUserdb().Delete(username)
 	res, err := json.Marshal(users)
 	if err != nil {
