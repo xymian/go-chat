@@ -4,6 +4,7 @@ import "errors"
 
 type User struct {
 	Username string `json:"username"`
+	Contacts []string `json:"contacts"`
 }
 
 type userdb struct {
