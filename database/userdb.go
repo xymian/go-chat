@@ -1,29 +1,54 @@
 package database
 
+import "errors"
+
+type User struct {
+	Username string `json:"username"`
+}
+
 type userdb struct {
-	Table map[string]bool
+	table map[string]*User
 }
 
-func (db *userdb) Insert(username string) {
-	db.Table[username] = true
+func (db *userdb) InsertUser(user User) (*User, error) {
+	db.table[user.Username] = &user
+	return &User{
+		Username: user.Username,
+	}, nil
 }
 
-func (db *userdb) Delete(username string) {
-	delete(db.Table, username)
+func (db *userdb) GetUser(id string) (*User, error) {
+	if db.table[id].Username != "" {
+		return db.table[id], nil
+	}
+	return nil, errors.New("user not found")
 }
 
-func (db *userdb) GetAllUsers() []string {
-	users := []string{}
-	for u := range db.Table {
-		if db.Table[u] {
-			users = append(users, u)
+func (db *userdb) Delete(username string) *User {
+	user := db.table[username]
+	delete(db.table, username)
+	return user
+}
+
+func (db *userdb) GetAllUsers() []*User {
+	users := []*User{}
+	for u, v := range db.table {
+		if db.table[u].Username != "" {
+			users = append(users, v)
 		}
 	}
 	return users
 }
 
-func (db *userdb) DeleteAllUsers() {
-	db.Table = make(map[string]bool)
+func (db *userdb) DeleteAllUsers() []*User {
+	users := []*User{}
+	for u, v := range db.table {
+		if db.table[u].Username != "" {
+			users = append(users, v)
+		}
+	}
+	db.table = make(map[string]*User)
+	return users
 }
 
 var db *userdb
@@ -31,7 +56,7 @@ var db *userdb
 func GetUserdb() *userdb {
 	if db != nil {
 		db = &userdb{
-			Table: make(map[string]bool),
+			table: make(map[string]*User),
 		}
 	}
 	return db
