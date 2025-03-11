@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	chatserver "github.com/te6lim/go-chat/chat-server"
+	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/config"
 	"github.com/te6lim/go-chat/database"
 )
@@ -20,13 +20,13 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newUser *chatserver.User
-	if chatserver.OnlineUsers[me] != nil {
-		newUser = chatserver.OnlineUsers[me]
+	var newUser *chat.User
+	if chat.OnlineUsers[me] != nil {
+		newUser = chat.OnlineUsers[me]
 		newUser.Tracer.Trace("\nUser", me, " is online")
 	} else {
-		newUser = chatserver.CreateNewUser(me)
-		chatserver.NewUser <- newUser
+		newUser = chat.CreateNewUser(me)
+		chat.NewUser <- newUser
 		go newUser.ListenForJoinRoomRequest()
 	}
 
@@ -35,10 +35,10 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	for contact := range user.Contacts {
 		fmt.Fprintln(w, "Welcome to chat room with ", contact)
 
-		otherUser := chatserver.OnlineUsers[contact]
-		session := chatserver.CreateSession(newUser, contact)
+		otherUser := chat.OnlineUsers[contact]
+		session := chat.CreateSession(newUser, contact)
 		if session.Room == nil {
-			session.Room = chatserver.CreateTwoUserRoom()
+			session.Room = chat.CreateTwoUserRoom()
 			go session.Room.Run()
 		}
 		session.JoinRoom()

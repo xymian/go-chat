@@ -6,12 +6,12 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	chatserver "github.com/te6lim/go-chat/chat-server"
+	"github.com/te6lim/go-chat/chat"
 )
 
 var Router *mux.Router = mux.NewRouter()
-var Session chan *chatserver.ChatSession = make(chan *chatserver.ChatSession)
-var ActiveSessions map[string]*chatserver.ChatSession = make(map[string]*chatserver.ChatSession)
+var Session chan *chat.ChatSession = make(chan *chat.ChatSession)
+var ActiveSessions map[string]*chat.ChatSession = make(map[string]*chat.ChatSession)
 
 var ShouldCollectUserInput = make(chan bool)
 
@@ -41,10 +41,10 @@ func ListenForActiveSession() {
 	}
 }
 
-func SetupChat(session *chatserver.ChatSession) {
+func SetupChat(session *chat.ChatSession) {
 	var sharedConnection = session.User.Connections[session.OtherUser]
 	if sharedConnection == nil {
-		otherUser := chatserver.OnlineUsers[session.OtherUser]
+		otherUser := chat.OnlineUsers[session.OtherUser]
 		if otherUser != nil && otherUser.Connections[session.User.Username] != nil {
 			sharedConnection = otherUser.Connections[session.User.Username]
 			session.SharedConnection <- sharedConnection
@@ -68,7 +68,7 @@ func SetupChat(session *chatserver.ChatSession) {
 		if message == "/" {
 			break
 		} else {
-			session.User.SendMessage <- chatserver.Message{
+			session.User.SendMessage <- chat.Message{
 				Text: message, Sender: session.User.Username,
 			}
 		}

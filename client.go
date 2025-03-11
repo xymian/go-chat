@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	chatserver "github.com/te6lim/go-chat/chat-server"
+	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/config"
 	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/routes"
@@ -45,7 +45,7 @@ func main() {
 	routes.RegisterUserRoutes(config.Router)
 	routes.RegisterChatRoutes(config.Router)
 
-	go chatserver.ListenForActiveUsers()
+	go chat.ListenForActiveUsers()
 	go config.ListenForActiveSession()
 	go config.ListenForCollectInputFlag()
 
