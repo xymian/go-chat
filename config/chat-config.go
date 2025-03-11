@@ -11,7 +11,7 @@ import (
 
 var Router *mux.Router = mux.NewRouter()
 var Session chan *chatserver.ChatSession = make(chan *chatserver.ChatSession)
-var ActiveSessions map[string]*chatserver.ChatSession
+var ActiveSessions map[string]*chatserver.ChatSession = make(map[string]*chatserver.ChatSession)
 
 var ShouldCollectUserInput = make(chan bool)
 
@@ -21,7 +21,7 @@ func ListenForCollectInputFlag() {
 			for {
 				var contact string
 				fmt.Print("Enter username to chat with: ")
-				fmt.Scanln(contact)
+				fmt.Scanln(&contact)
 				if contact == "/" {
 					break
 				}

@@ -13,9 +13,10 @@ import (
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	id := mux.Vars(r)["id"]
-	user, err := database.GetUserdb().GetUser(id)
-	if err != nil {
-
+	user := database.GetUserdb().GetUser(id)
+	if user == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 	res, err := json.Marshal(user)
 	if err != nil {
@@ -42,8 +43,8 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	user := &database.User{}
 	utils.ParseBody(r, user)
-	user, err := database.GetUserdb().InsertUser(*user)
-	if err != nil {
+	user = database.GetUserdb().InsertUser(*user)
+	if user == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -57,7 +58,6 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func Delete(w http.ResponseWriter, r *http.Request) {
-	
 	username := mux.Vars(r)["id"]
 	users := database.GetUserdb().Delete(username)
 	res, err := json.Marshal(users)

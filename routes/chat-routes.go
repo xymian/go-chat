@@ -6,5 +6,5 @@ import (
 )
 
 func RegisterChatRoutes(router *mux.Router) {
-	router.HandleFunc("/chat", controllers.HandleTwoUserChat)
+	router.HandleFunc("/chat/{me}", controllers.HandleTwoUserChat).Methods("GET")
 }

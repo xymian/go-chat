@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -12,11 +11,13 @@ import (
 )
 
 func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	me := mux.Vars(r)["me"]
 
-	user, err := database.GetUserdb().GetUser("te6lim")
-	if err != nil {
-		log.Fatal("no such user!")
+	user := database.GetUserdb().GetUser(me)
+	if user == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 
 	var newUser *chatserver.User
