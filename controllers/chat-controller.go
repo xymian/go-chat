@@ -43,7 +43,6 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 		}
 		session.JoinRoom()
 
-		config.Session <- session
 		go session.MessageSender()
 		go session.MessageReceiver()
 		if otherUser != nil {
@@ -52,5 +51,5 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//for testing purposes
-	config.ShouldCollectUserInput <- true
+	config.AskForUserToChatWith <- newUser
 }

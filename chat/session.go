@@ -10,26 +10,23 @@ import (
 )
 
 type ChatSession struct {
-	Room             *room
-	User             *User
-	OtherUser        string
-	SharedConnection chan *websocket.Conn
+	Room                   *room
+	User                   string
+	OtherUser              string
+	SharedClientConnection *websocket.Conn
 }
 
 func CreateSession(user *User, otherUser string) *ChatSession {
-	var room *room
+	var session *ChatSession
 	if OnlineUsers[otherUser] != nil {
-		room = OnlineUsers[otherUser].PrivateRooms[user.Username]
+		session = OnlineUsers[otherUser].PrivateSessions[user.Username]
 	}
 
-	session := &ChatSession{
-		Room:             room,
-		User:             user,
-		OtherUser:        otherUser,
-		SharedConnection: make(chan *websocket.Conn),
+	session = &ChatSession{
+		Room:      session.Room,
+		User:      user.Username,
+		OtherUser: otherUser,
 	}
-
-	go session.ListenForSharedConnection()
 
 	return session
 }
@@ -48,9 +45,9 @@ func (session *ChatSession) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer conn.Close()
-
+	user := OnlineUsers[session.User]
 	session.Room.Conn = conn
-	session.User.Session <- session
+	user.ChatSession <- session
 	session.JoinRoom()
 	session.ReadMessages()
 }
@@ -81,14 +78,8 @@ func (session *ChatSession) LeaveRoom(user *User) {
 
 func (session *ChatSession) JoinRoom() error {
 	if len(session.Room.participants) < 2 {
-		session.Room.join <- session.User
+		session.Room.join <- OnlineUsers[session.User]
 		return nil
 	}
 	return errors.New("room is full. please create another room with this user")
-}
-
-func (session *ChatSession) ListenForSharedConnection() {
-	for conn := range session.SharedConnection {
-		session.User.Connections[session.OtherUser] = conn
-	}
 }

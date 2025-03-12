@@ -15,38 +15,37 @@ func main() {
 	db := database.GetUserdb()
 
 	db.InsertUser(database.User{
-		Username: "teslim",
+		Username: "user0",
 		Contacts: make(map[string]bool),
 	})
 
 	db.InsertUser(database.User{
-		Username: "lateefah",
+		Username: "user1",
 		Contacts: make(map[string]bool),
 	})
 	db.InsertUser(database.User{
-		Username: "kikelomo",
+		Username: "user2",
 		Contacts: make(map[string]bool),
 	})
 	db.InsertUser(database.User{
-		Username: "mojo",
+		Username: "user3",
 		Contacts: make(map[string]bool),
 	})
 
-	user := db.GetUser("teslim")
-	db.AddContact(user, "lateefah")
-	db.AddContact(user, "kikelomo")
-	db.AddContact(user, "mojo")
+	user := db.GetUser("user0")
+	db.AddContact(user, "user1")
+	db.AddContact(user, "user2")
+	db.AddContact(user, "user3")
 
-	user = db.GetUser("lateefah")
-	db.AddContact(user, "teslim")
-	db.AddContact(user, "kikelomo")
-	db.AddContact(user, "mojo")
+	user = db.GetUser("user1")
+	db.AddContact(user, "user0")
+	db.AddContact(user, "user2")
+	db.AddContact(user, "user3")
 
 	routes.RegisterUserRoutes(config.Router)
 	routes.RegisterChatRoutes(config.Router)
 
 	go chat.ListenForActiveUsers()
-	go config.ListenForActiveSession()
 	go config.ListenForCollectInputFlag()
 
 	http.Handle("/", config.Router)
