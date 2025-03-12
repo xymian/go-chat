@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/te6lim/go-chat/tracer"
@@ -39,7 +40,24 @@ func CreateNewUser(username string) *User {
 	}
 }
 
-func (user *User) ListenForNewRoom() {
+func (user *User) ForwardMessageToRoom(otherUser string, message Message) {
+	user.PrivateSessions[otherUser].Room.ForwardedMessage <- message
+}
+
+func (user *User) LeaveRoom(otherUser string) {
+	user.PrivateSessions[otherUser].Room.leave <- user
+}
+
+func (user *User) JoinRoomWith(otherUser string) error {
+	room := user.PrivateSessions[otherUser].Room
+	if len(room.participants) < 2 {
+		room.join <- user
+		return nil
+	}
+	return errors.New("room is full. please create another room with this user")
+}
+
+func (user *User) ListenForNewChatSession() {
 	for session := range user.ChatSession {
 		user.PrivateSessions[session.OtherUser] = session
 		session.Room.Tracer.Trace(user.Username, " is in session with ", session.OtherUser)

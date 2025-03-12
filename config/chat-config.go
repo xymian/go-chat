@@ -29,12 +29,13 @@ func ListenForCollectInputFlag() {
 			} else {
 				fmt.Println("This user is not on your contact list! Please enter a valid user")
 			}
-			SetupChat(session)
 		}
 	}
 }
 
 func SetupChat(session *chat.ChatSession) {
+	go session.MessageSender()
+	go session.MessageReceiver()
 	user := chat.OnlineUsers[session.User]
 	var sharedConnection = session.SharedClientConnection
 	if sharedConnection == nil {
@@ -62,7 +63,7 @@ func SetupChat(session *chat.ChatSession) {
 		if message == "/" {
 			break
 		} else {
-			chat.OnlineUsers[session.User].SendMessage <- chat.Message{
+			user.SendMessage <- chat.Message{
 				Text: message, Sender: session.User,
 			}
 		}

@@ -15,13 +15,15 @@ type room struct {
 }
 
 func CreateTwoUserRoom() *room {
-	return &room{
+	room := &room{
 		leave:            make(chan *User),
 		join:             make(chan *User),
 		participants:     make(map[*User]bool),
 		ForwardedMessage: make(chan Message),
 		Tracer:           tracer.New(),
 	}
+	go room.Run()
+	return room
 }
 
 func (room *room) Run() {

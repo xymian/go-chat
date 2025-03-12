@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,16 +15,21 @@ type ChatSession struct {
 	SharedClientConnection *websocket.Conn
 }
 
-func CreateSession(user *User, otherUser string) *ChatSession {
-	var session *ChatSession
-	if OnlineUsers[otherUser] != nil {
-		session = OnlineUsers[otherUser].PrivateSessions[user.Username]
+func CreateSession(user *User, otherUsername string) *ChatSession {
+	var room *room
+	otherUser := OnlineUsers[otherUsername]
+	if otherUser != nil && otherUser.PrivateSessions[user.Username] != nil {
+		room = otherUser.PrivateSessions[user.Username].Room
 	}
 
-	session = &ChatSession{
-		Room:      session.Room,
+	if room == nil {
+		room = CreateTwoUserRoom()
+	}
+
+	session := &ChatSession{
+		Room:      room,
 		User:      user.Username,
-		OtherUser: otherUser,
+		OtherUser: otherUsername,
 	}
 
 	return session
@@ -45,10 +49,7 @@ func (session *ChatSession) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer conn.Close()
-	user := OnlineUsers[session.User]
 	session.Room.Conn = conn
-	user.ChatSession <- session
-	session.JoinRoom()
 	session.ReadMessages()
 }
 
@@ -64,22 +65,6 @@ func (session *ChatSession) ReadMessages() {
 			fmt.Println("Connection error: ", err)
 			return
 		}
-		session.ForwardMessageToRoom(*newMessage)
+		OnlineUsers[session.User].ForwardMessageToRoom(session.OtherUser, *newMessage)
 	}
-}
-
-func (session *ChatSession) ForwardMessageToRoom(message Message) {
-	session.Room.ForwardedMessage <- message
-}
-
-func (session *ChatSession) LeaveRoom(user *User) {
-	session.Room.leave <- user
-}
-
-func (session *ChatSession) JoinRoom() error {
-	if len(session.Room.participants) < 2 {
-		session.Room.join <- OnlineUsers[session.User]
-		return nil
-	}
-	return errors.New("room is full. please create another room with this user")
 }
