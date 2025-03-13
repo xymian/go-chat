@@ -22,7 +22,6 @@ func CreateTwoUserRoom() *room {
 		ForwardedMessage: make(chan Message),
 		Tracer:           tracer.New(),
 	}
-	go room.Run()
 	return room
 }
 

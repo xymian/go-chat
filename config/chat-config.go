@@ -16,16 +16,13 @@ var AskForUserToChatWith = make(chan *chat.User)
 // for testing purposes
 func ListenForCollectInputFlag() {
 	for user := range AskForUserToChatWith {
-		for {
-			var contact string
-			fmt.Print("Enter username to chat with: ")
-			fmt.Scanln(&contact)
-			if contact == "/" {
-				break
-			}
+		var contact string
+		fmt.Print("Enter username to chat with: ")
+		fmt.Scanln(&contact)
+		if contact != "/" {
 			session := user.PrivateSessions[contact]
 			if session != nil {
-				SetupChat(user.PrivateSessions[contact])
+				SetupChat(session)
 			} else {
 				fmt.Println("This user is not on your contact list! Please enter a valid user")
 			}
@@ -34,8 +31,6 @@ func ListenForCollectInputFlag() {
 }
 
 func SetupChat(session *chat.ChatSession) {
-	go session.MessageSender()
-	go session.MessageReceiver()
 	user := chat.OnlineUsers[session.User]
 	var sharedConnection = session.SharedClientConnection
 	if sharedConnection == nil {
@@ -52,14 +47,19 @@ func SetupChat(session *chat.ChatSession) {
 				log.Fatal("WebSocket dial error:", err)
 			}
 			session.SharedClientConnection = conn
+			go session.Room.Run()
 		}
 	}
+	user.JoinRoomWith(session.OtherUser)
+	go session.MessageSender()
+	go session.MessageReceiver()
 
 	for {
 		var message string
 		fmt.Print("Enter your message: ")
 		fmt.Scanln(&message)
 
+		// for testing purposes
 		if message == "/" {
 			break
 		} else {

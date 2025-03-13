@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	//"sync"
-
 	"github.com/gorilla/mux"
 	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/config"
@@ -32,16 +30,12 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 		go newUser.ListenForJoinRoomRequest()
 	}
 
-	//go newUser.ListenForNewChatSession()
-
-	//var wg *sync.WaitGroup
 	for contact := range user.Contacts {
 		fmt.Fprintln(w, "Welcome to chat room with ", contact)
 
 		otherUser := chat.OnlineUsers[contact]
 		session := chat.CreateSession(newUser, contact)
 		newUser.PrivateSessions[session.OtherUser] = session
-		newUser.JoinRoomWith(session.OtherUser)
 		if otherUser != nil {
 			otherUser.RequestToJoinRoom <- newUser.Username
 		}

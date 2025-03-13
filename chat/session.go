@@ -12,6 +12,7 @@ type ChatSession struct {
 	Room                   *room
 	User                   string
 	OtherUser              string
+	ReceiveMessage         chan Message
 	SharedClientConnection *websocket.Conn
 }
 
@@ -65,6 +66,31 @@ func (session *ChatSession) ReadMessages() {
 			fmt.Println("Connection error: ", err)
 			return
 		}
-		OnlineUsers[session.User].ForwardMessageToRoom(session.OtherUser, *newMessage)
+		session.ForwardMessageToRoomMembers(*newMessage)
+	}
+}
+
+func (session *ChatSession) MessageSender() {
+	user := OnlineUsers[session.User]
+	defer func() {
+		user.Tracer.Trace("done sending")
+	}()
+	for message := range user.SendMessage {
+		err := session.SharedClientConnection.WriteJSON(message)
+		if err != nil {
+			fmt.Println("Connection error: ", err)
+			return
+		}
+	}
+}
+
+func (session *ChatSession) MessageReceiver() {
+	user := OnlineUsers[session.User]
+	defer func() {
+		user.Tracer.Trace("done receiving")
+	}()
+	for message := range user.ReceiveMessage {
+		user.Tracer.Trace("message: ", message.Text, "from", message.Sender, "has been received")
+		// save message to db or something
 	}
 }

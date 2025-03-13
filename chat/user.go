@@ -2,7 +2,6 @@ package chat
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/te6lim/go-chat/tracer"
 )
@@ -40,8 +39,8 @@ func CreateNewUser(username string) *User {
 	}
 }
 
-func (user *User) ForwardMessageToRoom(otherUser string, message Message) {
-	user.PrivateSessions[otherUser].Room.ForwardedMessage <- message
+func (session *ChatSession) ForwardMessageToRoomMembers(message Message) {
+	OnlineUsers[session.User].PrivateSessions[session.OtherUser].Room.ForwardedMessage <- message
 }
 
 func (user *User) LeaveRoom(otherUser string) {
@@ -87,32 +86,5 @@ func (user *User) ListenForJoinRoomRequest() {
 				CreateSession(user, requestingUser.Username)
 			}
 		}
-	}
-}
-
-func (session *ChatSession) MessageSender() {
-	user := OnlineUsers[session.User]
-	defer func() {
-		session.SharedClientConnection.Close()
-		user.Tracer.Trace("connection closed")
-	}()
-	for message := range user.SendMessage {
-		err := session.SharedClientConnection.WriteJSON(message)
-		if err != nil {
-			fmt.Println("Connection error: ", err)
-			return
-		}
-	}
-}
-
-func (session *ChatSession) MessageReceiver() {
-	user := OnlineUsers[session.User]
-	defer func() {
-		session.SharedClientConnection.Close()
-		user.Tracer.Trace("connection closed")
-	}()
-	for message := range user.ReceiveMessage {
-		user.Tracer.Trace("message: ", message.Text, "from", message.Sender, "has been received")
-		// save message to db or something
 	}
 }
