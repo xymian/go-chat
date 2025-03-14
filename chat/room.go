@@ -7,19 +7,19 @@ import (
 
 type room struct {
 	Conn             *websocket.Conn
-	leave            chan *User
-	join             chan *User
-	participants     map[*User]bool
-	ForwardedMessage chan Message
+	leave            chan *Socketuser
+	join             chan *Socketuser
+	participants     map[*Socketuser]bool
+	ForwardedMessage chan SocketMessage
 	Tracer           tracer.Tracer
 }
 
 func CreateTwoUserRoom() *room {
 	room := &room{
-		leave:            make(chan *User),
-		join:             make(chan *User),
-		participants:     make(map[*User]bool),
-		ForwardedMessage: make(chan Message),
+		leave:            make(chan *Socketuser),
+		join:             make(chan *Socketuser),
+		participants:     make(map[*Socketuser]bool),
+		ForwardedMessage: make(chan SocketMessage),
 		Tracer:           tracer.New(),
 	}
 	return room

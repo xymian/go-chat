@@ -12,11 +12,10 @@ type ChatSession struct {
 	Room                   *room
 	User                   string
 	OtherUser              string
-	ReceiveMessage         chan Message
 	SharedClientConnection *websocket.Conn
 }
 
-func CreateSession(user *User, otherUsername string) *ChatSession {
+func CreateSession(user *Socketuser, otherUsername string) *ChatSession {
 	var room *room
 	otherUser := OnlineUsers[otherUsername]
 	if otherUser != nil && otherUser.PrivateSessions[user.Username] != nil {
@@ -60,7 +59,7 @@ func (session *ChatSession) ReadMessages() {
 		session.Room.Tracer.Trace("connection closed")
 	}()
 	for {
-		var newMessage *Message
+		var newMessage *SocketMessage
 		err := session.Room.Conn.ReadJSON(&newMessage)
 		if err != nil {
 			fmt.Println("Connection error: ", err)

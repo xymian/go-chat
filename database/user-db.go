@@ -6,11 +6,11 @@ type User struct {
 	Contacts map[string]bool `json:"contacts"`
 }
 
-type userdb struct {
+type userDB struct {
 	table map[string]*User
 }
 
-func (db *userdb) InsertUser(user User) *User {
+func (db *userDB) InsertUser(user User) *User {
 	db.table[user.Username] = &user
 	return &User{
 		Username: user.Username,
@@ -18,20 +18,20 @@ func (db *userdb) InsertUser(user User) *User {
 	}
 }
 
-func (db *userdb) GetUser(id string) *User {
+func (db *userDB) GetUser(id string) *User {
 	if db.table[id] != nil {
 		return db.table[id]
 	}
 	return nil
 }
 
-func (db *userdb) Delete(username string) *User {
+func (db *userDB) Delete(username string) *User {
 	user := db.table[username]
 	delete(db.table, username)
 	return user
 }
 
-func (db *userdb) GetAllUsers() []*User {
+func (db *userDB) GetAllUsers() []*User {
 	users := []*User{}
 	for u, v := range db.table {
 		if db.table[u].Username != "" {
@@ -41,7 +41,7 @@ func (db *userdb) GetAllUsers() []*User {
 	return users
 }
 
-func (db *userdb) DeleteAllUsers() []*User {
+func (db *userDB) DeleteAllUsers() []*User {
 	users := []*User{}
 	for u, v := range db.table {
 		if db.table[u].Username != "" {
@@ -52,18 +52,18 @@ func (db *userdb) DeleteAllUsers() []*User {
 	return users
 }
 
-var db *userdb
+var userdb *userDB
 
-func GetUserdb() *userdb {
-	if db == nil {
-		db = &userdb{
+func GetUserdb() *userDB {
+	if userdb == nil {
+		userdb = &userDB{
 			table: make(map[string]*User),
 		}
 	}
-	return db
+	return userdb
 }
 
-func (db *userdb) AddContact(user *User, username string) {
+func (db *userDB) AddContact(user *User, username string) {
 	if db.table[username] != nil {
 		if !user.Contacts[username] {
 			user.Contacts[username] = true

@@ -11,7 +11,7 @@ import (
 
 var Router *mux.Router = mux.NewRouter()
 
-var AskForUserToChatWith = make(chan *chat.User)
+var AskForUserToChatWith = make(chan *chat.Socketuser)
 
 // for testing purposes
 func ListenForCollectInputFlag() {
@@ -63,7 +63,7 @@ func SetupChat(session *chat.ChatSession) {
 		if message == "/" {
 			break
 		} else {
-			user.SendMessage <- chat.Message{
+			user.SendMessage <- chat.SocketMessage{
 				Text: message, Sender: session.User,
 			}
 		}

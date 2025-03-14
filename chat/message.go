@@ -1,10 +1,6 @@
 package chat
 
-import (
-
-)
-
-type Message struct {
-	Text string
+type SocketMessage struct {
+	Text   string
 	Sender string
 }
