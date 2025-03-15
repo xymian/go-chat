@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/te6lim/go-chat/chat"
+	"github.com/te6lim/go-chat/utils"
 )
 
 var Router *mux.Router = mux.NewRouter()
@@ -20,9 +21,13 @@ func ListenForCollectInputFlag() {
 		fmt.Print("Enter username to chat with: ")
 		fmt.Scanln(&contact)
 		if contact != "/" {
-			session := user.PrivateSessions[contact]
-			if session != nil {
-				SetupChat(session)
+			roomId, err := utils.GenerateUniqueSharedId(user.Username, contact)
+			if err != nil {
+				log.Fatal(err)
+			}
+			room := chat.Rooms[roomId]
+			if room != nil {
+				SetupChat(user.Username, contact, room)
 			} else {
 				fmt.Println("This user is not on your contact list! Please enter a valid user")
 			}
@@ -30,29 +35,22 @@ func ListenForCollectInputFlag() {
 	}
 }
 
-func SetupChat(session *chat.ChatSession) {
-	user := chat.OnlineUsers[session.User]
-	var sharedConnection = session.SharedClientConnection
-	if sharedConnection == nil {
-		otherUser := chat.OnlineUsers[session.OtherUser]
-		if otherUser != nil && otherUser.PrivateSessions[session.User] != nil && otherUser.PrivateSessions[session.User].SharedClientConnection != nil {
-			sharedConnection = otherUser.PrivateSessions[session.User].SharedClientConnection
-			session.SharedClientConnection = sharedConnection
-		} else {
-			endpoint := fmt.Sprintf("/%s+%s", user.Username, session.OtherUser)
-			socketURL := fmt.Sprintf("ws://localhost:8080%s", endpoint)
-			Router.Handle(endpoint, session)
-			conn, _, err := websocket.DefaultDialer.Dial(socketURL, nil)
-			if err != nil {
-				log.Fatal("WebSocket dial error:", err)
-			}
-			session.SharedClientConnection = conn
-			go session.Room.Run()
+func SetupChat(username string, otherUsername string, room *chat.Room) {
+	user := chat.OnlineUsers[username]
+	if room.ClientConn == nil {
+		endpoint := fmt.Sprintf("/%s+%s", username, otherUsername)
+		socketURL := fmt.Sprintf("ws://localhost:8080%s", endpoint)
+		Router.Handle(endpoint, room)
+		conn, _, err := websocket.DefaultDialer.Dial(socketURL, nil)
+		if err != nil {
+			log.Fatal("WebSocket dial error:", err)
 		}
+		room.ClientConn = conn
+		go room.Run()
 	}
-	user.JoinRoomWith(session.OtherUser)
-	go session.MessageSender()
-	go session.MessageReceiver()
+	room.JoinRoom(user)
+	go room.MessageSender(user)
+	go room.MessageReceiver(user)
 
 	for {
 		var message string
@@ -64,7 +62,7 @@ func SetupChat(session *chat.ChatSession) {
 			break
 		} else {
 			user.SendMessage <- chat.SocketMessage{
-				Text: message, Sender: session.User,
+				Text: message, Sender: username,
 			}
 		}
 	}

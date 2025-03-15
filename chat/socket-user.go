@@ -1,8 +1,6 @@
 package chat
 
 import (
-	"errors"
-
 	"github.com/te6lim/go-chat/tracer"
 )
 
@@ -13,53 +11,41 @@ var LoggedOutUser chan *Socketuser = make(chan *Socketuser)
 type UserListeners struct {
 	SendMessage       chan SocketMessage
 	ReceiveMessage    chan SocketMessage
-	ChatSession       chan *ChatSession
-	RequestToJoinRoom chan string
+	Room              chan *Room
+	RequestToJoinRoom chan JoinSessionRequest
+}
+
+type JoinSessionRequest struct {
+	SessionId      string
+	RequestingUser string
 }
 
 type Socketuser struct {
 	UserListeners
-	Username        string
-	PrivateSessions map[string]*ChatSession
-	Tracer          tracer.Tracer
+	Username   string
+	SessionIds map[string]bool
+	Tracer     tracer.Tracer
 }
 
 func CreateNewUser(username string) *Socketuser {
 	return &Socketuser{
-		Username:        username,
-		PrivateSessions: make(map[string]*ChatSession),
-		Tracer:          tracer.New(),
+		Username:   username,
+		SessionIds: make(map[string]bool),
+		Tracer:     tracer.New(),
 
 		UserListeners: UserListeners{
 			SendMessage:       make(chan SocketMessage),
 			ReceiveMessage:    make(chan SocketMessage),
-			ChatSession:       make(chan *ChatSession),
-			RequestToJoinRoom: make(chan string),
+			Room:              make(chan *Room),
+			RequestToJoinRoom: make(chan JoinSessionRequest),
 		},
 	}
 }
 
-func (session *ChatSession) ForwardMessageToRoomMembers(message SocketMessage) {
-	OnlineUsers[session.User].PrivateSessions[session.OtherUser].Room.ForwardedMessage <- message
-}
-
-func (user *Socketuser) LeaveRoom(otherUser string) {
-	user.PrivateSessions[otherUser].Room.leave <- user
-}
-
-func (user *Socketuser) JoinRoomWith(otherUser string) error {
-	room := user.PrivateSessions[otherUser].Room
-	if len(room.participants) < 2 {
-		room.join <- user
-		return nil
-	}
-	return errors.New("room is full. please create another room with this user")
-}
-
-func (user *Socketuser) ListenForNewChatSession() {
-	for session := range user.ChatSession {
-		user.PrivateSessions[session.OtherUser] = session
-		session.Room.Tracer.Trace(user.Username, " is in session with ", session.OtherUser)
+func (user *Socketuser) ListenForNewChatRoom() {
+	for room := range user.Room {
+		Rooms[room.Id] = room
+		//room.Tracer.Trace(user.Username, " is in session with ", session.OtherUser)
 	}
 }
 
@@ -78,12 +64,13 @@ func ListenForActiveUsers() {
 }
 
 func (user *Socketuser) ListenForJoinRoomRequest() {
-	for from := range user.RequestToJoinRoom {
-		if user.PrivateSessions[from] == nil {
-			requestingUser := OnlineUsers[from]
+	for request := range user.RequestToJoinRoom {
+		if Rooms[request.SessionId] == nil {
+			requestingUser := OnlineUsers[request.RequestingUser]
 			if requestingUser != nil {
-				user.Tracer.Trace(from, " is requesting to chat with ", user.Username)
-				CreateSession(user, requestingUser.Username)
+				user.Tracer.Trace(request.RequestingUser, " is requesting to chat with ", user.Username)
+				// TODO: create room and and join
+				//CreateSession(user, requestingUser.Username)
 			}
 		}
 	}

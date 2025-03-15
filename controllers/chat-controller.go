@@ -36,10 +36,13 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "Welcome to chat room with ", contact)
 
 		otherUser := chat.OnlineUsers[contact]
-		session := chat.CreateSession(newUser, contact)
-		newUser.PrivateSessions[session.OtherUser] = session
+		room := chat.CreateTwoUserRoom()
+		chat.AddRoom <- room
 		if otherUser != nil {
-			otherUser.RequestToJoinRoom <- newUser.Username
+			otherUser.RequestToJoinRoom <- chat.JoinSessionRequest{
+				SessionId:      room.Id,
+				RequestingUser: newUser.Username,
+			}
 		}
 	}
 
