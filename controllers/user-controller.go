@@ -13,7 +13,7 @@ import (
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	id := mux.Vars(r)["id"]
-	user := database.GetUserdb().GetUser(id)
+	user := database.GetChatDB().GetUser(id)
 	if user == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -29,7 +29,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	users := database.GetUserdb().GetAllUsers()
+	users := database.GetChatDB().GetAllUsers()
 	res, err := json.Marshal(users)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -43,7 +43,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	user := &database.User{}
 	utils.ParseBody(r, user)
-	user = database.GetUserdb().InsertUser(*user)
+	user = database.GetChatDB().InsertUser(*user)
 	if user == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -59,7 +59,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 
 func Delete(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["id"]
-	users := database.GetUserdb().Delete(username)
+	users := database.GetChatDB().Delete(username)
 	res, err := json.Marshal(users)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -71,7 +71,7 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 
 func DeleteAllUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	users := database.GetUserdb().DeleteAllUsers()
+	users := database.GetChatDB().DeleteAllUsers()
 	res, err := json.Marshal(users)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

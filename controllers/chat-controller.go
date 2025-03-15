@@ -16,7 +16,7 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	me := mux.Vars(r)["me"]
 
-	user := database.GetUserdb().GetUser(me)
+	user := database.GetChatDB().GetUser(me)
 	if user == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -52,12 +52,12 @@ func InsertMessage(w http.ResponseWriter, r *http.Request) {
 	var message *database.Message
 	utils.ParseBody(r, message)
 	otherUserId := r.URL.Query().Get("otherUser")
-	dbKey, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
+	chatId, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	message = database.GetChatDB(dbKey).InsertMessage(message)
+	message = database.GetChatDB().InsertMessage(chatId, message)
 	res, err := json.Marshal(message)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -70,12 +70,12 @@ func DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	messageId := r.URL.Query().Get("messageId")
 	otherUserId := r.URL.Query().Get("otherUser")
-	dbKey, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
+	chatId, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	message := database.GetChatDB(dbKey).DeleteMessage(messageId)
+	message := database.GetChatDB().DeleteMessage(chatId, messageId)
 	res, err := json.Marshal(message)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -87,12 +87,12 @@ func DeleteMessage(w http.ResponseWriter, r *http.Request) {
 func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	otherUserId := r.URL.Query().Get("otherUser")
-	dbKey, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
+	chatId, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	messages := database.GetChatDB(dbKey).DeleteAllMessages()
+	messages := database.GetChatDB().DeleteAllMessages(chatId)
 	res, err := json.Marshal(messages)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -105,12 +105,12 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	messageId := r.URL.Query().Get("messageId")
 	otherUserId := r.URL.Query().Get("otherUser")
-	dbKey, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
+	chatId, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	message := database.GetChatDB(dbKey).GetMessage(messageId)
+	message := database.GetChatDB().GetMessage(chatId, messageId)
 	res, err := json.Marshal(message)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -122,12 +122,12 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	otherUserId := r.URL.Query().Get("otherUser")
-	dbKey, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
+	chatId, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	messages := database.GetChatDB(dbKey).GetAllMessages()
+	messages := database.GetChatDB().GetAllMessages(chatId)
 	res, err := json.Marshal(messages)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

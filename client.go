@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	db := database.GetUserdb()
+	db := database.GetChatDB()
 
 	db.InsertUser(database.User{
 		Username: "user0",
