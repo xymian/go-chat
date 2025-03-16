@@ -79,6 +79,13 @@ func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	room.ReadMessages()
 }
 
+func ListenForNewChatRoom() {
+	for room := range AddRoom {
+		Rooms[room.Id] = room
+		room.Tracer.Trace("new room added to chat")
+	}
+}
+
 func (room *Room) ReadMessages() {
 	defer func() {
 		room.ServerConn.Close()

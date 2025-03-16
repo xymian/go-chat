@@ -40,13 +40,6 @@ func CreateNewUser(username string) *Socketuser {
 	}
 }
 
-func (user *Socketuser) ListenForNewChatRoom() {
-	for room := range user.Room {
-		Rooms[room.Id] = room
-		//room.Tracer.Trace(user.Username, " is in session with ", session.OtherUser)
-	}
-}
-
 func ListenForActiveUsers() {
 	for {
 		select {

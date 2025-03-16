@@ -46,6 +46,7 @@ func main() {
 	routes.RegisterChatRoutes(config.Router)
 
 	go chat.ListenForActiveUsers()
+	go chat.ListenForNewChatRoom()
 	go config.ListenForCollectInputFlag()
 
 	http.Handle("/", config.Router)

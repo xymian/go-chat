@@ -18,7 +18,7 @@ func ParseBody(r *http.Request, o interface{}) {
 
 func GenerateRoomId(username0 string, username1 string) (string, error) {
 	if len(username0) > 0 && len(username1) > 0 {
-		if username0[0] <= username1[1] {
+		if username0 <= username1 {
 			return fmt.Sprint(username0, "+", username1), nil
 		} else {
 			return fmt.Sprint(username1, "+", username0), nil

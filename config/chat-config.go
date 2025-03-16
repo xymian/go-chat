@@ -37,7 +37,6 @@ func ListenForCollectInputFlag() {
 					room = chat.CreateRoom(roomId)
 					chat.AddRoom <- room
 					go room.Run()
-					room.JoinRoom(user)
 				} else {
 					room = chat.Rooms[roomId]
 				}
@@ -60,7 +59,6 @@ func SetupChat(username string, otherUsername string, room *chat.Room) {
 			log.Fatal("WebSocket dial error:", err)
 		}
 		room.ClientConn = conn
-		go room.Run()
 	}
 	room.JoinRoom(user)
 	go room.MessageSender(user)
