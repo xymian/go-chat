@@ -8,7 +8,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/te6lim/go-chat/tracer"
-	"github.com/te6lim/go-chat/utils"
 )
 
 type Room struct {
@@ -25,11 +24,7 @@ type Room struct {
 var Rooms map[string]*Room = make(map[string]*Room)
 var AddRoom chan *Room = make(chan *Room)
 
-func CreateTwoUserRoom() *Room {
-	roomId, err := utils.GenerateUniqueSharedId("", "")
-	if err != nil {
-		log.Fatal(err)
-	}
+func CreateRoom(roomId string) *Room {
 	room := &Room{
 		Id:               roomId,
 		leave:            make(chan *Socketuser),
@@ -52,6 +47,9 @@ func (room *Room) Run() {
 			room.participants[user] = false
 			delete(room.participants, user)
 			close(user.SendMessage)
+			if len(room.participants) == 0 {
+				delete(Rooms, room.Id)
+			}
 			room.Tracer.Trace("User", user.Username, " left the room")
 
 		case message := <-room.ForwardedMessage:

@@ -12,11 +12,10 @@ type UserListeners struct {
 	SendMessage       chan SocketMessage
 	ReceiveMessage    chan SocketMessage
 	Room              chan *Room
-	RequestToJoinRoom chan JoinSessionRequest
 }
 
 type JoinSessionRequest struct {
-	SessionId      string
+	RoomId      string
 	RequestingUser string
 }
 
@@ -37,7 +36,6 @@ func CreateNewUser(username string) *Socketuser {
 			SendMessage:       make(chan SocketMessage),
 			ReceiveMessage:    make(chan SocketMessage),
 			Room:              make(chan *Room),
-			RequestToJoinRoom: make(chan JoinSessionRequest),
 		},
 	}
 }
@@ -59,19 +57,6 @@ func ListenForActiveUsers() {
 		case loggedOutUser := <-LoggedOutUser:
 			OnlineUsers[loggedOutUser.Username] = nil
 			loggedOutUser.Tracer.Trace("User", loggedOutUser.Username, " logged out")
-		}
-	}
-}
-
-func (user *Socketuser) ListenForJoinRoomRequest() {
-	for request := range user.RequestToJoinRoom {
-		if Rooms[request.SessionId] == nil {
-			requestingUser := OnlineUsers[request.RequestingUser]
-			if requestingUser != nil {
-				user.Tracer.Trace(request.RequestingUser, " is requesting to chat with ", user.Username)
-				// TODO: create room and and join
-				//CreateSession(user, requestingUser.Username)
-			}
 		}
 	}
 }

@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -29,21 +28,6 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	} else {
 		newUser = chat.CreateNewUser(me)
 		chat.NewUser <- newUser
-		go newUser.ListenForJoinRoomRequest()
-	}
-
-	for contact := range user.Contacts {
-		fmt.Fprintln(w, "Welcome to chat room with ", contact)
-
-		otherUser := chat.OnlineUsers[contact]
-		room := chat.CreateTwoUserRoom()
-		chat.AddRoom <- room
-		if otherUser != nil {
-			otherUser.RequestToJoinRoom <- chat.JoinSessionRequest{
-				SessionId:      room.Id,
-				RequestingUser: newUser.Username,
-			}
-		}
 	}
 
 	//for testing purposes
@@ -55,7 +39,7 @@ func InsertMessage(w http.ResponseWriter, r *http.Request) {
 	var message *database.Message
 	utils.ParseBody(r, message)
 	otherUserId := r.URL.Query().Get("otherUser")
-	chatId, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
+	chatId, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -73,7 +57,7 @@ func DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	messageId := r.URL.Query().Get("messageId")
 	otherUserId := r.URL.Query().Get("otherUser")
-	chatId, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
+	chatId, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -90,7 +74,7 @@ func DeleteMessage(w http.ResponseWriter, r *http.Request) {
 func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	otherUserId := r.URL.Query().Get("otherUser")
-	chatId, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
+	chatId, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -108,7 +92,7 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	messageId := r.URL.Query().Get("messageId")
 	otherUserId := r.URL.Query().Get("otherUser")
-	chatId, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
+	chatId, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -125,7 +109,7 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	otherUserId := r.URL.Query().Get("otherUser")
-	chatId, err := utils.GenerateUniqueSharedId(mux.Vars(r)["userId"], otherUserId)
+	chatId, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
