@@ -8,6 +8,8 @@ var OnlineUsers = make(map[string]*Socketuser)
 var NewUser chan *Socketuser = make(chan *Socketuser)
 var LoggedOutUser chan *Socketuser = make(chan *Socketuser)
 
+var AskForUserToChatWith = make(chan *Socketuser)
+
 type UserListeners struct {
 	SendMessage       chan SocketMessage
 	ReceiveMessage    chan SocketMessage

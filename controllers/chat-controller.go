@@ -6,7 +6,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/te6lim/go-chat/chat"
-	"github.com/te6lim/go-chat/config"
 	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/utils"
 )
@@ -31,7 +30,7 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//for testing purposes
-	config.AskForUserToChatWith <- newUser
+	chat.AskForUserToChatWith <- newUser
 }
 
 func InsertMessage(w http.ResponseWriter, r *http.Request) {

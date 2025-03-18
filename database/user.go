@@ -1,5 +1,10 @@
 package database
 
+import (
+	"encoding/json"
+	"log"
+)
+
 type User struct {
 	Id        string          `json:"id"`
 	Username  string          `json:"username"`
@@ -8,14 +13,22 @@ type User struct {
 }
 
 func (db *chatDB) InsertUser(user User) *User {
-	db.userTable[user.Username] = &user
-	return &User{
-		Username: user.Username,
-		Contacts: user.Contacts,
+	contactsJson, err := json.Marshal(user.Contacts)
+	if err != nil {
+		log.Fatal(err)
 	}
+	_, insertErr := Instance.Exec("INSERT INTO users(username, Contacts) VALUES($1, $2)", user.Username, string(contactsJson))
+	if insertErr != nil {
+		log.Fatal(err)
+	}
+	return &user
 }
 
 func (db *chatDB) GetUser(id string) *User {
+	_, insertErr := Instance.Exec("GET * FROM users WHERE id = $1", id)
+	if insertErr != nil {
+		log.Fatal(insertErr)
+	}
 	if db.userTable[id] != nil {
 		return db.userTable[id]
 	}
