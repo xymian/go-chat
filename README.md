@@ -26,22 +26,22 @@ Make sure you have the following installed:
 
 1. Clone the repository:
 
-    ```bash
-    git clone https://github.com/te6lim/go-chat.git
-    cd go-chat
-    ```
+   ```bash
+   git clone https://github.com/te6lim/go-chat.git
+   cd go-chat
+   ```
 
 2. Install dependencies:
 
-    ```bash
-    go mod tidy
-    ```
+   ```bash
+   go mod tidy
+   ```
 
 3. Run the server:
 
-    ```bash
-    go run client.go
-    ```
+   ```bash
+   go run client.go
+   ```
 
 4. For now, the server will run on `http://localhost:8080` (or the port you have configured).
 
@@ -52,3 +52,7 @@ Once the server is running, open your web browser and navigate to the server's U
 ## Contributing
 
 Feel free to open issues or submit pull requests if you'd like to contribute
+
+## TODO
+
+- Use postgres for DB implementation

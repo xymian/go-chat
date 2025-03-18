@@ -1,0 +1,16 @@
+CREATE TABLE users (
+	id SERIAL PRIMARY KEY,
+	username VARCHAR(50) UNIQUE NOT NULL,
+	contacts JSON,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+SELECT * FROM users ORDER BY id;
+
+SELECT * FROM users WHERE id = ? LIMIT 1;
+
+INSERT INTO users VALUES(?, ?, ?, ?);
+
+DELETE FROM users;
+
+DELETE FROM users WHERE id = ?;
