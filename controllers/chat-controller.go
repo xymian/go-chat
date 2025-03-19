@@ -14,7 +14,7 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	me := mux.Vars(r)["me"]
 
-	user := database.GetChatDB().GetUser(me)
+	user := database.GetUser(me)
 	if user == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return

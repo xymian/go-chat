@@ -7,10 +7,9 @@ import (
 )
 
 type chatDB struct {
-	userTable map[string]*User
+	userTable    map[string]*User
 	messageTable map[string]*Message
-	chatTable map[string]*Chat
-	participantTable map[string]*Participant
+	chatTable    map[string]*Chat
 }
 
 var mockdb *chatDB
@@ -20,7 +19,7 @@ var Instance *sql.DB
 var ConnURL = "postgres://postgres:plantainchips@localhost:5432/go-chat"
 
 func ConnectToDB() {
-	if (Instance == nil) {
+	if Instance == nil {
 		newdb, err := sql.Open("pgx", ConnURL)
 		if err != nil {
 			log.Fatal()
@@ -34,10 +33,9 @@ func GetChatDB() *chatDB {
 	if mockdb == nil {
 		mockdb = &chatDB{
 			messageTable: make(map[string]*Message),
-			userTable: make(map[string]*User),
-			chatTable: make(map[string]*Chat),
+			userTable:    make(map[string]*User),
+			chatTable:    make(map[string]*Chat),
 		}
 	}
 	return mockdb
 }
-

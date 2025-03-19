@@ -8,66 +8,102 @@ import (
 type User struct {
 	Id        string          `json:"id"`
 	Username  string          `json:"username"`
-	Contacts  map[string]bool `json:"contacts"`
+	Chats     map[string]bool `json:"chats"`
 	CreatedAt string          `json:"createdAt"`
+	UpdatedAt string          `json:"updatedAt"`
 }
 
-func (db *chatDB) InsertUser(user User) *User {
-	contactsJson, err := json.Marshal(user.Contacts)
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, insertErr := Instance.Exec("INSERT INTO users(username, Contacts) VALUES($1, $2)", user.Username, string(contactsJson))
+func InsertUser(user User) *User {
+	_, insertErr := Instance.Exec("INSERT INTO users(username, chats) VALUES($1, $2)", user.Username, user.Chats)
 	if insertErr != nil {
-		log.Fatal(err)
+		log.Fatal(insertErr)
 	}
 	return &user
 }
 
-func (db *chatDB) GetUser(id string) *User {
-	_, insertErr := Instance.Exec("GET * FROM users WHERE id = $1", id)
-	if insertErr != nil {
-		log.Fatal(insertErr)
+func GetUser(username string) *User {
+	user := &User{}
+	var chatsJson string
+	err := Instance.QueryRow(
+		"SELECT id, username, contacts, createdAt, updatedAt FROM users WHERE username = $1", username,
+	).Scan(&user.Id, &user.Username, chatsJson, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		log.Fatal(err)
 	}
-	if db.userTable[id] != nil {
-		return db.userTable[id]
+	jsonError := json.Unmarshal([]byte(chatsJson), &user.Chats)
+	if jsonError != nil {
+		log.Fatal(jsonError)
 	}
-	return nil
-}
-
-func (db *chatDB) Delete(username string) *User {
-	user := db.userTable[username]
-	delete(db.userTable, username)
 	return user
 }
 
-func (db *chatDB) GetAllUsers() []*User {
+func DeleteUser(username string) *User {
+	user := &User{}
+	var chatsJson string
+	err := Instance.QueryRow(
+		"DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, chats, createdAt, updatedAt", username,
+	).Scan(&user.Id, &user.Username, chatsJson, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		log.Fatal(err)
+	}
+	jsonError := json.Unmarshal([]byte(chatsJson), &user.Chats)
+	if jsonError != nil {
+		log.Fatal(jsonError)
+	}
+	return user
+}
+
+func GetAllUsers() []*User {
 	users := []*User{}
-	for u, v := range db.userTable {
-		if db.userTable[u].Username != "" {
-			users = append(users, v)
+	rows, err := Instance.Query("SELECT * FROM users")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for rows.Next() {
+		user := &User{}
+		var chatsJson string
+		err := rows.Scan(&user.Id, &user.Username, chatsJson, &user.CreatedAt, &user.UpdatedAt)
+		if err != nil {
+			log.Fatal(err)
 		}
+		jsonError := json.Unmarshal([]byte(chatsJson), &user.Chats)
+		if jsonError != nil {
+			log.Fatal(jsonError)
+		}
+		users = append(users, user)
 	}
 	return users
 }
 
-func (db *chatDB) DeleteAllUsers() []*User {
+func DeleteAllUsers() []*User {
 	users := []*User{}
-	for u, v := range db.userTable {
-		if db.userTable[u].Username != "" {
-			users = append(users, v)
-		}
+	rows, err := Instance.Query("DELETE FROM users RETURNING id, username, chats, createdAt, updatedAt")
+	if err != nil {
+		log.Fatal(err)
 	}
-	db.userTable = make(map[string]*User)
+	for rows.Next() {
+		user := &User{}
+		var chatsJson string
+		err := rows.Scan(&user.Id, &user.Username, chatsJson, &user.CreatedAt, &user.UpdatedAt)
+		if err != nil {
+			log.Fatal(err)
+		}
+		jsonError := json.Unmarshal([]byte(chatsJson), &user.Chats)
+		if jsonError != nil {
+			log.Fatal(jsonError)
+		}
+		users = append(users, user)
+	}
 	return users
 }
 
-func (db *chatDB) AddContact(user *User, username string) {
-	if db.userTable[username] != nil {
-		if !user.Contacts[username] {
-			user.Contacts[username] = true
-			db.Delete(user.Username)
-			db.InsertUser(*user)
-		}
+func UpdateUser(user User) *User {
+	updateErr := Instance.QueryRow(
+		"UPDATE users SET username = $1, chats = $2 WHERE id = $3 RETURNING id, username, chats, createdAt, updatedAt",
+		user.Username, user.Chats, user.Id,
+	).Scan(&user.Id, &user.Username, &user.Chats, &user.CreatedAt, &user.UpdatedAt)
+	if updateErr != nil {
+		log.Fatal(updateErr)
 	}
+	return &user
 }
