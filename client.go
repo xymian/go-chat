@@ -11,6 +11,7 @@ import (
 
 	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/database"
+	"github.com/te6lim/go-chat/routes"
 	"github.com/te6lim/go-chat/utils"
 )
 
@@ -20,37 +21,50 @@ func main() {
 
 	database.ConnectToDB()
 
-	/*db := database.GetChatDB()
-	db.InsertUser(database.User{
+	pingErr := database.Instance.Ping()
+	if pingErr != nil {
+		log.Fatal(pingErr)
+	}
+
+	database.DropUserTable()
+	_, err := database.Instance.Exec(`
+		CREATE TABLE users (
+			id SERIAL PRIMARY KEY,
+			username VARCHAR(50) UNIQUE NOT NULL,
+			chats JSON,
+			createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+
+	if err != nil {
+		log.Fatalf("unable to create table: %v", err)
+	}
+
+	defer database.Instance.Close()
+	defer database.DropUserTable()
+
+	//For testing purposes
+	database.InsertUser(database.User{
 		Username: "user0",
-		Contacts: make(map[string]bool),
+		Chats:    make(map[string]bool),
 	})
 
-	 db.InsertUser(database.User{
+	database.InsertUser(database.User{
 		Username: "user1",
-		Contacts: make(map[string]bool),
+		Chats:    make(map[string]bool),
 	})
-	db.InsertUser(database.User{
+	database.InsertUser(database.User{
 		Username: "user2",
-		Contacts: make(map[string]bool),
+		Chats:    make(map[string]bool),
 	})
-	db.InsertUser(database.User{
+	database.InsertUser(database.User{
 		Username: "user3",
-		Contacts: make(map[string]bool),
+		Chats:    make(map[string]bool),
 	})
-
-	user := db.GetUser("user0")
-	db.AddContact(user, "user1")
-	db.AddContact(user, "user2")
-	db.AddContact(user, "user3")
-
-	user = db.GetUser("user1")
-	db.AddContact(user, "user0")
-	db.AddContact(user, "user2")
-	db.AddContact(user, "user3")
 
 	routes.RegisterUserRoutes(Router)
-	routes.RegisterChatRoutes(Router) */
+	routes.RegisterChatRoutes(Router)
 
 	go chat.ListenForActiveUsers()
 	go chat.ListenForNewChatRoom()
@@ -61,7 +75,6 @@ func main() {
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("server is running")
 }
 
 // for testing purposes
@@ -72,7 +85,7 @@ func ListenForCollectInputFlag() {
 		fmt.Scanln(&contact)
 		if contact != "/" {
 
-			if database.GetChatDB().GetUser(contact) != nil {
+			if database.GetUser(contact) != nil {
 				fmt.Println("Welcome to chat room with ", contact)
 
 				// For now the room is generated with the combination of the two users

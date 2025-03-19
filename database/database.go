@@ -7,7 +7,6 @@ import (
 )
 
 type chatDB struct {
-	userTable    map[string]*User
 	messageTable map[string]*Message
 	chatTable    map[string]*Chat
 }
@@ -33,7 +32,6 @@ func GetChatDB() *chatDB {
 	if mockdb == nil {
 		mockdb = &chatDB{
 			messageTable: make(map[string]*Message),
-			userTable:    make(map[string]*User),
 			chatTable:    make(map[string]*Chat),
 		}
 	}
