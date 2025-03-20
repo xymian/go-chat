@@ -9,13 +9,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type chatDB struct {
-	messageTable map[string]*Message
-	chatTable    map[string]*Chat
-}
-
-var mockdb *chatDB
-
 var Instance *sql.DB
 
 func ConnectToDB() {
@@ -37,14 +30,4 @@ func ConnectToDB() {
 		Instance = newdb
 		fmt.Println("successfully connected to go-chat database")
 	}
-}
-
-func GetChatDB() *chatDB {
-	if mockdb == nil {
-		mockdb = &chatDB{
-			messageTable: make(map[string]*Message),
-			chatTable:    make(map[string]*Chat),
-		}
-	}
-	return mockdb
 }

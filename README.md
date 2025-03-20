@@ -55,4 +55,5 @@ Feel free to open issues or submit pull requests if you'd like to contribute
 
 ## TODO
 
-- Use postgres for DB implementation
+- Use postgres for DB implementation ✅
+- Build simple front-end client ⏳

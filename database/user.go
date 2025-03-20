@@ -59,7 +59,7 @@ func DeleteUser(username string) *User {
 
 func GetAllUsers() []*User {
 	users := []*User{}
-	rows, err := Instance.Query("SELECT * FROM users")
+	rows, err := Instance.Query("SELECT id, username, chats, createdAt, updatedAt FROM users")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -37,13 +37,7 @@ func InsertMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var message *database.Message
 	utils.ParseBody(r, message)
-	otherUserId := r.URL.Query().Get("otherUser")
-	chatId, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	message = database.GetChatDB().InsertMessage(chatId, message)
+	message = database.InsertMessage(message)
 	res, err := json.Marshal(message)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -54,14 +48,8 @@ func InsertMessage(w http.ResponseWriter, r *http.Request) {
 
 func DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	messageId := r.URL.Query().Get("messageId")
-	otherUserId := r.URL.Query().Get("otherUser")
-	chatId, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	message := database.GetChatDB().DeleteMessage(chatId, messageId)
+	messageReference := r.URL.Query().Get("messageId")
+	message := database.DeleteMessage(messageReference)
 	res, err := json.Marshal(message)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -73,12 +61,12 @@ func DeleteMessage(w http.ResponseWriter, r *http.Request) {
 func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	otherUserId := r.URL.Query().Get("otherUser")
-	chatId, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
+	chatRef, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	messages := database.GetChatDB().DeleteAllMessages(chatId)
+	messages := database.DeleteAllMessages(chatRef)
 	res, err := json.Marshal(messages)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -89,14 +77,14 @@ func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
 
 func GetMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	messageId := r.URL.Query().Get("messageId")
+	messageRef := r.URL.Query().Get("messageId")
 	otherUserId := r.URL.Query().Get("otherUser")
-	chatId, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
+	chatRef, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	message := database.GetChatDB().GetMessage(chatId, messageId)
+	message := database.GetMessage(chatRef, messageRef)
 	res, err := json.Marshal(message)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -108,12 +96,12 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	otherUserId := r.URL.Query().Get("otherUser")
-	chatId, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
+	chatRef, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	messages := database.GetChatDB().GetAllMessages(chatId)
+	messages := database.GetAllMessages(chatRef)
 	res, err := json.Marshal(messages)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

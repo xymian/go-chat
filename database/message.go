@@ -1,52 +1,119 @@
 package database
 
+import (
+	"log"
+)
+
 type Message struct {
-	Id        string `json:"id"`
-	Text      string `json:"text"`
-	Sender    string `json:"sender"`
-	Receiver  string `json:"receiver"`
-	Timestamp string `json:"timestamp"`
-	ChatId    string `json:"chatId"`
-	CreatedAt string `json:"createdAt"`
+	Id               string `json:"id"`
+	MessageReference string `json:"messageReference"`
+	Text             string `json:"text"`
+	Sender           string `json:"sender"`
+	Receiver         string `json:"receiver"`
+	Timestamp        string `json:"timestamp"`
+	ChatReference    string `json:"chatReference"`
+	CreatedAt        string `json:"createdAt"`
+	UpdatedAt        string `json:"updatedAt"`
 }
 
-func (db *chatDB) InsertMessage(chatId string, message *Message) *Message {
-	chat := db.GetChat(chatId)
+func InsertMessage(message *Message) *Message {
+	chat := GetChat(message.ChatReference)
+	dbMessage := &Message{}
 	if chat == nil {
-		chat = db.InsertChat(Chat{Id: chatId})
+		chat = InsertChat(Chat{
+			ChatReference: message.ChatReference,
+			Participants: map[string]bool{
+				message.Sender:   true,
+				message.Receiver: true,
+			},
+		})
 	}
-	message.ChatId = chat.Id
-	db.messageTable[message.Id] = message
-	return message
+
+	err := Instance.QueryRow(
+		`INSERT INTO messages (messageReference, text, sender, receiver, timestamp, chatReference)
+		VALUES ($1, $2, $3, $4, $5)`,
+		message.MessageReference, message.Text, message.Sender, message.Receiver, message.Timestamp, chat.ChatReference,
+	).Scan(
+		&dbMessage.MessageReference, &dbMessage.Id, &dbMessage.Text, &dbMessage.Sender, &dbMessage.Receiver, &dbMessage.Timestamp,
+		&dbMessage.ChatReference, &dbMessage.CreatedAt, &dbMessage.UpdatedAt,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return dbMessage
 }
 
-func (db *chatDB) GetMessage(chatId string, messageId string) *Message {
-	return db.messageTable[messageId]
+func GetMessage(chatReference string, messageReference string) *Message {
+	newMessage := &Message{}
+	err := Instance.QueryRow(
+		`SELECT id, text, sender, receiver, timestamp, chatReference, createdAt, UpdatedAt FROM messages
+		WHERE chatReference = $1 AND messageReference = $2`,
+		chatReference, messageReference,
+	).Scan(
+		&newMessage.Id, &newMessage.MessageReference, &newMessage.Text, &newMessage.Sender,
+		&newMessage.Receiver, &newMessage.Timestamp, &newMessage.ChatReference, &newMessage.CreatedAt, &newMessage.UpdatedAt,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return newMessage
 }
 
-func (db *chatDB) GetAllMessages(chatId string) []*Message {
+func GetAllMessages(chatReference string) []*Message {
 	messages := []*Message{}
-	for u, v := range db.messageTable {
-		if db.messageTable[u].Id != "" {
-			messages = append(messages, v)
-		}
+	rows, err := Instance.Query(
+		`SELECT id, text, sender, receiver, timestamp, chatReference, createdAt, UpdatedAt FROM messages WHERE chatReference = $1`,
+		chatReference,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for rows.Next() {
+		message := &Message{}
+		rows.Scan(
+			&message.Id, &message.MessageReference, &message.Text, &message.Sender, &message.Receiver, &message.Timestamp,
+			&message.ChatReference, &message.CreatedAt, &message.UpdatedAt,
+		)
+		messages = append(messages, message)
 	}
 	return messages
 }
 
-func (db *chatDB) DeleteMessage(chatId string, messageId string) *Message {
-	message := db.messageTable[messageId]
-	delete(db.messageTable, message.Id)
+func DeleteMessage(messageReference string) *Message {
+	message := &Message{}
+	err := Instance.QueryRow(
+		`DELETE FROM messages WHERE messageReference = $1
+		RETURNING id, messageReference, text, sender, receiver, timestamp, chatReference, createdAt, updatedAt`,
+	).Scan(
+		&message.Id, &message.MessageReference, &message.Text, &message.Sender, &message.Receiver,
+		&message.Timestamp, &message.ChatReference, &message.CreatedAt, &message.UpdatedAt,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return message
 }
 
-func (db *chatDB) DeleteAllMessages(chatId string) []*Message {
+func DeleteAllMessages(chatReference string) []*Message {
 	messages := []*Message{}
-	for u, v := range db.messageTable {
-		if db.messageTable[u].Id != "" {
-			messages = append(messages, v)
-		}
+	rows, err := Instance.Query(
+		`DELETE FROM messages WHERE chatReference = $1,
+		RETURNING id, messageReference, text, sender, receiver, timestamp, chatReference, createdAt, updatedAt`,
+		chatReference,
+	)
+	if err != nil {
+		log.Fatal(err)
 	}
-	db.messageTable = make(map[string]*Message)
+
+	for rows.Next() {
+		message := &Message{}
+		rows.Scan(
+			&message.Id, &message.MessageReference, &message.Text, &message.Sender, &message.Receiver, &message.Timestamp,
+			&message.ChatReference, &message.CreatedAt, &message.UpdatedAt,
+		)
+		messages = append(messages, message)
+	}
 	return messages
 }
