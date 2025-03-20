@@ -6,6 +6,11 @@ import (
 	"log"
 	"os"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/jackc/pgx/v5"
+
 	"github.com/joho/godotenv"
 )
 
@@ -22,12 +27,21 @@ func ConnectToDB() {
 		var dbHost = os.Getenv("DB_HOST")
 		var dbPort = os.Getenv("DB_PORT")
 		var dbName = os.Getenv("DB_NAME")
-		var ConnURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s", dbUser, dbPassword, dbHost, dbPort, dbName)
-		newdb, err := sql.Open("pgx", ConnURL)
+		var sslmode = os.Getenv("SSL_MODE")
+		var connURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", dbUser, dbPassword, dbHost, dbPort, dbName, sslmode)
+		newdb, err := sql.Open("pgx", connURL)
 		if err != nil {
-			log.Fatal()
+			log.Fatal(err)
 		}
 		Instance = newdb
-		fmt.Println("successfully connected to go-chat database")
+
+		mig, migErr := migrate.New("file://database/migrations", connURL)
+		if migErr != nil {
+			log.Fatal("error creating migration instance: ", migErr)
+		}
+		if err := mig.Up(); err != nil && err != migrate.ErrNoChange {
+			log.Fatal("error apllying migrations: ", err)
+		}
+		fmt.Println("successfully migrated db")
 	}
 }

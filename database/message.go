@@ -16,6 +16,25 @@ type Message struct {
 	UpdatedAt        string `json:"updatedAt"`
 }
 
+func CreateMessageTable() {
+	_, err := Instance.Exec(
+		`CREATE TABLE messages (
+			id SERIAL PRIMARY KEY,
+			messageReference TEXT NOT NULL,
+			text TEXT NOT NULL,
+			sender TEXT NOT NULL,
+			receiver TEXT NOT NULL,
+			timestamp TIMESTAMP NOT NULL,
+			chatReference REFERENCES chats(chatReference),
+			createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+	)
+	if err != nil {
+		log.Fatalf("unable to create table: %v", err)
+	}
+}
+
 func InsertMessage(message *Message) *Message {
 	chat := GetChat(message.ChatReference)
 	dbMessage := &Message{}
@@ -116,4 +135,11 @@ func DeleteAllMessages(chatReference string) []*Message {
 		messages = append(messages, message)
 	}
 	return messages
+}
+
+func DropMessagesTable() {
+	_, err := Instance.Exec(`DROP TABLE messages`)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

@@ -26,42 +26,7 @@ func main() {
 		log.Fatal(pingErr)
 	}
 
-	database.DropUserTable()
-	_, err := database.Instance.Exec(`
-		CREATE TABLE users (
-			id SERIAL PRIMARY KEY,
-			username VARCHAR(50) UNIQUE NOT NULL,
-			chats JSON,
-			createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-
-	if err != nil {
-		log.Fatalf("unable to create table: %v", err)
-	}
-
 	defer database.Instance.Close()
-	defer database.DropUserTable()
-
-	//For testing purposes
-	database.InsertUser(database.User{
-		Username: "user0",
-		Chats:    make(map[string]bool),
-	})
-
-	database.InsertUser(database.User{
-		Username: "user1",
-		Chats:    make(map[string]bool),
-	})
-	database.InsertUser(database.User{
-		Username: "user2",
-		Chats:    make(map[string]bool),
-	})
-	database.InsertUser(database.User{
-		Username: "user3",
-		Chats:    make(map[string]bool),
-	})
 
 	routes.RegisterUserRoutes(Router)
 	routes.RegisterChatRoutes(Router)

@@ -16,8 +16,10 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 
 	user := database.GetUser(me)
 	if user == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
+		_ = database.InsertUser(database.User{
+			Username: "user0",
+			Chats:    make(map[string]bool),
+		})
 	}
 
 	var newUser *chat.Socketuser

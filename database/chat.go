@@ -13,6 +13,21 @@ type Chat struct {
 	UpdatedAt     string          `json:"updatedAt"`
 }
 
+func CreateChatsTable() {
+	_, err := Instance.Exec(
+		`CREATE TABLE chats (
+			id SERIAL PRIMARY KEY,
+			chatReference TEXT NOT NUll,
+			participants JSON
+			createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+	)
+	if err != nil {
+		log.Fatalf("unable to create table: %v", err)
+	}
+}
+
 func InsertChat(chat Chat) *Chat {
 	newChat := &Chat{}
 	var participants string
@@ -34,7 +49,7 @@ func GetChat(reference string) *Chat {
 	newChat := &Chat{}
 	var participants string = ""
 	err := Instance.QueryRow(
-		`GET Id, ChatReference, Participants, CreatedAt, UpdatedAt FRON chats WHERE chatReference = $1`,
+		`SELECT Id, ChatReference, Participants, CreatedAt, UpdatedAt FRON chats WHERE chatReference = $1`,
 		reference,
 	).Scan(&newChat.Id, &newChat.ChatReference, &participants, &newChat.CreatedAt, &newChat.UpdatedAt)
 	if err != nil {
@@ -62,4 +77,11 @@ func DeleteChat(reference string) *Chat {
 		log.Fatal(jsonerr)
 	}
 	return newChat
+}
+
+func DropChatsTable() {
+	_, err := Instance.Exec(`DROP TABLE chats`)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

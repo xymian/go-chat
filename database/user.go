@@ -13,12 +13,30 @@ type User struct {
 	UpdatedAt string          `json:"updatedAt"`
 }
 
+func CreateUsersTable() {
+	_, err := Instance.Exec(
+		`CREATE TABLE users (
+			id SERIAL PRIMARY KEY,
+			username VARCHAR(50) UNIQUE NOT NULL,
+			chats JSON,
+			createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+
+	if err != nil {
+		log.Fatalf("unable to create table: %v", err)
+	}
+}
+
 func InsertUser(user User) *User {
 	chatsJson, err := json.Marshal(&user.Chats)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, insertErr := Instance.Exec("INSERT INTO users(username, chats) VALUES($1, $2)", user.Username, string(chatsJson))
+	_, insertErr := Instance.Exec(
+		`INSERT INTO users(username, chats) VALUES($1, $2)`, user.Username, string(chatsJson),
+	)
 	if insertErr != nil {
 		log.Fatal(insertErr)
 	}
@@ -27,12 +45,12 @@ func InsertUser(user User) *User {
 
 func GetUser(username string) *User {
 	user := &User{}
-	var chatsJson string
+	var chatsJson string = ""
 	err := Instance.QueryRow(
-		"SELECT id, username, chats, createdAt, updatedAt FROM users WHERE username = $1", username,
+		`SELECT id, username, chats, createdAt, updatedAt FROM users WHERE username = $1`, username,
 	).Scan(&user.Id, &user.Username, &chatsJson, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		log.Fatal(err)
+		user = nil
 	}
 	jsonError := json.Unmarshal([]byte(chatsJson), &user.Chats)
 	if jsonError != nil {
@@ -45,7 +63,7 @@ func DeleteUser(username string) *User {
 	user := &User{}
 	var chatsJson string
 	err := Instance.QueryRow(
-		"DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, chats, createdAt, updatedAt", username,
+		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, chats, createdAt, updatedAt`, username,
 	).Scan(&user.Id, &user.Username, &chatsJson, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		log.Fatal(err)
@@ -59,7 +77,9 @@ func DeleteUser(username string) *User {
 
 func GetAllUsers() []*User {
 	users := []*User{}
-	rows, err := Instance.Query("SELECT id, username, chats, createdAt, updatedAt FROM users")
+	rows, err := Instance.Query(
+		`SELECT id, username, chats, createdAt, updatedAt FROM users`,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,7 +101,9 @@ func GetAllUsers() []*User {
 
 func DeleteAllUsers() []*User {
 	users := []*User{}
-	rows, err := Instance.Query("DELETE FROM users RETURNING id, username, chats, createdAt, updatedAt")
+	rows, err := Instance.Query(
+		`DELETE FROM users RETURNING id, username, chats, createdAt, updatedAt`,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -104,7 +126,7 @@ func DeleteAllUsers() []*User {
 func UpdateUser(user User) *User {
 	var chatsJson string
 	updateErr := Instance.QueryRow(
-		"UPDATE users SET username = $1, chats = $2 WHERE id = $3 RETURNING id, username, chats, createdAt, updatedAt",
+		`UPDATE users SET username = $1, chats = $2 WHERE id = $3 RETURNING id, username, chats, createdAt, updatedAt`,
 		user.Username, user.Chats, user.Id,
 	).Scan(&user.Id, &user.Username, &chatsJson, &user.CreatedAt, &user.UpdatedAt)
 	if updateErr != nil {
@@ -117,8 +139,8 @@ func UpdateUser(user User) *User {
 	return &user
 }
 
-func DropUserTable() {
-	_, err := Instance.Exec("DROP TABLE users")
+func DropUsersTable() {
+	_, err := Instance.Exec(`DROP TABLE users`)
 	if err != nil {
 		log.Fatal(err)
 	}
