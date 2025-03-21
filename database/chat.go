@@ -30,7 +30,7 @@ func CreateChatsTable() {
 
 func InsertChat(chat Chat) *Chat {
 	newChat := &Chat{}
-	var participants string
+	var participants *string
 	err := Instance.QueryRow(
 		`INSERT INTO chats (chatReference, participants) VALUES ($1, $2) RETURNING id, chatReference, participants, createdAt, updatedAt`,
 		chat.ChatReference, chat.Participants,
@@ -38,16 +38,15 @@ func InsertChat(chat Chat) *Chat {
 	if err != nil {
 		log.Fatal(err)
 	}
-	jsonerr := json.Unmarshal([]byte(participants), &newChat.Participants)
-	if jsonerr != nil {
-		log.Fatal(jsonerr)
+	if participants != nil {
+		json.Unmarshal([]byte(*participants), &newChat.Participants)
 	}
 	return newChat
 }
 
 func GetChat(reference string) *Chat {
 	newChat := &Chat{}
-	var participants string = ""
+	var participants *string
 	err := Instance.QueryRow(
 		`SELECT Id, ChatReference, Participants, CreatedAt, UpdatedAt FRON chats WHERE chatReference = $1`,
 		reference,
@@ -55,16 +54,15 @@ func GetChat(reference string) *Chat {
 	if err != nil {
 		newChat = nil
 	}
-	jsonerr := json.Unmarshal([]byte(participants), &newChat.Participants)
-	if jsonerr != nil {
-		log.Fatal(jsonerr)
+	if participants != nil {
+		json.Unmarshal([]byte(*participants), &newChat.Participants)
 	}
 	return newChat
 }
 
 func DeleteChat(reference string) *Chat {
 	newChat := &Chat{}
-	var participants string = ""
+	var participants *string
 	err := Instance.QueryRow(
 		`DELETE FROM chats WHERE chatReference = $1 RETURNING id, chatReference, participants, createdAt, updatedAt`,
 		reference,
@@ -72,9 +70,8 @@ func DeleteChat(reference string) *Chat {
 	if err != nil {
 		newChat = nil
 	}
-	jsonerr := json.Unmarshal([]byte(participants), &newChat.Participants)
-	if jsonerr != nil {
-		log.Fatal(jsonerr)
+	if participants != nil {
+		json.Unmarshal([]byte(*participants), &newChat.Participants)
 	}
 	return newChat
 }

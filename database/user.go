@@ -45,32 +45,31 @@ func InsertUser(user User) *User {
 
 func GetUser(username string) *User {
 	user := &User{}
-	var chatsJson string = ""
+	var chatsJson *string
 	err := Instance.QueryRow(
 		`SELECT id, username, chats, createdAt, updatedAt FROM users WHERE username = $1`, username,
 	).Scan(&user.Id, &user.Username, &chatsJson, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		user = nil
 	}
-	jsonError := json.Unmarshal([]byte(chatsJson), &user.Chats)
-	if jsonError != nil {
-		log.Fatal(jsonError)
+	if chatsJson != nil {
+		json.Unmarshal([]byte(*chatsJson), &user.Chats)
 	}
+	
 	return user
 }
 
 func DeleteUser(username string) *User {
 	user := &User{}
-	var chatsJson string
+	var chatsJson *string
 	err := Instance.QueryRow(
 		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, chats, createdAt, updatedAt`, username,
 	).Scan(&user.Id, &user.Username, &chatsJson, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		log.Fatal(err)
 	}
-	jsonError := json.Unmarshal([]byte(chatsJson), &user.Chats)
-	if jsonError != nil {
-		log.Fatal(jsonError)
+	if chatsJson != nil {
+		json.Unmarshal([]byte(*chatsJson), &user.Chats)
 	}
 	return user
 }
@@ -85,14 +84,13 @@ func GetAllUsers() []*User {
 	}
 	for rows.Next() {
 		user := &User{}
-		var chatsJson string
+		var chatsJson *string
 		err := rows.Scan(&user.Id, &user.Username, &chatsJson, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
 			log.Fatal(err)
 		}
-		jsonError := json.Unmarshal([]byte(chatsJson), &user.Chats)
-		if jsonError != nil {
-			log.Fatal(jsonError)
+		if chatsJson != nil {
+			json.Unmarshal([]byte(*chatsJson), &user.Chats)
 		}
 		users = append(users, user)
 	}
@@ -109,14 +107,13 @@ func DeleteAllUsers() []*User {
 	}
 	for rows.Next() {
 		user := &User{}
-		var chatsJson string
+		var chatsJson *string
 		err := rows.Scan(&user.Id, &user.Username, &chatsJson, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
 			log.Fatal(err)
 		}
-		jsonError := json.Unmarshal([]byte(chatsJson), &user.Chats)
-		if jsonError != nil {
-			log.Fatal(jsonError)
+		if chatsJson != nil {
+			json.Unmarshal([]byte(*chatsJson), &user.Chats)
 		}
 		users = append(users, user)
 	}
@@ -124,7 +121,7 @@ func DeleteAllUsers() []*User {
 }
 
 func UpdateUser(user User) *User {
-	var chatsJson string
+	var chatsJson *string
 	updateErr := Instance.QueryRow(
 		`UPDATE users SET username = $1, chats = $2 WHERE id = $3 RETURNING id, username, chats, createdAt, updatedAt`,
 		user.Username, user.Chats, user.Id,
@@ -132,9 +129,8 @@ func UpdateUser(user User) *User {
 	if updateErr != nil {
 		log.Fatal(updateErr)
 	}
-	jsonError := json.Unmarshal([]byte(chatsJson), &user.Chats)
-	if jsonError != nil {
-		log.Fatal(jsonError)
+	if chatsJson != nil {
+		json.Unmarshal([]byte(*chatsJson), &user.Chats)
 	}
 	return &user
 }

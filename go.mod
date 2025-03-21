@@ -3,7 +3,6 @@ module github.com/te6lim/go-chat
 go 1.23.1
 
 require (
-	github.com/golang-migrate/migrate v3.5.4+incompatible
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
