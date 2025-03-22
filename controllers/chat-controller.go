@@ -18,7 +18,6 @@ func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
 	if user == nil {
 		_ = database.InsertUser(database.User{
 			Username: "user0",
-			Chats:    make(map[string]bool),
 		})
 	}
 

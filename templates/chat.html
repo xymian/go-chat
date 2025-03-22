@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+      }
+      #chatContainer {
+        max-width: 400px;
+        margin: auto;
+      }
+      #messages {
+        height: 300px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+        text-align: left;
+      }
+      .message {
+        margin-bottom: 5px;
+      }
+      .message.different-sender {
+        margin-top: 15px;
+        margin-bottom: 5px;
+      }
+      .sender {
+        font-weight: bold;
+        color: #0077b6;
+      } /* Ocean Blue */
+      .receiver {
+        font-weight: bold;
+        color: #228b22;
+      } /* Forest Green */
+      #inputContainer {
+        display: flex;
+        margin-top: 10px;
+      }
+      #input {
+        flex: 1;
+        padding: 10px;
+      }
+      #send {
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="chatContainer">
+      <h2>Chat</h2>
+      <div id="messages"></div>
+      <div id="inputContainer">
+        <input type="text" id="input" placeholder="Type a message..." />
+        <button id="send">Send</button>
+      </div>
+    </div>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const user = urlParams.get("user") || "Me";
+      const segments = window.location.pathname
+        .split("/")
+        .filter((segment) => segment);
+      const roomId = segments[segments.length - 1];
+
+      const socket = new WebSocket(`ws://localhost:8080/${roomId}`); // Adjust as needed
+
+      function appendMessage(sender, text) {
+        const messagesDiv = document.getElementById("messages");
+        const lastMessage = messagesDiv.lastElementChild;
+        const lastSender = lastMessage
+          ? lastMessage.querySelector("span").textContent.split(":")[0]
+          : null;
+        const isDifferentSender = lastSender !== sender;
+
+        const message = document.createElement("div");
+        message.classList.add("message");
+        if (isDifferentSender) message.classList.add("different-sender");
+
+        const senderSpan = document.createElement("span");
+        senderSpan.textContent = `${sender}: `;
+        senderSpan.classList.add(sender === user ? "sender" : "receiver");
+
+        const messageText = document.createElement("span");
+        messageText.textContent = text;
+
+        message.appendChild(senderSpan);
+        message.appendChild(messageText);
+        messagesDiv.appendChild(message);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      socket.onmessage = (event) => {
+        const messageData = JSON.parse(event.data); // Expecting { sender: '', message: '' }
+        appendMessage(messageData.sender, messageData.message);
+      };
+
+      document.getElementById("send").addEventListener("click", () => {
+        const input = document.getElementById("input");
+        if (input.value.trim()) {
+          const messageData = { sender: user, receiver: , text: input.value, chatReference: roomId };
+          socket.send(JSON.stringify(messageData));
+          appendMessage(user, input.value);
+          input.value = "";
+        }
+      });
+    </script>
+  </body>
+</html>

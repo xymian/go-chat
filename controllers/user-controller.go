@@ -42,7 +42,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 func InsertUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	user := &database.User{}
-	utils.ParseBody(r, user)
+	utils.ParseBody(r, &user)
 	user = database.InsertUser(*user)
 	if user == nil {
 		w.WriteHeader(http.StatusInternalServerError)
