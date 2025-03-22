@@ -58,3 +58,4 @@ Feel free to open issues or submit pull requests if you'd like to contribute
 - Use postgres for DB implementation ✅
 - Build simple front-end client ⏳
 - Set up db migration for users ✅
+- Implement UI to add new user to chat with ✅

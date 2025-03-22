@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Go-Chat</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 50px;
+      }
+      #container {
+        max-width: 400px;
+        margin: auto;
+      }
+      input,
+      button {
+        width: 100%;
+        padding: 10px;
+        margin-top: 10px;
+        box-sizing: border-box;
+      }
+      input {
+        display: block;
+      }
+      button {
+        display: block;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <h2>Welcome to Go-Chat</h2>
+      <input
+        type="text"
+        id="username"
+        placeholder="Enter username to chat with"
+      />
+      <button id="startChat">Start Chat</button>
+    </div>
+
+    <script>
+      document.getElementById("startChat").addEventListener("click", () => {
+        const username = document.getElementById("username").value.trim();
+        if (username) {
+          window.location.href = `chat.html?user=${encodeURIComponent(
+            username
+          )}`;
+        }
+      });
+    </script>
+  </body>
+</html>
