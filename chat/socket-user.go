@@ -1,6 +1,9 @@
 package chat
 
 import (
+	"fmt"
+
+	"github.com/te6lim/go-chat/config"
 	"github.com/te6lim/go-chat/tracer"
 )
 
@@ -11,13 +14,13 @@ var LoggedOutUser chan *Socketuser = make(chan *Socketuser)
 var AskForUserToChatWith = make(chan *Socketuser)
 
 type UserListeners struct {
-	SendMessage       chan SocketMessage
-	ReceiveMessage    chan SocketMessage
-	Room              chan *Room
+	SendMessage    chan SocketMessage
+	ReceiveMessage chan SocketMessage
+	Room           chan *Room
 }
 
 type JoinSessionRequest struct {
-	RoomId      string
+	RoomId         string
 	RequestingUser string
 }
 
@@ -28,6 +31,48 @@ type Socketuser struct {
 	Tracer     tracer.Tracer
 }
 
+func SetupSocketUser(username string, otherUsername string, roomId string, socketId string) {
+	var newUser *Socketuser
+	if OnlineUsers[username] != nil {
+		newUser = OnlineUsers[username]
+		newUser.Tracer.Trace("\nUser", username, " is online")
+	} else {
+		newUser = CreateNewUser(username)
+		NewUser <- newUser
+	}
+
+	var room *Room
+	if Rooms[roomId] == nil {
+		room = CreateRoom(roomId)
+		AddRoom <- room
+		go room.Run()
+	} else {
+		room = Rooms[roomId]
+	}
+
+	user := OnlineUsers[username]
+	endpoint := fmt.Sprintf("/%s", socketId)
+	config.Router.Handle(endpoint, room)
+	room.JoinRoom(user)
+	//go room.MessageSender(user)
+	go room.MessageReceiver(user)
+
+	/*for {
+		var message string
+		fmt.Print("Enter your message: ")
+		fmt.Scanln(&message)
+
+		// for testing purposes
+		if message == "/" {
+			break
+		} else {
+			user.SendMessage <- SocketMessage{
+				Text: message, Sender: username,
+			}
+		}
+	}*/
+}
+
 func CreateNewUser(username string) *Socketuser {
 	return &Socketuser{
 		Username:   username,
@@ -35,9 +80,9 @@ func CreateNewUser(username string) *Socketuser {
 		Tracer:     tracer.New(),
 
 		UserListeners: UserListeners{
-			SendMessage:       make(chan SocketMessage),
-			ReceiveMessage:    make(chan SocketMessage),
-			Room:              make(chan *Room),
+			SendMessage:    make(chan SocketMessage),
+			ReceiveMessage: make(chan SocketMessage),
+			Room:           make(chan *Room),
 		},
 	}
 }

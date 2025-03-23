@@ -60,14 +60,7 @@
     </div>
 
     <script>
-      const urlParams = new URLSearchParams(window.location.search);
-      const user = urlParams.get("user") || "Me";
-      const segments = window.location.pathname
-        .split("/")
-        .filter((segment) => segment);
-      const roomId = segments[segments.length - 1];
-
-      const socket = new WebSocket(`ws://localhost:8080/${roomId}`); // Adjust as needed
+      const socket = new WebSocket(`ws://localhost:8080/{{ .SocketId }}`);
 
       function appendMessage(sender, text) {
         const messagesDiv = document.getElementById("messages");
@@ -83,7 +76,9 @@
 
         const senderSpan = document.createElement("span");
         senderSpan.textContent = `${sender}: `;
-        senderSpan.classList.add(sender === user ? "sender" : "receiver");
+        senderSpan.classList.add(
+          sender === "{{.Pair.User}}" ? "sender" : "receiver"
+        );
 
         const messageText = document.createElement("span");
         messageText.textContent = text;
@@ -102,9 +97,14 @@
       document.getElementById("send").addEventListener("click", () => {
         const input = document.getElementById("input");
         if (input.value.trim()) {
-          const messageData = { sender: user, receiver: , text: input.value, chatReference: roomId };
+          const messageData = {
+            sender: "{{.Pair.User}}",
+            receiver: "{{.Pair.Other}}",
+            text: input.value,
+            chatReference: roomId,
+          };
           socket.send(JSON.stringify(messageData));
-          appendMessage(user, input.value);
+          appendMessage("{{.Pair.User}}", input.value);
           input.value = "";
         }
       });

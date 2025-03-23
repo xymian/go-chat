@@ -7,8 +7,8 @@ import (
 )
 
 func RegisterChatRoutes(router *mux.Router) {
-	router.Handle("/chat", &templates.TemplateHandler{FileName: "start-new-chat.html"}).Methods("GET")
-	router.HandleFunc("/chat/{roomId}", controllers.HandleTwoUserChat).Methods("GET")
+	router.HandleFunc("/chat", (&templates.TemplateHandler{FileName: "start-new-chat.html"}).HandleNewChat).Methods("GET")
+	router.HandleFunc("/chat/{roomId}", (&templates.TemplateHandler{FileName: "chat.html"}).HandleChat).Methods("GET")
 	router.HandleFunc("/chat/{userId}", controllers.InsertMessage).Methods("POST")
 	router.HandleFunc("/chat/{userId}", controllers.DeleteMessage).Methods("DELETE")
 	router.HandleFunc("/chat/{userId}", controllers.DeleteAllMessages).Methods("DELETE")

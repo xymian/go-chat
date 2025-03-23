@@ -1,7 +1,5 @@
 package database
 
-import "log"
-
 type Participant struct {
 	Id            string `json:"id"`
 	Username      string `json:"username"`
@@ -9,16 +7,16 @@ type Participant struct {
 	CreatedAt     string `json:"createdAt"`
 }
 
-func InsertParticipant(participant Participant) Participant {
+func InsertParticipant(participant Participant) *Participant {
 	newParticipant := &Participant{}
 	err := Instance.QueryRow(
 		`INSERT INTO participants (id, username chatReference) VALUES ($1, $2, $3) RETURNING id, chatReference`,
 	).Scan(&newParticipant.Id, &newParticipant.Username, &newParticipant.ChatReference, &newParticipant.CreatedAt)
 
 	if err != nil {
-		log.Fatal(err)
+		newParticipant = nil
 	}
-	return *newParticipant
+	return newParticipant
 }
 
 func GetParticipantsOfChat(chatReference string) []Participant {
@@ -33,19 +31,19 @@ func GetParticipantsOfChat(chatReference string) []Participant {
 		participants = append(participants, *participant)
 	}
 	if err != nil {
-		log.Fatal(err)
+		participants = nil
 	}
 	return participants
 }
 
-func GetParticipant(username string) Participant {
+func GetParticipant(username string) *Participant {
 	participant := &Participant{}
 	err := Instance.QueryRow(
 		`SELECT id, username, chatReference, createdAt FROM participants WHERE username = $1`,
 		username,
 	).Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
 	if err != nil {
-		log.Fatal(err)
+		participant = nil
 	}
-	return *participant
+	return participant
 }

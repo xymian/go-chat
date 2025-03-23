@@ -5,34 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/utils"
 )
-
-func HandleTwoUserChat(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	me := mux.Vars(r)["me"]
-
-	user := database.GetUser(me)
-	if user == nil {
-		_ = database.InsertUser(database.User{
-			Username: "user0",
-		})
-	}
-
-	var newUser *chat.Socketuser
-	if chat.OnlineUsers[me] != nil {
-		newUser = chat.OnlineUsers[me]
-		newUser.Tracer.Trace("\nUser", me, " is online")
-	} else {
-		newUser = chat.CreateNewUser(me)
-		chat.NewUser <- newUser
-	}
-
-	//for testing purposes
-	chat.AskForUserToChatWith <- newUser
-}
 
 func InsertMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

@@ -25,16 +25,27 @@ func InsertMessage(message *Message) *Message {
 		})
 	}
 
+	participant := GetParticipant(message.Sender)
+	if participant == nil {
+		parti := InsertParticipant(Participant{
+			Username: message.Sender, ChatReference: message.ChatReference,
+		})
+		if parti == nil {
+			return nil
+		}
+	}
+
 	err := Instance.QueryRow(
 		`INSERT INTO messages (messageReference, text, sender, receiver, timestamp, chatReference)
-		VALUES ($1, $2, $3, $4, $5) RETURNING id, messageReference, text, sender, receiver, timestamp, chatReference, createdSt, updatedAt`,
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, messageReference, text, sender, receiver, timestamp, chatReference, createdSt, updatedAt`,
 		message.MessageReference, message.Text, message.Sender, message.Receiver, message.Timestamp, chat.ChatReference,
 	).Scan(
 		&dbMessage.MessageReference, &dbMessage.Id, &dbMessage.Text, &dbMessage.Sender, &dbMessage.Receiver, &dbMessage.Timestamp,
 		&dbMessage.ChatReference, &dbMessage.CreatedAt, &dbMessage.UpdatedAt,
 	)
 	if err != nil {
-		log.Fatal(err)
+		dbMessage = nil
 	}
 	return dbMessage
 }
@@ -50,7 +61,7 @@ func GetMessage(chatReference string, messageReference string) *Message {
 		&newMessage.Receiver, &newMessage.Timestamp, &newMessage.ChatReference, &newMessage.CreatedAt, &newMessage.UpdatedAt,
 	)
 	if err != nil {
-		log.Fatal(err)
+		newMessage = nil
 	}
 
 	return newMessage
@@ -87,7 +98,7 @@ func DeleteMessage(messageReference string) *Message {
 		&message.Timestamp, &message.ChatReference, &message.CreatedAt, &message.UpdatedAt,
 	)
 	if err != nil {
-		log.Fatal(err)
+		message = nil
 	}
 	return message
 }

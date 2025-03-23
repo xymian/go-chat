@@ -1,21 +1,16 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
 	_ "github.com/jackc/pgx/v4/stdlib"
 
 	"github.com/te6lim/go-chat/chat"
+	"github.com/te6lim/go-chat/config"
 	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/routes"
-	"github.com/te6lim/go-chat/utils"
 )
-
-var Router *mux.Router = mux.NewRouter()
 
 func main() {
 
@@ -28,14 +23,14 @@ func main() {
 
 	defer database.Instance.Close()
 
-	routes.RegisterUserRoutes(Router)
-	routes.RegisterChatRoutes(Router)
+	routes.RegisterUserRoutes(config.Router)
+	routes.RegisterChatRoutes(config.Router)
 
 	go chat.ListenForActiveUsers()
 	go chat.ListenForNewChatRoom()
-	go ListenForCollectInputFlag()
+	//go ListenForCollectInputFlag()
 
-	http.Handle("/", Router)
+	http.Handle("/", config.Router)
 	log.Println("Server started on localhost:8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal(err)
@@ -43,7 +38,7 @@ func main() {
 }
 
 // for testing purposes
-func ListenForCollectInputFlag() {
+/*func ListenForCollectInputFlag() {
 	for user := range chat.AskForUserToChatWith {
 		var contact string
 		fmt.Print("Enter username to chat with: ")
@@ -73,36 +68,8 @@ func ListenForCollectInputFlag() {
 			}
 		}
 	}
-}
+}*/
 
 func SetupChat(username string, otherUsername string, room *chat.Room) {
-	user := chat.OnlineUsers[username]
-	if room.ClientConn == nil {
-		endpoint := fmt.Sprintf("/%s+%s", username, otherUsername)
-		socketURL := fmt.Sprintf("ws://localhost:8080%s", endpoint)
-		Router.Handle(endpoint, room)
-		conn, _, err := websocket.DefaultDialer.Dial(socketURL, nil)
-		if err != nil {
-			log.Fatal("WebSocket dial error:", err)
-		}
-		room.ClientConn = conn
-	}
-	room.JoinRoom(user)
-	go room.MessageSender(user)
-	go room.MessageReceiver(user)
 
-	for {
-		var message string
-		fmt.Print("Enter your message: ")
-		fmt.Scanln(&message)
-
-		// for testing purposes
-		if message == "/" {
-			break
-		} else {
-			user.SendMessage <- chat.SocketMessage{
-				Text: message, Sender: username,
-			}
-		}
-	}
 }

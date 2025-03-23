@@ -8,12 +8,15 @@ import (
 	"net/http"
 )
 
-func ParseBody(r *http.Request, o interface{}) {
-	if body, err := io.ReadAll(r.Body); err == nil {
+func ParseBody(r *http.Request, o interface{}) error {
+	if body, err := io.ReadAll(r.Body); err != nil {
+		return errors.New("parsing body failed")
+	} else {
 		if err = json.Unmarshal(body, o); err != nil {
-			return
+			return errors.New("parsing body failed")
 		}
 	}
+	return nil
 }
 
 func GenerateRoomId(username0 string, username1 string) (string, error) {

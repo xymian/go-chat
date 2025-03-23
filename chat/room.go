@@ -12,7 +12,6 @@ import (
 
 type Room struct {
 	Id               string
-	ClientConn       *websocket.Conn
 	ServerConn       *websocket.Conn
 	leave            chan *Socketuser
 	join             chan *Socketuser
@@ -102,7 +101,7 @@ func (room *Room) ReadMessages() {
 	}
 }
 
-func (room *Room) MessageSender(user *Socketuser) {
+/*func (room *Room) MessageSender(user *Socketuser) {
 	if room.participants[user] {
 		defer func() {
 			user.Tracer.Trace("done sending")
@@ -117,7 +116,7 @@ func (room *Room) MessageSender(user *Socketuser) {
 	} else {
 		user.Tracer.Trace("You are not in this room")
 	}
-}
+}*/
 
 func (room *Room) MessageReceiver(user *Socketuser) {
 	if room.participants[user] {
