@@ -20,8 +20,8 @@ type TemplateHandler struct {
 }
 
 type chatPair struct {
-	User  string
-	Other string
+	User  string `json:"user"`
+	Other string `json:"other"`
 }
 
 func (handler *TemplateHandler) parseFileOnce() {
@@ -64,9 +64,9 @@ func (handler *TemplateHandler) HandleChat(w http.ResponseWriter, r *http.Reques
 	chat.SetupSocketUser(pair.User, pair.Other, chats.ChatReference, socketId)
 
 	data := map[string]interface{}{
-		"Host":   r.Host,
-		"RoomId": chats.ChatReference,
-		"Pair":   pair,
+		"Host":     r.Host,
+		"RoomId":   chats.ChatReference,
+		"Pair":     pair,
 		"SocketId": socketId,
 	}
 

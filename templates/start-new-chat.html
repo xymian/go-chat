@@ -42,14 +42,44 @@
     </div>
 
     <script>
-      document.getElementById("startChat").addEventListener("click", () => {
-        const username = document.getElementById("username").value.trim();
-        if (username) {
-          window.location.href = `chat.html?user=${encodeURIComponent(
-            username
-          )}`;
+      function generateRoomId(username0, username1) {
+        if (username0.length > 0 && username1.length > 0) {
+          return username0 <= username1
+            ? `${username0}+${username1}`
+            : `${username1}+${username0}`;
         }
-      });
+        throw new Error("invalid username");
+      }
+      document
+        .getElementById("startChat")
+        .addEventListener("click", async () => {
+          const username = document.getElementById("username").value.trim();
+          if (username) {
+            const roomId = generateRoomId("{{ .Me }}", username);
+            const chatUrl = `{{ .Host }}/chat/${roomId}`;
+            const requestBody = JSON.stringify({
+              user: "{{ .Me }}",
+              other: username,
+            });
+
+            try {
+              const response = await fetch(chatUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "appliction/json",
+                },
+                body: requestBody,
+              });
+              if (response.ok) {
+                window.location.href = chatUrl;
+              } else {
+                console.error("Failed to start chat:", await response.text());
+              }
+            } catch (error) {
+              console.error("Error:", error);
+            }
+          }
+        });
     </script>
   </body>
 </html>

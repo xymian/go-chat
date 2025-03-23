@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/utils"
 )
@@ -34,7 +33,7 @@ func DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
-func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
+/*func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	otherUserId := r.URL.Query().Get("otherUser")
 	chatRef, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
@@ -49,18 +48,18 @@ func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(res)
-}
+}*/
 
 func GetMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	messageRef := r.URL.Query().Get("messageId")
-	otherUserId := r.URL.Query().Get("otherUser")
-	chatRef, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
-	if err != nil {
+	chatRef := r.URL.Query().Get("chatId")
+	chat := database.GetChat(chatRef)
+	if chat == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	message := database.GetMessage(chatRef, messageRef)
+	message := database.GetMessage(chat.ChatReference, messageRef)
 	res, err := json.Marshal(message)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -71,13 +70,13 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 
 func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	otherUserId := r.URL.Query().Get("otherUser")
-	chatRef, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
-	if err != nil {
+	chatRef := r.URL.Query().Get("chatId")
+	chat := database.GetChat(chatRef)
+	if chat == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	messages := database.GetAllMessages(chatRef)
+	messages := database.GetAllMessages(chat.ChatReference)
 	res, err := json.Marshal(messages)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

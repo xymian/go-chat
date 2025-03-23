@@ -11,7 +11,7 @@ func RegisterChatRoutes(router *mux.Router) {
 	router.HandleFunc("/chat/{roomId}", (&templates.TemplateHandler{FileName: "chat.html"}).HandleChat).Methods("GET")
 	router.HandleFunc("/chat/{userId}", controllers.InsertMessage).Methods("POST")
 	router.HandleFunc("/chat/{userId}", controllers.DeleteMessage).Methods("DELETE")
-	router.HandleFunc("/chat/{userId}", controllers.DeleteAllMessages).Methods("DELETE")
+	//router.HandleFunc("/chat/{userId}", controllers.DeleteAllMessages).Methods("DELETE")
 	router.HandleFunc("/chat/{userId}", controllers.GetAllMessages).Methods("GET")
 	router.HandleFunc("/chat/{userId}", controllers.GetMessage).Methods("GET")
 }
