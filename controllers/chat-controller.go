@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/utils"
 )
@@ -33,22 +34,21 @@ func DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
-/*func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
+func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	otherUserId := r.URL.Query().Get("otherUser")
-	chatRef, err := utils.GenerateRoomId(mux.Vars(r)["userId"], otherUserId)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+	chatRef := mux.Vars(r)["chatId"]
+	messages := database.DeleteAllMessages(chatRef)
+	if messages == nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	messages := database.DeleteAllMessages(chatRef)
 	res, err := json.Marshal(messages)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.Write(res)
-}*/
+}
 
 func GetMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

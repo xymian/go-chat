@@ -19,22 +19,6 @@ type Message struct {
 func InsertMessage(message *Message) *Message {
 	chat := GetChat(message.ChatReference)
 	dbMessage := &Message{}
-	if chat == nil {
-		chat = InsertChat(Chat{
-			ChatReference: message.ChatReference,
-		})
-	}
-
-	participant := GetParticipant(message.Sender)
-	if participant == nil {
-		parti := InsertParticipant(Participant{
-			Username: message.Sender, ChatReference: message.ChatReference,
-		})
-		if parti == nil {
-			return nil
-		}
-	}
-
 	err := Instance.QueryRow(
 		`INSERT INTO messages (messageReference, text, sender, receiver, timestamp, chatReference)
 		VALUES ($1, $2, $3, $4, $5)

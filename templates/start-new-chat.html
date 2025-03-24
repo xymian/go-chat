@@ -55,29 +55,9 @@
         .addEventListener("click", async () => {
           const username = document.getElementById("username").value.trim();
           if (username) {
-            const roomId = generateRoomId("{{ .Me }}", username);
-            const chatUrl = `{{ .Host }}/chat/${roomId}`;
-            const requestBody = JSON.stringify({
-              user: "{{ .Me }}",
-              other: username,
-            });
-
-            try {
-              const response = await fetch(chatUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "appliction/json",
-                },
-                body: requestBody,
-              });
-              if (response.ok) {
-                window.location.href = chatUrl;
-              } else {
-                console.error("Failed to start chat:", await response.text());
-              }
-            } catch (error) {
-              console.error("Error:", error);
-            }
+            const chatId = generateRoomId("{{ .Me }}", username);
+            const chatUrl = `http://{{ .Host }}/chat/${chatId}?me={{ .Me }}&other=${username}`;
+            window.location.href = chatUrl;
           }
         });
     </script>

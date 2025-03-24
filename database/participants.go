@@ -19,7 +19,7 @@ func InsertParticipant(participant Participant) *Participant {
 	return newParticipant
 }
 
-func GetParticipantsOfChat(chatReference string) []Participant {
+func GetParticipantsInChat(chatReference string) []Participant {
 	participants := []Participant{}
 	rows, err := Instance.Query(
 		`SELECT id, chatReference, createdAt FROM participants WHERE chatReference = $1`,
@@ -36,11 +36,11 @@ func GetParticipantsOfChat(chatReference string) []Participant {
 	return participants
 }
 
-func GetParticipant(username string) *Participant {
+func GetParticipant(username string, chatReference string) *Participant {
 	participant := &Participant{}
 	err := Instance.QueryRow(
-		`SELECT id, username, chatReference, createdAt FROM participants WHERE username = $1`,
-		username,
+		`SELECT id, username, chatReference, createdAt FROM participants WHERE username = $1 AND chatReference = $2`,
+		username, chatReference,
 	).Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
 	if err != nil {
 		participant = nil

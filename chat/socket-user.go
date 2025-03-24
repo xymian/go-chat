@@ -50,12 +50,11 @@ func SetupSocketUser(username string, otherUsername string, roomId string, socke
 		room = Rooms[roomId]
 	}
 
-	user := OnlineUsers[username]
-	endpoint := fmt.Sprintf("/%s", socketId)
+	endpoint := fmt.Sprintf("/chat/%s", socketId)
 	config.Router.Handle(endpoint, room)
-	room.JoinRoom(user)
+	room.JoinRoom(newUser)
 	//go room.MessageSender(user)
-	go room.MessageReceiver(user)
+	go room.MessageReceiver(newUser)
 
 	/*for {
 		var message string

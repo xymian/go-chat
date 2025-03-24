@@ -60,7 +60,7 @@
     </div>
 
     <script>
-      const socket = new WebSocket(`ws://localhost:8080/{{ .SocketId }}`);
+      const socket = new WebSocket(`ws://localhost:8080/chat/{{ .SocketId }}`);
 
       function appendMessage(sender, text) {
         const messagesDiv = document.getElementById("messages");
@@ -77,7 +77,7 @@
         const senderSpan = document.createElement("span");
         senderSpan.textContent = `${sender}: `;
         senderSpan.classList.add(
-          sender === "{{.Pair.User}}" ? "sender" : "receiver"
+          sender === "{{ .Me }}" ? "sender" : "receiver"
         );
 
         const messageText = document.createElement("span");
@@ -98,13 +98,13 @@
         const input = document.getElementById("input");
         if (input.value.trim()) {
           const messageData = {
-            sender: "{{.Pair.User}}",
-            receiver: "{{.Pair.Other}}",
+            sender: "{{ .Me }}",
+            receiver: "{{ .Other }}",
             text: input.value,
-            chatReference: roomId,
+            chatReference: "{{ .ChatId }}}",
           };
           socket.send(JSON.stringify(messageData));
-          appendMessage("{{.Pair.User}}", input.value);
+          appendMessage("{{ .Me }}", input.value);
           input.value = "";
         }
       });

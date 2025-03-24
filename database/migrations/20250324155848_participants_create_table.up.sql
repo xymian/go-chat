@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS paticipants(
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50),
+    chatReference TEXT NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

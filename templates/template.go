@@ -8,9 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	chat "github.com/te6lim/go-chat/chat"
+	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/database"
-	"github.com/te6lim/go-chat/utils"
 )
 
 type TemplateHandler struct {
@@ -49,26 +48,33 @@ func (handler *TemplateHandler) HandleNewChat(w http.ResponseWriter, r *http.Req
 
 func (handler *TemplateHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	handler.parseFileOnce()
-	roomId := mux.Vars(r)["roomId"]
-	chats := database.GetChat(roomId)
-	if chats == nil {
-		chats = database.InsertChat(database.Chat{
-			ChatReference: roomId,
+	chatId := mux.Vars(r)["chatId"]
+	me := r.URL.Query().Get("me")
+	c := database.GetChat(chatId)
+	if c == nil {
+		c = database.InsertChat(database.Chat{
+			ChatReference: chatId,
 		})
 	}
 
-	var pair *chatPair
-	utils.ParseBody(r, &pair)
+	particpant := database.GetParticipant(me, c.ChatReference)
+	if particpant == nil {
+		particpant = database.InsertParticipant(database.Participant{
+			Username:      me,
+			ChatReference: chatId,
+		})
+	}
 
+	other := r.URL.Query().Get("other")
 	socketId := uuid.New().String()
-	chat.SetupSocketUser(pair.User, pair.Other, chats.ChatReference, socketId)
-
 	data := map[string]interface{}{
 		"Host":     r.Host,
-		"RoomId":   chats.ChatReference,
-		"Pair":     pair,
+		"ChatId":   c.ChatReference,
+		"Me":       me,
+		"Other":    other,
 		"SocketId": socketId,
 	}
+	chat.SetupSocketUser(me, other, c.ChatReference, socketId)
 
 	handler.Template.Execute(w, data)
 }
