@@ -12,37 +12,55 @@ import (
 
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	id := mux.Vars(r)["id"]
-	user := database.GetUser(id)
+	username := mux.Vars(r)["username"]
+	user := database.GetUser(username)
+	var response interface{}
 	if user == nil {
+		response = utils.Error{
+			Err: "User does not exist",
+		}
 		w.WriteHeader(http.StatusNotFound)
-		return
+	} else {
+		response = user
+		w.WriteHeader(http.StatusOK)
 	}
-	res, err := json.Marshal(user)
+	res, err := json.Marshal(response)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 }
 
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	users := database.GetAllUsers()
-	res, err := json.Marshal(users)
+	var response interface{}
+	if users == nil {
+		response = utils.Error{
+			Err: "User does not exist",
+		}
+		w.WriteHeader(http.StatusNotFound)
+	} else {
+		response = users
+		w.WriteHeader(http.StatusOK)
+	}
+	res, err := json.Marshal(response)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 }
 
 func InsertUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	user := &database.User{}
-	utils.ParseBody(r, &user)
+	err := utils.ParseBody(r, &user)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	user = database.InsertUser(*user)
 	if user == nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -58,7 +76,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func Delete(w http.ResponseWriter, r *http.Request) {
-	username := mux.Vars(r)["id"]
+	username := mux.Vars(r)["username"]
 	users := database.DeleteUser(username)
 	res, err := json.Marshal(users)
 	if err != nil {

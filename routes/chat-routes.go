@@ -14,4 +14,6 @@ func RegisterChatRoutes(router *mux.Router) {
 	router.HandleFunc("/messages", controllers.GetMessage).Methods("GET")
 	router.HandleFunc("/messages/{chatId}", controllers.DeleteAllMessages).Methods("DELETE")
 	router.HandleFunc("/messages/{chatId}", controllers.GetAllMessages).Methods("GET")
+
+	router.HandleFunc("/chatReference", controllers.GetChatRefForUsers).Methods("GET")
 }

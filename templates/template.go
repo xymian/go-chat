@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/database"
@@ -59,22 +58,20 @@ func (handler *TemplateHandler) HandleChat(w http.ResponseWriter, r *http.Reques
 
 	particpant := database.GetParticipant(me, c.ChatReference)
 	if particpant == nil {
-		particpant = database.InsertParticipant(database.Participant{
+		_ = database.InsertParticipant(database.Participant{
 			Username:      me,
 			ChatReference: chatId,
 		})
 	}
 
 	other := r.URL.Query().Get("other")
-	socketId := uuid.New().String()
 	data := map[string]interface{}{
-		"Host":     r.Host,
-		"ChatId":   c.ChatReference,
-		"Me":       me,
-		"Other":    other,
-		"SocketId": socketId,
+		"Host":   r.Host,
+		"ChatId": c.ChatReference,
+		"Me":     me,
+		"Other":  other,
 	}
-	chat.SetupSocketUser(me, other, c.ChatReference, socketId)
+	chat.SetupSocketUser(me, other, c.ChatReference)
 
 	handler.Template.Execute(w, data)
 }

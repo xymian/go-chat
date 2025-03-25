@@ -55,12 +55,26 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 	messageRef := r.URL.Query().Get("messageId")
 	chatRef := r.URL.Query().Get("chatId")
 	chat := database.GetChat(chatRef)
+	var response interface{}
 	if chat == nil {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(utils.Error{
+			Err: "chat does not exist",
+		})
+		w.Write(res)
 		return
 	}
 	message := database.GetMessage(chat.ChatReference, messageRef)
-	res, err := json.Marshal(message)
+	if message == nil {
+		response = utils.Error{
+			Err: "Message does not exist",
+		}
+		w.WriteHeader(http.StatusNotFound)
+	} else {
+		response = message
+		w.WriteHeader(http.StatusOK)
+	}
+	res, err := json.Marshal(response)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -72,12 +86,51 @@ func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	chatRef := r.URL.Query().Get("chatId")
 	chat := database.GetChat(chatRef)
+	var response interface{}
 	if chat == nil {
-		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(utils.Error{
+			Err: "chat does not exist",
+		})
+		w.WriteHeader(http.StatusNotFound)
+		w.Write(res)
 		return
 	}
 	messages := database.GetAllMessages(chat.ChatReference)
-	res, err := json.Marshal(messages)
+	if messages == nil {
+		response = utils.Error{
+			Err: "messages dont exist",
+		}
+		w.WriteHeader(http.StatusNotFound)
+	} else {
+		response = messages
+		w.WriteHeader(http.StatusOK)
+	}
+	res, err := json.Marshal(response)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(res)
+}
+
+func GetChatRefForUsers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	user := r.URL.Query().Get("user")
+	other := r.URL.Query().Get("other")
+	chatRef := database.GetChatRefFor(user, other)
+	var response interface{}
+	if chatRef == nil {
+		response = utils.Error{
+			Err: "chat reference does not exists",
+		}
+		w.WriteHeader(http.StatusNotFound)
+	} else {
+		response = map[string]string{
+			"chatReference": *chatRef,
+		}
+		w.WriteHeader(http.StatusOK)
+	}
+	res, err := json.Marshal(response)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

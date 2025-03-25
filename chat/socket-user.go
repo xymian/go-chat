@@ -31,7 +31,7 @@ type Socketuser struct {
 	Tracer     tracer.Tracer
 }
 
-func SetupSocketUser(username string, otherUsername string, roomId string, socketId string) {
+func SetupSocketUser(username string, otherUsername string, chatReference string) {
 	var newUser *Socketuser
 	if OnlineUsers[username] != nil {
 		newUser = OnlineUsers[username]
@@ -42,34 +42,19 @@ func SetupSocketUser(username string, otherUsername string, roomId string, socke
 	}
 
 	var room *Room
-	if Rooms[roomId] == nil {
-		room = CreateRoom(roomId)
+	if Rooms[chatReference] == nil {
+		room = CreateRoom(chatReference)
 		AddRoom <- room
 		go room.Run()
 	} else {
-		room = Rooms[roomId]
+		room = Rooms[chatReference]
 	}
 
-	endpoint := fmt.Sprintf("/chat/%s", socketId)
+	endpoint := fmt.Sprintf("/chat/%s", room.Id)
 	config.Router.Handle(endpoint, room)
 	room.JoinRoom(newUser)
 	//go room.MessageSender(user)
 	go room.MessageReceiver(newUser)
-
-	/*for {
-		var message string
-		fmt.Print("Enter your message: ")
-		fmt.Scanln(&message)
-
-		// for testing purposes
-		if message == "/" {
-			break
-		} else {
-			user.SendMessage <- SocketMessage{
-				Text: message, Sender: username,
-			}
-		}
-	}*/
 }
 
 func CreateNewUser(username string) *Socketuser {

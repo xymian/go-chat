@@ -54,10 +54,37 @@
         .getElementById("startChat")
         .addEventListener("click", async () => {
           const username = document.getElementById("username").value.trim();
+          var chatId = "";
           if (username) {
-            const chatId = generateRoomId("{{ .Me }}", username);
-            const chatUrl = `http://{{ .Host }}/chat/${chatId}?me={{ .Me }}&other=${username}`;
-            window.location.href = chatUrl;
+            await fetch(`http://{{ .Host }}/user/${username}`)
+              .then((response) => {
+                if (!response.ok) {
+                  throw new Error("failed to get user");
+                }
+                return response.json();
+              })
+              .then((data) => {});
+
+            await fetch(
+              `http://{{ .Host }}/chat/chatReference?user={{ .Me }}&other=${username}`
+            )
+              .then((response) => {
+                if (response.status == "404") {
+                  chatId = "";
+                }
+                return response.json();
+              })
+              .then((data) => {
+                const chatUrl = `http://{{ .Host }}/chat/${chatId}?me={{ .Me }}&other=${username}`;
+                window.location.href = chatUrl;
+                console.log("data: ", data);
+              })
+              .catch((error) => {
+                console.error(
+                  "There was a problem with the fetch operation:",
+                  error
+                );
+              });
           }
         });
     </script>

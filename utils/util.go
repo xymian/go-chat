@@ -17,3 +17,7 @@ func ParseBody(r *http.Request, o interface{}) error {
 	}
 	return nil
 }
+
+type Error struct {
+	Err string `json:"error"`
+}
