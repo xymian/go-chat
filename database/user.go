@@ -95,10 +95,3 @@ func UpdateUser(user User) *User {
 	}
 	return newUser
 }
-
-func DropUsersTable() {
-	_, err := Instance.Exec(`DROP TABLE users`)
-	if err != nil {
-		log.Fatal(err)
-	}
-}

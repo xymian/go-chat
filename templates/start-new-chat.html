@@ -54,37 +54,28 @@
         .getElementById("startChat")
         .addEventListener("click", async () => {
           const username = document.getElementById("username").value.trim();
-          var chatId = "";
-          if (username) {
-            await fetch(`http://{{ .Host }}/user/${username}`)
-              .then((response) => {
-                if (!response.ok) {
-                  throw new Error("failed to get user");
-                }
-                return response.json();
-              })
-              .then((data) => {});
+          let chatId = null;
 
-            await fetch(
-              `http://{{ .Host }}/chat/chatReference?user={{ .Me }}&other=${username}`
-            )
-              .then((response) => {
-                if (response.status == "404") {
-                  chatId = "";
+          if (username) {
+            try {
+              const chatResponse = await fetch(
+                `http://{{ .Host }}/chatReference?user={{ .Me }}&other=${username}`
+              );
+
+              if (chatResponse.ok) {
+                const chatData = await chatResponse.json();
+                chatId = chatData.chatReference;
+              } else {
+                if (chatResponse.status == "404") {
+                  chatId = crypto.randomUUID();
+                } else {
+                  // handle case of network error or somerthing
                 }
-                return response.json();
-              })
-              .then((data) => {
-                const chatUrl = `http://{{ .Host }}/chat/${chatId}?me={{ .Me }}&other=${username}`;
-                window.location.href = chatUrl;
-                console.log("data: ", data);
-              })
-              .catch((error) => {
-                console.error(
-                  "There was a problem with the fetch operation:",
-                  error
-                );
-              });
+              }
+              window.location.href = `http://{{ .Host }}/chat/${chatId}?me={{ .Me }}&other=${username}`;
+            } catch (error) {
+              console.error("Error during fetch operations:", error);
+            }
           }
         });
     </script>

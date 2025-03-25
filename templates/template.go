@@ -49,6 +49,7 @@ func (handler *TemplateHandler) HandleChat(w http.ResponseWriter, r *http.Reques
 	handler.parseFileOnce()
 	chatId := mux.Vars(r)["chatId"]
 	me := r.URL.Query().Get("me")
+	other := r.URL.Query().Get("other")
 	c := database.GetChat(chatId)
 	if c == nil {
 		c = database.InsertChat(database.Chat{
@@ -64,7 +65,14 @@ func (handler *TemplateHandler) HandleChat(w http.ResponseWriter, r *http.Reques
 		})
 	}
 
-	other := r.URL.Query().Get("other")
+	otherParticipant := database.GetParticipant(other, c.ChatReference)
+	if otherParticipant == nil {
+		_ = database.InsertParticipant(database.Participant{
+			Username:      other,
+			ChatReference: chatId,
+		})
+	}
+
 	data := map[string]interface{}{
 		"Host":   r.Host,
 		"ChatId": c.ChatReference,

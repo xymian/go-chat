@@ -10,7 +10,8 @@ type Participant struct {
 func InsertParticipant(participant Participant) *Participant {
 	newParticipant := &Participant{}
 	err := Instance.QueryRow(
-		`INSERT INTO participants (id, username chatReference) VALUES ($1, $2, $3) RETURNING id, username, chatReference, createdAt`,
+		`INSERT INTO participants (username, chatReference) VALUES ($1, $2) RETURNING id, username, chatReference, createdAt`,
+		participant.Username, participant.ChatReference,
 	).Scan(&newParticipant.Id, &newParticipant.Username, &newParticipant.ChatReference, &newParticipant.CreatedAt)
 
 	if err != nil {

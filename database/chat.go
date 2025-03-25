@@ -1,9 +1,5 @@
 package database
 
-import (
-	"log"
-)
-
 type Chat struct {
 	Id            string `json:"id"`
 	ChatReference string `json:"chatReference"`
@@ -14,11 +10,11 @@ type Chat struct {
 func InsertChat(chat Chat) *Chat {
 	newChat := &Chat{}
 	err := Instance.QueryRow(
-		`INSERT INTO chats(chatreference) VALUES ($1) RETURNING id, chatreference, createdAt, updatedAt`,
+		`INSERT INTO chats (chatReference) VALUES ($1) RETURNING id, chatReference, createdAt, updatedAt`,
 		chat.ChatReference,
 	).Scan(&chat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
 	if err != nil {
-		log.Fatal(err)
+		newChat = nil
 	}
 	return newChat
 }
@@ -45,11 +41,4 @@ func DeleteChat(reference string) *Chat {
 		newChat = nil
 	}
 	return newChat
-}
-
-func DropChatsTable() {
-	_, err := Instance.Exec(`DROP TABLE chats`)
-	if err != nil {
-		log.Fatal(err)
-	}
 }

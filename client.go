@@ -69,7 +69,3 @@ func main() {
 		}
 	}
 }*/
-
-func SetupChat(username string, otherUsername string, room *chat.Room) {
-
-}
