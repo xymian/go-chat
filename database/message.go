@@ -9,7 +9,7 @@ type Message struct {
 	MessageReference string `json:"messageReference"`
 	Text             string `json:"text"`
 	SenderUsername   string `json:"senderUsername"`
-	ReceiverUsername string `json:"receiver"`
+	ReceiverUsername string `json:"receiverUsername"`
 	Timestamp        string `json:"timestamp"`
 	ChatReference    string `json:"chatReference"`
 	CreatedAt        string `json:"createdAt"`

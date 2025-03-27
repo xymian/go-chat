@@ -58,6 +58,18 @@
 
           if (username) {
             try {
+              const userResponse = await fetch(
+                `http://{{ .Host }}/user/${username}`, {
+                  method: "GET",
+                  headers: {
+                    "Content-Type": "application/json"
+                  }
+                }
+              );
+
+              if (!userResponse.ok) {
+                throw new Error("User does not exist")
+              }
               const chatResponse = await fetch(
                 `http://{{ .Host }}/chatReference?user={{ .Me }}&other=${username}`
               );

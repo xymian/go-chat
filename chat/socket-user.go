@@ -1,9 +1,12 @@
 package chat
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/gorilla/websocket"
 	"github.com/te6lim/go-chat/config"
+	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/tracer"
 )
 
@@ -14,8 +17,9 @@ var LoggedOutUser chan *Socketuser = make(chan *Socketuser)
 var AskForUserToChatWith = make(chan *Socketuser)
 
 type UserListeners struct {
-	SendMessage    chan SocketMessage
-	ReceiveMessage chan SocketMessage
+	Conn           *websocket.Conn
+	SendMessage    chan database.Message
+	ReceiveMessage chan database.Message
 	Room           chan *Room
 }
 
@@ -35,6 +39,8 @@ func SetupSocketUser(username string, otherUsername string, chatReference string
 	var room *Room
 	if Rooms[chatReference] == nil {
 		room = CreateRoom(chatReference)
+		AddRoom <- room
+		go room.Run()
 	} else {
 		room = Rooms[chatReference]
 	}
@@ -49,10 +55,58 @@ func CreateNewUser(username string) *Socketuser {
 		Tracer:     tracer.New(),
 
 		UserListeners: UserListeners{
-			SendMessage:    make(chan SocketMessage),
-			ReceiveMessage: make(chan SocketMessage),
+			SendMessage:    make(chan database.Message),
+			ReceiveMessage: make(chan database.Message),
 			Room:           make(chan *Room),
 		},
+	}
+}
+
+func (user *Socketuser) ReadMessages(room *Room) {
+	defer func() {
+		user.Conn.Close()
+		user.Tracer.Trace("connection closed")
+	}()
+	for {
+		var newMessage *database.Message
+		err := user.Conn.ReadJSON(&newMessage)
+		if err != nil {
+			fmt.Println("Connection error: ", err)
+			return
+		}
+		room.ForwardedMessage <- *newMessage
+	}
+}
+
+func (user *Socketuser) MessageReceiver(room *Room) {
+	defer func() {
+		user.Tracer.Trace("done receiving")
+	}()
+	for message := range user.ReceiveMessage {
+		if room.participants[user] {
+			user.Conn.WriteJSON(message)
+			user.Tracer.Trace("message: ", message.Text, "from", message.SenderUsername, "has been received")
+			// save message to db or something
+		} else {
+			user.Tracer.Trace("You are not in this room")
+		}
+	}
+}
+
+func (user *Socketuser) LeaveRoom(room *Room) {
+	room.leave <- user
+}
+
+func (room *Room) JoinRoom(user *Socketuser) error {
+	if !room.participants[user] {
+		if len(room.participants) < 2 {
+			room.join <- user
+			return nil
+		} else {
+			return errors.New("room is full. please create another room with this user")
+		}
+	} else {
+		return errors.New("user is already in the room")
 	}
 }
 

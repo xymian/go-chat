@@ -1,22 +1,20 @@
 package chat
 
 import (
-	"errors"
-	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/gorilla/websocket"
+	"github.com/te6lim/go-chat/config"
+	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/tracer"
 )
 
 type Room struct {
 	Id               string
-	ServerConn       *websocket.Conn
 	leave            chan *Socketuser
 	join             chan *Socketuser
 	participants     map[*Socketuser]bool
-	ForwardedMessage chan SocketMessage
+	ForwardedMessage chan database.Message
 	Tracer           tracer.Tracer
 }
 
@@ -29,7 +27,7 @@ func CreateRoom(roomId string) *Room {
 		leave:            make(chan *Socketuser),
 		join:             make(chan *Socketuser),
 		participants:     make(map[*Socketuser]bool),
-		ForwardedMessage: make(chan SocketMessage),
+		ForwardedMessage: make(chan database.Message),
 		Tracer:           tracer.New(),
 	}
 	return room
@@ -61,20 +59,12 @@ func (room *Room) Run() {
 }
 
 func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var Upgrader = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-	}
-	conn, err := Upgrader.Upgrade(w, r, nil)
+	conn, err := config.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	username := r.URL.Query().Get("me")
-
 	var newUser *Socketuser
 	if OnlineUsers[username] != nil {
 		newUser = OnlineUsers[username]
@@ -84,89 +74,17 @@ func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		NewUser <- newUser
 	}
 
-	AddRoom <- room
-	go room.Run()
-
 	defer conn.Close()
-	room.ServerConn = conn
+	newUser.Conn = conn
 
 	room.JoinRoom(newUser)
-	go room.MessageReceiver(newUser)
-
-	room.ReadMessages()
+	go newUser.MessageReceiver(room)
+	newUser.ReadMessages(room)
 }
 
 func ListenForNewChatRoom() {
 	for room := range AddRoom {
 		Rooms[room.Id] = room
 		room.Tracer.Trace("new room added to chat")
-	}
-}
-
-func (room *Room) ReadMessages() {
-	defer func() {
-		room.ServerConn.Close()
-		room.Tracer.Trace("connection closed")
-	}()
-	for {
-		var newMessage *SocketMessage
-		err := room.ServerConn.ReadJSON(&newMessage)
-		if err != nil {
-			fmt.Println("Connection error: ", err)
-			return
-		}
-		room.ForwardMessageToRoomMembers(*newMessage)
-	}
-}
-
-/*func (room *Room) MessageSender(user *Socketuser) {
-	if room.participants[user] {
-		defer func() {
-			user.Tracer.Trace("done sending")
-		}()
-		for message := range user.SendMessage {
-			err := room.ClientConn.WriteJSON(message)
-			if err != nil {
-				fmt.Println("Connection error: ", err)
-				return
-			}
-		}
-	} else {
-		user.Tracer.Trace("You are not in this room")
-	}
-}*/
-
-func (room *Room) MessageReceiver(user *Socketuser) {
-	if room.participants[user] {
-		defer func() {
-			user.Tracer.Trace("done receiving")
-		}()
-		for message := range user.ReceiveMessage {
-			user.Tracer.Trace("message: ", message.Text, "from", message.Sender, "has been received")
-			// save message to db or something
-		}
-	} else {
-		user.Tracer.Trace("You are not in this room")
-	}
-}
-
-func (room *Room) ForwardMessageToRoomMembers(message SocketMessage) {
-	room.ForwardedMessage <- message
-}
-
-func (room *Room) LeaveRoom(user *Socketuser) {
-	room.leave <- user
-}
-
-func (room *Room) JoinRoom(user *Socketuser) error {
-	if !room.participants[user] {
-		if len(room.participants) < 2 {
-			room.join <- user
-			return nil
-		} else {
-			return errors.New("room is full. please create another room with this user")
-		}
-	} else {
-		return errors.New("user is already in the room")
 	}
 }

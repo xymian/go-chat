@@ -62,7 +62,9 @@
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <script>
       $(function () {
-        const socket = new WebSocket("ws://{{ .Host }}/room/{{ .ChatId }}");
+        const socket = new WebSocket(
+          `ws://{{ .Host }}/room/{{ .ChatId }}?me={{ .Me }}&other={{ .Other }}`
+        );
         socket.onopen = () => console.log("Connected!");
         socket.onerror = (e) => console.error("WebSocket error:", e);
         socket.onclose = (e) => console.log("Closed:", e);
@@ -96,20 +98,21 @@
 
         socket.onmessage = (event) => {
           const messageData = JSON.parse(event.data);
-          appendMessage(messageData.sender, messageData.message);
+          appendMessage(messageData.senderUsername, messageData.text);
         };
 
         document.getElementById("send").addEventListener("click", () => {
           const input = document.getElementById("input");
           if (input.value.trim()) {
             const messageData = {
-              sender: "{{ .Me }}",
-              receiver: "{{ .Other }}",
+              messageReference: crypto.randomUUID(),
               text: input.value,
-              chatReference: "{{ .ChatId }}}",
+              senderUsername: "{{ .Me }}",
+              receiverUsername: "{{ .Other }}",
+              timestamp: new Date().toISOString(),
+              chatReference: "{{ .ChatId }}",
             };
             socket.send(JSON.stringify(messageData));
-            appendMessage("{{ .Me }}", input.value);
             input.value = "";
           }
         });
