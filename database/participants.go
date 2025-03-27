@@ -1,5 +1,7 @@
 package database
 
+import "errors"
+
 type Participant struct {
 	Id            string `json:"id"`
 	Username      string `json:"username"`
@@ -7,8 +9,11 @@ type Participant struct {
 	CreatedAt     string `json:"createdAt"`
 }
 
-func InsertParticipant(participant Participant) *Participant {
+func InsertParticipant(participant Participant) (*Participant, error) {
 	newParticipant := &Participant{}
+	if len(participant.Username) == 0 || len(participant.ChatReference) == 0 {
+		return nil, errors.New("invalid participant")
+	}
 	err := Instance.QueryRow(
 		`INSERT INTO participants (username, chatReference) VALUES ($1, $2) RETURNING id, username, chatReference, createdAt`,
 		participant.Username, participant.ChatReference,
@@ -17,7 +22,7 @@ func InsertParticipant(participant Participant) *Participant {
 	if err != nil {
 		newParticipant = nil
 	}
-	return newParticipant
+	return newParticipant, nil
 }
 
 func GetParticipantsInChat(chatReference string) []Participant {

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"log"
 )
 
@@ -11,8 +12,11 @@ type User struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
-func InsertUser(user User) *User {
+func InsertUser(user User) (*User, error) {
 	newUser := &User{}
+	if len(user.Username) <= 0 {
+		return nil, errors.New("invalid username")
+	}
 	err := Instance.QueryRow(
 		`INSERT INTO users(username) VALUES($1)`,
 		user.Username,
@@ -20,7 +24,7 @@ func InsertUser(user User) *User {
 	if err != nil {
 		newUser = nil
 	}
-	return newUser
+	return newUser, nil
 }
 
 func GetUser(username string) *User {
@@ -84,7 +88,7 @@ func DeleteAllUsers() []*User {
 	return users
 }
 
-func UpdateUser(user User) *User {
+/*func UpdateUser(user User) (*User, error) {
 	newUser := &User{}
 	updateErr := Instance.QueryRow(
 		`UPDATE users SET username = $1 WHERE id = $3 RETURNING id, username, createdAt, updatedAt`,
@@ -93,5 +97,5 @@ func UpdateUser(user User) *User {
 	if updateErr != nil {
 		newUser = nil
 	}
-	return newUser
-}
+	return newUser, nil
+}*/

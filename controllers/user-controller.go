@@ -61,12 +61,21 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	user = database.InsertUser(*user)
+	var response interface{}
+	user, err = database.InsertUser(*user)
+	if err != nil {
+		response = utils.Error{
+			Err: err.Error(),
+		}
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	if user == nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		return
+	} else {
+		response = user
+		w.WriteHeader(http.StatusOK)
 	}
-	res, err := json.Marshal(user)
+	res, err := json.Marshal(response)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

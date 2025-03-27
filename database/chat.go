@@ -1,5 +1,7 @@
 package database
 
+import "errors"
+
 type Chat struct {
 	Id            string `json:"id"`
 	ChatReference string `json:"chatReference"`
@@ -7,8 +9,11 @@ type Chat struct {
 	UpdatedAt     string `json:"updatedAt"`
 }
 
-func InsertChat(chat Chat) *Chat {
+func InsertChat(chat Chat) (*Chat, error) {
 	newChat := &Chat{}
+	if len(chat.ChatReference) == 0 {
+		return nil, errors.New("invalid chat")
+	}
 	err := Instance.QueryRow(
 		`INSERT INTO chats (chatReference) VALUES ($1) RETURNING id, chatReference, createdAt, updatedAt`,
 		chat.ChatReference,
@@ -16,7 +21,7 @@ func InsertChat(chat Chat) *Chat {
 	if err != nil {
 		newChat = nil
 	}
-	return newChat
+	return newChat, nil
 }
 
 func GetChat(reference string) *Chat {

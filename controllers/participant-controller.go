@@ -17,13 +17,25 @@ func InsertParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	participant = database.InsertParticipant(*participant)
+	var response interface{}
+	participant, err = database.InsertParticipant(*participant)
+	if err != nil {
+		response = utils.Error{
+			Err: err.Error(),
+		}
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	if participant == nil {
+		response = utils.Error{
+			Err: "unable to insert participant",
+		}
 		w.WriteHeader(http.StatusInternalServerError)
-		return
+	} else {
+		response = participant
+		w.WriteHeader(http.StatusOK)
 	}
 
-	res, err := json.Marshal(participant)
+	res, err := json.Marshal(response)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
