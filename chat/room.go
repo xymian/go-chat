@@ -73,8 +73,26 @@ func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
+	username := r.URL.Query().Get("me")
+
+	var newUser *Socketuser
+	if OnlineUsers[username] != nil {
+		newUser = OnlineUsers[username]
+		newUser.Tracer.Trace("\nUser", username, " is online")
+	} else {
+		newUser = CreateNewUser(username)
+		NewUser <- newUser
+	}
+
+	AddRoom <- room
+	go room.Run()
+
 	defer conn.Close()
 	room.ServerConn = conn
+
+	room.JoinRoom(newUser)
+	go room.MessageReceiver(newUser)
+
 	room.ReadMessages()
 }
 

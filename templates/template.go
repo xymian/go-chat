@@ -17,11 +17,6 @@ type TemplateHandler struct {
 	Template *template.Template
 }
 
-type chatPair struct {
-	User  string `json:"user"`
-	Other string `json:"other"`
-}
-
 func (handler *TemplateHandler) parseFileOnce() {
 	handler.Once.Do(func() {
 		handler.Template = template.Must(template.ParseFiles(filepath.Join("templates", handler.FileName)))

@@ -23,8 +23,8 @@ func main() {
 
 	defer database.Instance.Close()
 
-	routes.RegisterUserRoutes(config.Router)
-	routes.RegisterChatRoutes(config.Router)
+	routes.RegisterUserRoutes()
+	routes.RegisterChatRoutes()
 
 	go chat.ListenForActiveUsers()
 	go chat.ListenForNewChatRoom()

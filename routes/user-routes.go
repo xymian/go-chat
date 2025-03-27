@@ -1,16 +1,16 @@
 package routes
 
 import (
-	"github.com/gorilla/mux"
+	"github.com/te6lim/go-chat/config"
 	"github.com/te6lim/go-chat/controllers"
 )
 
-func RegisterUserRoutes(router *mux.Router) {
-	router.HandleFunc("/user/{username}", controllers.GetUser).Methods("GET")
-	router.HandleFunc("/user/{username}", controllers.Delete).Methods("DELETE")
-	router.HandleFunc("/user", controllers.InsertUser).Methods("POST")
-	router.HandleFunc("/users", controllers.GetAllUsers).Methods("GET")
+func RegisterUserRoutes() {
+	config.Router.HandleFunc("/user/{username}", controllers.GetUser).Methods("GET")
+	config.Router.HandleFunc("/user/{username}", controllers.Delete).Methods("DELETE")
+	config.Router.HandleFunc("/user", controllers.InsertUser).Methods("POST")
+	config.Router.HandleFunc("/users", controllers.GetAllUsers).Methods("GET")
 
-	router.HandleFunc("/participant/{username}", controllers.GetParticipant).Methods("GET")
-	router.HandleFunc("/participant", controllers.InsertParticipant).Methods("POST")
+	config.Router.HandleFunc("/participant/{username}", controllers.GetParticipant).Methods("GET")
+	config.Router.HandleFunc("/participant", controllers.InsertParticipant).Methods("POST")
 }

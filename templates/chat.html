@@ -59,54 +59,60 @@
       </div>
     </div>
 
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <script>
-      const socket = new WebSocket(`ws://localhost:8080/chat/{{ .SocketId }}`);
+      $(function () {
+        const socket = new WebSocket("ws://{{ .Host }}/room/{{ .ChatId }}");
+        socket.onopen = () => console.log("Connected!");
+        socket.onerror = (e) => console.error("WebSocket error:", e);
+        socket.onclose = (e) => console.log("Closed:", e);
 
-      function appendMessage(sender, text) {
-        const messagesDiv = document.getElementById("messages");
-        const lastMessage = messagesDiv.lastElementChild;
-        const lastSender = lastMessage
-          ? lastMessage.querySelector("span").textContent.split(":")[0]
-          : null;
-        const isDifferentSender = lastSender !== sender;
+        function appendMessage(sender, text) {
+          const messagesDiv = document.getElementById("messages");
+          const lastMessage = messagesDiv.lastElementChild;
+          const lastSender = lastMessage
+            ? lastMessage.querySelector("span").textContent.split(":")[0]
+            : null;
+          const isDifferentSender = lastSender !== sender;
 
-        const message = document.createElement("div");
-        message.classList.add("message");
-        if (isDifferentSender) message.classList.add("different-sender");
+          const message = document.createElement("div");
+          message.classList.add("message");
+          if (isDifferentSender) message.classList.add("different-sender");
 
-        const senderSpan = document.createElement("span");
-        senderSpan.textContent = `${sender}: `;
-        senderSpan.classList.add(
-          sender === "{{ .Me }}" ? "sender" : "receiver"
-        );
+          const senderSpan = document.createElement("span");
+          senderSpan.textContent = `${sender}: `;
+          senderSpan.classList.add(
+            sender === "{{ .Me }}" ? "sender" : "receiver"
+          );
 
-        const messageText = document.createElement("span");
-        messageText.textContent = text;
+          const messageText = document.createElement("span");
+          messageText.textContent = text;
 
-        message.appendChild(senderSpan);
-        message.appendChild(messageText);
-        messagesDiv.appendChild(message);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      }
-
-      socket.onmessage = (event) => {
-        const messageData = JSON.parse(event.data); // Expecting { sender: '', message: '' }
-        appendMessage(messageData.sender, messageData.message);
-      };
-
-      document.getElementById("send").addEventListener("click", () => {
-        const input = document.getElementById("input");
-        if (input.value.trim()) {
-          const messageData = {
-            sender: "{{ .Me }}",
-            receiver: "{{ .Other }}",
-            text: input.value,
-            chatReference: "{{ .ChatId }}}",
-          };
-          socket.send(JSON.stringify(messageData));
-          appendMessage("{{ .Me }}", input.value);
-          input.value = "";
+          message.appendChild(senderSpan);
+          message.appendChild(messageText);
+          messagesDiv.appendChild(message);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
+
+        socket.onmessage = (event) => {
+          const messageData = JSON.parse(event.data);
+          appendMessage(messageData.sender, messageData.message);
+        };
+
+        document.getElementById("send").addEventListener("click", () => {
+          const input = document.getElementById("input");
+          if (input.value.trim()) {
+            const messageData = {
+              sender: "{{ .Me }}",
+              receiver: "{{ .Other }}",
+              text: input.value,
+              chatReference: "{{ .ChatId }}}",
+            };
+            socket.send(JSON.stringify(messageData));
+            appendMessage("{{ .Me }}", input.value);
+            input.value = "";
+          }
+        });
       });
     </script>
   </body>

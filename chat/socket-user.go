@@ -32,29 +32,14 @@ type Socketuser struct {
 }
 
 func SetupSocketUser(username string, otherUsername string, chatReference string) {
-	var newUser *Socketuser
-	if OnlineUsers[username] != nil {
-		newUser = OnlineUsers[username]
-		newUser.Tracer.Trace("\nUser", username, " is online")
-	} else {
-		newUser = CreateNewUser(username)
-		NewUser <- newUser
-	}
-
 	var room *Room
 	if Rooms[chatReference] == nil {
 		room = CreateRoom(chatReference)
-		AddRoom <- room
-		go room.Run()
 	} else {
 		room = Rooms[chatReference]
 	}
-
-	endpoint := fmt.Sprintf("/chat/%s", room.Id)
+	endpoint := fmt.Sprintf("/room/%s", chatReference)
 	config.Router.Handle(endpoint, room)
-	room.JoinRoom(newUser)
-	//go room.MessageSender(user)
-	go room.MessageReceiver(newUser)
 }
 
 func CreateNewUser(username string) *Socketuser {
