@@ -5,10 +5,10 @@
 ## Features
 
 - **Multiple private one-on-one messaging**: Users can send messages privately to other users.✅ (TESTABLE VERSION DONE)
-- **Group chat**: Users can send messages to multiple users in a group chat.⏳🔜 (IN PROGRESS)
-- **Authentication and login**: Users can securely log in to the chat server.⏳🔜 (IN PROGRESS)
-- **Chat history**: The server stores chat history for each user, allowing them to view past messages.✅ (TESTABLE VERSION DONE)
-- **Front-end Client**: (Currently CLI) A user-friendly application for interacting with the chat server⏳🔜 (IN PROGRESS)
+- **Group chat**: Users can send messages to multiple users in a group chat.⏳🔜 (In progress)
+- **Authentication and login**: Users can securely log in to the chat server.⏳🔜 (In progress)
+- **Chat history**: The server stores chat history for each user, allowing them to view past messages.✅ (Testablr version)
+- **Front-end Client**: (Currently CLI) A user-friendly application for interacting with the chat server✅ (Testable version)
 
 ## Getting Started
 
@@ -60,6 +60,6 @@ Feel free to open issues or submit pull requests if you'd like to contribute
 ## TODO
 
 - Use postgres for DB implementation ✅
-- Build simple front-end client ⏳
+- Build simple front-end client ✅
 - Set up db migration for users ✅
 - Implement UI to add new user to chat with ✅
