@@ -32,6 +32,10 @@
         font-weight: bold;
         color: #0077b6;
       } /* Ocean Blue */
+      .timestamp {
+        font-size: 0.8em;
+        color: #6c757d;
+      }
       .receiver {
         font-weight: bold;
         color: #228b22;
@@ -51,7 +55,7 @@
   </head>
   <body>
     <div id="chatContainer">
-      <h2>Chat</h2>
+      <h2>Go-Chat</h2>
       <div id="messages"></div>
       <div id="inputContainer">
         <input type="text" id="input" placeholder="Type a message..." />
@@ -69,12 +73,19 @@
         socket.onerror = (e) => console.error("WebSocket error:", e);
         socket.onclose = (e) => console.log("Closed:", e);
 
-        function appendMessage(sender, text) {
+        function formatTimestamp(timestamp) {
+          const date = new Date(timestamp);
+          return date.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        }
+
+        var lastSender = null;
+
+        function appendMessage(sender, text, timestamp) {
           const messagesDiv = document.getElementById("messages");
           const lastMessage = messagesDiv.lastElementChild;
-          const lastSender = lastMessage
-            ? lastMessage.querySelector("span").textContent.split(":")[0]
-            : null;
           const isDifferentSender = lastSender !== sender;
 
           const message = document.createElement("div");
@@ -86,19 +97,28 @@
           senderSpan.classList.add(
             sender === "{{ .Me }}" ? "sender" : "receiver"
           );
+          const timestampSpan = document.createElement("span");
+          timestampSpan.textContent = ` [${formatTimestamp(timestamp)}] `;
+          timestampSpan.classList.add("timestamp");
 
           const messageText = document.createElement("span");
           messageText.textContent = text;
 
+          message.appendChild(timestampSpan);
           message.appendChild(senderSpan);
           message.appendChild(messageText);
           messagesDiv.appendChild(message);
           messagesDiv.scrollTop = messagesDiv.scrollHeight;
+          lastSender = sender;
         }
 
         socket.onmessage = (event) => {
           const messageData = JSON.parse(event.data);
-          appendMessage(messageData.senderUsername, messageData.text);
+          appendMessage(
+            messageData.senderUsername,
+            messageData.text,
+            messageData.timestamp
+          );
         };
 
         document.getElementById("send").addEventListener("click", () => {
