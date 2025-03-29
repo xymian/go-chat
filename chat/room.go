@@ -50,9 +50,13 @@ func (room *Room) Run() {
 			room.Tracer.Trace("User", user.Username, " left the room")
 
 		case message := <-room.ForwardedMessage:
+			_, err := database.InsertMessage(message)
+			if err != nil {
+				room.Tracer.Trace(err)
+			}
 			for user := range room.participants {
 				user.ReceiveMessage <- message
-				room.Tracer.Trace("Forwarded message: ", message.Text, " to User", user.Username)
+				room.Tracer.Trace("Forwarded message: ", message.TextMessage, " to User", user.Username)
 			}
 		}
 	}

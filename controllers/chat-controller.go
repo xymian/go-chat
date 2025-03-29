@@ -12,11 +12,21 @@ import (
 func InsertMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var message *database.Message
-	utils.ParseBody(r, message)
-	message = database.InsertMessage(message)
-	res, err := json.Marshal(message)
+	var response interface{}
+	utils.ParseBody(r, &message)
+	message, err := database.InsertMessage(*message)
 	if err != nil {
+		response = utils.Error{
+			Err: err.Error(),
+		}
 		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		response = message
+		w.WriteHeader(http.StatusOK)
+	}
+	res, err := json.Marshal(response)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.Write(res)

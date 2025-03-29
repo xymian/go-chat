@@ -85,8 +85,7 @@ func (user *Socketuser) MessageReceiver(room *Room) {
 	for message := range user.ReceiveMessage {
 		if room.participants[user] {
 			user.Conn.WriteJSON(message)
-			user.Tracer.Trace("message: ", message.Text, "from", message.SenderUsername, "has been received")
-			// save message to db or something
+			user.Tracer.Trace("message: ", message.TextMessage, "from", message.SenderUsername, "has been received")
 		} else {
 			user.Tracer.Trace("You are not in this room")
 		}

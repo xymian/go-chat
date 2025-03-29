@@ -116,8 +116,8 @@
           const messageData = JSON.parse(event.data);
           appendMessage(
             messageData.senderUsername,
-            messageData.text,
-            messageData.timestamp
+            messageData.textMessage,
+            messageData.messageTimestamp
           );
         };
 
@@ -126,10 +126,10 @@
           if (input.value.trim()) {
             const messageData = {
               messageReference: crypto.randomUUID(),
-              text: input.value,
+              textMessage: input.value,
               senderUsername: "{{ .Me }}",
               receiverUsername: "{{ .Other }}",
-              timestamp: new Date().toISOString(),
+              messageTimestamp: new Date().toISOString(),
               chatReference: "{{ .ChatId }}",
             };
             socket.send(JSON.stringify(messageData));
