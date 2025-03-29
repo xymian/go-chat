@@ -57,7 +57,7 @@ func GetParticipant(username string, chatReference string) *Participant {
 func GetChatRefFor(user string, other string) *string {
 	var ref *string
 	err := Instance.QueryRow(
-		`SELECT chatReference FROM participants WHERE username IN ($1, $2) GROUP BY chatReference`,
+		`SELECT chatReference FROM participants WHERE username IN ($1, $2) GROUP BY chatReference HAVING COUNT(chatReference) = 2`,
 		user, other,
 	).Scan(&ref)
 	if err != nil {

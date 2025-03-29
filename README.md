@@ -53,6 +53,10 @@ Once the server is running, open your web browser and navigate to the server's U
 
 Feel free to open issues or submit pull requests if you'd like to contribute
 
+## Screenshots
+
+![alt text](<screenshots/Screenshot 2025-03-29 at 6.30.50 PM.png>) ![alt text](<screenshots/Screenshot 2025-03-29 at 6.30.37 PM.png>) ![alt text](<screenshots/Screenshot 2025-03-29 at 5.58.23 PM.png>)
+
 ## TODO
 
 - Use postgres for DB implementation ✅
