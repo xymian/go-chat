@@ -75,7 +75,7 @@ func GetMessage(chatReference string, messageReference string) *Message {
 func GetAllMessages(chatReference string) []*Message {
 	messages := []*Message{}
 	rows, err := Instance.Query(
-		`SELECT id, textMessage, senderUsername, receiverUsername, messageTimestamp, chatReference, createdAt, UpdatedAt FROM messages WHERE chatReference = $1`,
+		`SELECT id, messageReference, textMessage, senderUsername, receiverUsername, messageTimestamp, chatReference, createdAt, UpdatedAt FROM messages WHERE chatReference = $1`,
 		chatReference,
 	)
 	if err != nil {

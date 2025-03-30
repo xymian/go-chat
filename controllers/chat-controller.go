@@ -94,7 +94,7 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 
 func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	chatRef := r.URL.Query().Get("chatId")
+	chatRef := mux.Vars(r)["chatId"]
 	chat := database.GetChat(chatRef)
 	var response interface{}
 	if chat == nil {

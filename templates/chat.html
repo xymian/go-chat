@@ -65,77 +65,93 @@
 
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <script>
-      $(function () {
-        const socket = new WebSocket(
-          `ws://{{ .Host }}/room/{{ .ChatId }}?me={{ .Me }}&other={{ .Other }}`
+      const socket = new WebSocket(
+        `ws://{{ .Host }}/room/{{ .ChatId }}?me={{ .Me }}&other={{ .Other }}`
+      );
+      socket.onopen = () => console.log("Connected!");
+      socket.onerror = (e) => console.error("WebSocket error:", e);
+      socket.onclose = (e) => console.log("Closed:", e);
+
+      (async () => {
+        const response = await fetch(
+          `http://{{ .Host }}/messages/{{ .ChatId }}`
         );
-        socket.onopen = () => console.log("Connected!");
-        socket.onerror = (e) => console.error("WebSocket error:", e);
-        socket.onclose = (e) => console.log("Closed:", e);
-
-        function formatTimestamp(timestamp) {
-          const date = new Date(timestamp);
-          return date.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-        }
-
-        var lastSender = null;
-
-        function appendMessage(sender, text, timestamp) {
-          const messagesDiv = document.getElementById("messages");
-          const lastMessage = messagesDiv.lastElementChild;
-          const isDifferentSender = lastSender !== sender;
-
-          const message = document.createElement("div");
-          message.classList.add("message");
-          if (isDifferentSender) message.classList.add("different-sender");
-
-          const senderSpan = document.createElement("span");
-          senderSpan.textContent = `${sender}: `;
-          senderSpan.classList.add(
-            sender === "{{ .Me }}" ? "sender" : "receiver"
-          );
-          const timestampSpan = document.createElement("span");
-          timestampSpan.textContent = ` [${formatTimestamp(timestamp)}] `;
-          timestampSpan.classList.add("timestamp");
-
-          const messageText = document.createElement("span");
-          messageText.textContent = text;
-
-          message.appendChild(timestampSpan);
-          message.appendChild(senderSpan);
-          message.appendChild(messageText);
-          messagesDiv.appendChild(message);
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
-          lastSender = sender;
-        }
-
-        socket.onmessage = (event) => {
-          const messageData = JSON.parse(event.data);
-          appendMessage(
-            messageData.senderUsername,
-            messageData.textMessage,
-            messageData.messageTimestamp
-          );
-        };
-
-        document.getElementById("send").addEventListener("click", () => {
-          const input = document.getElementById("input");
-          if (input.value.trim()) {
-            const messageData = {
-              messageReference: crypto.randomUUID(),
-              textMessage: input.value,
-              senderUsername: "{{ .Me }}",
-              receiverUsername: "{{ .Other }}",
-              messageTimestamp: new Date().toISOString(),
-              chatReference: "{{ .ChatId }}",
-            };
-            socket.send(JSON.stringify(messageData));
-            input.value = "";
+        if (!response.ok) {
+          // handle failure to fetch chat history
+        } else {
+          const chatHistory = await response.json();
+          for (let i = 0; i < chatHistory.length; ++i) {
+            const message = chatHistory[i];
+            appendMessage(
+              message.senderUsername,
+              message.textMessage,
+              message.messageTimestamp
+            );
           }
+        }
+      })();
+
+      function formatTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
         });
+      }
+      var lastSender = null;
+
+      function appendMessage(sender, text, timestamp) {
+        const messagesDiv = document.getElementById("messages");
+        const lastMessage = messagesDiv.lastElementChild;
+        const isDifferentSender = lastSender !== sender;
+
+        const message = document.createElement("div");
+        message.classList.add("message");
+        if (isDifferentSender) message.classList.add("different-sender");
+
+        const senderSpan = document.createElement("span");
+        senderSpan.textContent = `${sender}: `;
+        senderSpan.classList.add(
+          sender === "{{ .Me }}" ? "sender" : "receiver"
+        );
+        const timestampSpan = document.createElement("span");
+        timestampSpan.textContent = ` [${formatTimestamp(timestamp)}] `;
+        timestampSpan.classList.add("timestamp");
+
+        const messageText = document.createElement("span");
+        messageText.textContent = text;
+
+        message.appendChild(timestampSpan);
+        message.appendChild(senderSpan);
+        message.appendChild(messageText);
+        messagesDiv.appendChild(message);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        lastSender = sender;
+      }
+
+      socket.onmessage = (event) => {
+        const messageData = JSON.parse(event.data);
+        appendMessage(
+          messageData.senderUsername,
+          messageData.textMessage,
+          messageData.messageTimestamp
+        );
+      };
+
+      document.getElementById("send").addEventListener("click", () => {
+        const input = document.getElementById("input");
+        if (input.value.trim()) {
+          const messageData = {
+            messageReference: crypto.randomUUID(),
+            textMessage: input.value,
+            senderUsername: "{{ .Me }}",
+            receiverUsername: "{{ .Other }}",
+            messageTimestamp: new Date().toISOString(),
+            chatReference: "{{ .ChatId }}",
+          };
+          socket.send(JSON.stringify(messageData));
+          input.value = "";
+        }
       });
     </script>
   </body>
