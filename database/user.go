@@ -8,6 +8,7 @@ import (
 type User struct {
 	Id        string `json:"id"`
 	Username  string `json:"username"`
+	Password  string `json:"password"`
 	CreatedAt string `json:"createdAt"`
 	UpdatedAt string `json:"updatedAt"`
 }
@@ -18,13 +19,13 @@ func InsertUser(user User) (*User, error) {
 		return nil, errors.New("invalid username")
 	}
 	err := Instance.QueryRow(
-		`INSERT INTO users(username) VALUES($1)`,
-		user.Username,
-	).Scan(&newUser.Id, &newUser.Username, &newUser.CreatedAt, &newUser.UpdatedAt)
+		`INSERT INTO users(username, password) VALUES($1, $2) RETURNING id, username, password, createdAt, updatedAt`,
+		user.Username, user.Password,
+	).Scan(&newUser.Id, &newUser.Username, &newUser.Password, &newUser.CreatedAt, &newUser.UpdatedAt)
 	if err != nil {
 		newUser = nil
 	}
-	return newUser, nil
+	return newUser, err
 }
 
 func GetUser(username string) *User {
