@@ -13,6 +13,15 @@ type registerRequest struct {
 	Password string `json:"password"`
 }
 
+type loginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type loginResponse struct {
+	Token string `json:"token"`
+}
+
 func Register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var response interface{}
@@ -54,8 +63,8 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	} else {
 		user, err := database.InsertUser(
 			database.User{
-				Username: regRequest.Username,
-				Password: passwordHash,
+				Username:     regRequest.Username,
+				PasswordHash: passwordHash,
 			},
 		)
 		if err != nil {
@@ -79,10 +88,47 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 func Login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	var request loginRequest
+	var response interface{}
+	err := utils.ParseBody(r, &request)
+	if err != nil {
+		response = utils.Error{
+			Err: "Parsing body failed",
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	var user = database.GetUser(request.Username)
+	if user == nil || !utils.CheckPasswordHash(request.Password, user.PasswordHash) {
+		response = utils.Error{
+			Err: "Invalid credentials",
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	token, err := utils.GenerateJWT(user.Username)
+	if err != nil {
+		response = utils.Error{
+			Err: "Generating token failed",
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		response = loginResponse{
+			Token: token,
+		}
+		w.WriteHeader(http.StatusOK)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+	}
 
 }
 
 func Logout(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 }
