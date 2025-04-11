@@ -12,8 +12,12 @@ import (
 	"github.com/te6lim/go-chat/utils"
 )
 
-func WithJWTMiddleware(actualhanlder http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+type contextKey string
+
+const ContextKeyUsername contextKey = "username"
+
+func WithJWTMiddleware(actualhanlder http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var response interface{}
 		authHeader := r.Header.Get("Authorization")
@@ -57,7 +61,7 @@ func WithJWTMiddleware(actualhanlder http.Handler) http.Handler {
 		}
 
 		username := claims["username"].(string)
-		ctx := context.WithValue(r.Context(), "username", username)
+		ctx := context.WithValue(r.Context(), ContextKeyUsername, username)
 		actualhanlder.ServeHTTP(w, r.WithContext(ctx))
-	})
+	}
 }
