@@ -29,13 +29,13 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	err := utils.ParseBody(r, &regRequest)
 	if err != nil {
 		response = utils.Error{
-			Err: "Parsing body failed",
+			Message: "Parsing body failed",
 		}
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	if regRequest.Username == "" || regRequest.Password == "" {
 		response = utils.Error{
-			Err: "Username and password are required",
+			Message: "Username and password are required",
 		}
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(response)
@@ -46,7 +46,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	existingUser := database.GetUser(regRequest.Username)
 	if existingUser != nil {
 		response = utils.Error{
-			Err: "User already exists",
+			Message: "User already exists",
 		}
 		w.WriteHeader(http.StatusConflict)
 		res, _ := json.Marshal(response)
@@ -57,7 +57,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	passwordHash, err := utils.HashPassword(regRequest.Password)
 	if err != nil {
 		response = utils.Error{
-			Err: "Hashing password failed",
+			Message: "Hashing password failed",
 		}
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
@@ -69,7 +69,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		)
 		if err != nil {
 			response = utils.Error{
-				Err: err.Error(),
+				Message: err.Error(),
 			}
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
@@ -93,7 +93,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	err := utils.ParseBody(r, &request)
 	if err != nil {
 		response = utils.Error{
-			Err: "Parsing body failed",
+			Message: "Parsing body failed",
 		}
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(response)
@@ -104,7 +104,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	var user = database.GetUser(request.Username)
 	if user == nil || !utils.CheckPasswordHash(request.Password, user.PasswordHash) {
 		response = utils.Error{
-			Err: "Invalid credentials",
+			Message: "Invalid credentials",
 		}
 		w.WriteHeader(http.StatusUnauthorized)
 		res, _ := json.Marshal(response)
@@ -115,7 +115,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	token, err := utils.GenerateJWT(user.Username)
 	if err != nil {
 		response = utils.Error{
-			Err: "Generating token failed",
+			Message: "Generating token failed",
 		}
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
@@ -130,5 +130,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func Logout(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Logged out successfully"))
 }

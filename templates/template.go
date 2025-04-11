@@ -37,7 +37,7 @@ func (handler *TemplateHandler) HandleNewChat(w http.ResponseWriter, r *http.Req
 		})
 		if err != nil {
 			response = utils.Error{
-				Err: "attempted to add an invalid user",
+				Message: "attempted to add an invalid user",
 			}
 			w.WriteHeader(http.StatusBadRequest)
 			res, err := json.Marshal(response)
@@ -69,7 +69,7 @@ func (handler *TemplateHandler) HandleChat(w http.ResponseWriter, r *http.Reques
 		})
 		if err != nil {
 			response = utils.Error{
-				Err: "attempted to add an invalid chat",
+				Message: "attempted to add an invalid chat",
 			}
 			w.WriteHeader(http.StatusBadRequest)
 			res, err := json.Marshal(response)
@@ -90,7 +90,7 @@ func (handler *TemplateHandler) HandleChat(w http.ResponseWriter, r *http.Reques
 		})
 		if err != nil {
 			response = utils.Error{
-				Err: "attempted to add an invalid participant",
+				Message: "attempted to add an invalid participant",
 			}
 			w.WriteHeader(http.StatusBadRequest)
 			res, err := json.Marshal(response)
@@ -110,7 +110,7 @@ func (handler *TemplateHandler) HandleChat(w http.ResponseWriter, r *http.Reques
 		})
 		if err != nil {
 			response = utils.Error{
-				Err: "attempted to add an invalid participant",
+				Message: "attempted to add an invalid participant",
 			}
 			w.WriteHeader(http.StatusBadRequest)
 			res, err := json.Marshal(response)

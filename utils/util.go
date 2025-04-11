@@ -43,5 +43,5 @@ func GenerateJWT(username string) (string, error) {
 }
 
 type Error struct {
-	Err string `json:"error"`
+	Message string `json:"error"`
 }
