@@ -17,7 +17,7 @@ func InsertMessage(w http.ResponseWriter, r *http.Request) {
 	message, err := database.InsertMessage(*message)
 	if err != nil {
 		response = utils.Error{
-			Err: err.Error(),
+			Message: err.Error(),
 		}
 		w.WriteHeader(http.StatusBadRequest)
 	} else {
@@ -69,7 +69,7 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 	if chat == nil {
 		w.WriteHeader(http.StatusNotFound)
 		res, _ := json.Marshal(utils.Error{
-			Err: "chat does not exist",
+			Message: "chat does not exist",
 		})
 		w.Write(res)
 		return
@@ -77,7 +77,7 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 	message := database.GetMessage(chat.ChatReference, messageRef)
 	if message == nil {
 		response = utils.Error{
-			Err: "Message does not exist",
+			Message: "Message does not exist",
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
@@ -99,7 +99,7 @@ func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	if chat == nil {
 		res, _ := json.Marshal(utils.Error{
-			Err: "chat does not exist",
+			Message: "chat does not exist",
 		})
 		w.WriteHeader(http.StatusNotFound)
 		w.Write(res)
@@ -108,7 +108,7 @@ func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	messages := database.GetAllMessages(chat.ChatReference)
 	if messages == nil {
 		response = utils.Error{
-			Err: "messages dont exist",
+			Message: "messages dont exist",
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
@@ -131,7 +131,7 @@ func GetChatRefForUsers(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	if chatRef == nil {
 		response = utils.Error{
-			Err: "chat reference does not exists",
+			Message: "chat reference does not exists",
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
