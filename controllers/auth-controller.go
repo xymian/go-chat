@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/te6lim/go-chat/database"
@@ -20,6 +21,28 @@ type loginRequest struct {
 
 type loginResponse struct {
 	Token string `json:"token"`
+}
+
+func RegisterFE(templateHandler *utils.TemplateHandler) http.HandlerFunc {
+	templateHandler.ParseFileOnce()
+	return func(w http.ResponseWriter, r *http.Request) {
+		data := map[string]interface{}{
+			"Host":    r.Host,
+			"IsLogin": false,
+		}
+		templateHandler.Template.Execute(w, data)
+	}
+}
+
+func LoginFE(templateHandler *utils.TemplateHandler) http.HandlerFunc {
+	templateHandler.ParseFileOnce()
+	return func(w http.ResponseWriter, r *http.Request) {
+		data := map[string]interface{}{
+			"Host":    r.Host,
+			"IsLogin": true,
+		}
+		templateHandler.Template.Execute(w, data)
+	}
 }
 
 func Register(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +64,6 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		res, _ := json.Marshal(response)
 		w.Write(res)
 		return
-
 	}
 	existingUser := database.GetUser(regRequest.Username)
 	if existingUser != nil {
@@ -78,16 +100,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	res, jsonErr := json.Marshal(response)
-	if jsonErr != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	res, _ := json.Marshal(response)
 	w.Write(res)
-
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	var request loginRequest
 	var response interface{}
 	err := utils.ParseBody(r, &request)
@@ -126,7 +143,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		res, _ := json.Marshal(response)
 		w.Write(res)
 	}
-
 }
 
 func Logout(w http.ResponseWriter, r *http.Request) {

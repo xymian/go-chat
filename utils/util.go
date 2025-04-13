@@ -3,9 +3,12 @@ package utils
 import (
 	"encoding/json"
 	"errors"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -38,10 +41,21 @@ func GenerateJWT(username string) (string, error) {
 		"username": username,
 		"exp":      jwt.NewNumericDate(time.Now().Add(time.Hour * 72)),
 	})
-
 	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 }
 
 type Error struct {
 	Message string `json:"error"`
+}
+
+type TemplateHandler struct {
+	Once     sync.Once
+	FileName string
+	Template *template.Template
+}
+
+func (handler *TemplateHandler) ParseFileOnce() {
+	handler.Once.Do(func() {
+		handler.Template = template.Must(template.ParseFiles(filepath.Join("templates", handler.FileName)))
+	})
 }

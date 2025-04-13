@@ -42,14 +42,6 @@
     </div>
 
     <script>
-      function generateRoomId(username0, username1) {
-        if (username0.length > 0 && username1.length > 0) {
-          return username0 <= username1
-            ? `${username0}+${username1}`
-            : `${username1}+${username0}`;
-        }
-        throw new Error("invalid username");
-      }
       document
         .getElementById("startChat")
         .addEventListener("click", async () => {
@@ -59,32 +51,65 @@
           if (username) {
             try {
               const userResponse = await fetch(
-                `http://{{ .Host }}/user/${username}`, {
+                `http://{{ .Host }}/user/${username}`,
+                {
                   method: "GET",
                   headers: {
-                    "Content-Type": "application/json"
-                  }
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem(
+                      "accessToken"
+                    )}`,
+                  },
                 }
               );
 
               if (!userResponse.ok) {
-                throw new Error("User does not exist")
+                throw new Error("User does not exist");
               }
               const chatResponse = await fetch(
-                `http://{{ .Host }}/chatReference?user={{ .Me }}&other=${username}`
+                `http://{{ .Host }}/chatReference?user={{ .Me }}&other=${username}`,
+                {
+                  method: "GET",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem(
+                      "accessToken"
+                    )}`,
+                  },
+                }
               );
 
               if (chatResponse.ok) {
                 const chatData = await chatResponse.json();
                 chatId = chatData.chatReference;
               } else {
+                console.log(chatResponse.status)
                 if (chatResponse.status == "404") {
-                  chatId = crypto.randomUUID();
+                  const addChatRes = await fetch(
+                    `http://{{ .Host }}/chatReference`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${localStorage.getItem(
+                          "accessToken"
+                        )}`,
+                      },
+                      body: JSON.stringify({
+                        user: `{{ .Me }}`,
+                        other: username,
+                      }),
+                    }
+                  );
+
+                  if (!addChatRes.ok) {
+                    throw new Error("User does not exist");
+                  }
                 } else {
                   // handle case of network error or somerthing
                 }
               }
-              window.location.href = `http://{{ .Host }}/chat/${chatId}?me={{ .Me }}&other=${username}`;
+              window.location.href = `http://{{ .Host }}/chat/{{ .Me }}/${chatId}`;
             } catch (error) {
               console.error("Error during fetch operations:", error);
             }
