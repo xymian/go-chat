@@ -19,7 +19,7 @@ func InsertUser(user User) (*User, error) {
 		return nil, errors.New("invalid username")
 	}
 	err := Instance.QueryRow(
-		`INSERT INTO users(username, passwordHash) VALUES($1, $2) RETURNING id, username, password, createdAt, updatedAt`,
+		`INSERT INTO users(username, passwordHash) VALUES($1, $2) RETURNING id, username, passwordHash, createdAt, updatedAt`,
 		user.Username, user.PasswordHash,
 	).Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
 	if err != nil {
@@ -43,8 +43,8 @@ func GetUser(username string) *User {
 func DeleteUser(username string) *User {
 	user := &User{}
 	err := Instance.QueryRow(
-		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, createdAt, updatedAt`, username,
-	).Scan(&user.Id, &user.Username, &user.CreatedAt, &user.UpdatedAt)
+		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, passwordHash createdAt, updatedAt`, username,
+	).Scan(&user.Id, &user.Username, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		user = nil
 	}
