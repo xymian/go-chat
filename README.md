@@ -46,7 +46,7 @@ Make sure you have the following installed:
 
 4. For now, the server will run on `http://localhost:8080` (or the port you have configured).
 
-5. Use `http://localhost:8080/register` to create an account and test!
+5. Use `http://localhost:8080/register` to create an account, and test!
 
 ### Usage
 
