@@ -9,7 +9,7 @@
 - **Authentication**: Users can securely log in to the chat server.✅
 - **JWT-based**: route protection: For securing routes. ✅
 - **Chat history**: The server stores chat history for each user, allowing them to view past messages.✅
-- **Front-end Client**: (Currently CLI) A user-friendly application for interacting with the chat server.✅
+- **Front-end Client**: A user-friendly application for interacting with the chat server.✅
 
 ## Getting Started
 
