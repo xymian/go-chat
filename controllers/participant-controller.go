@@ -21,13 +21,13 @@ func InsertParticipant(w http.ResponseWriter, r *http.Request) {
 	participant, err = database.InsertParticipant(*participant)
 	if err != nil {
 		response = utils.Error{
-			Err: err.Error(),
+			Message: err.Error(),
 		}
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	if participant == nil {
 		response = utils.Error{
-			Err: "unable to insert participant",
+			Message: "unable to insert participant",
 		}
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
@@ -52,7 +52,7 @@ func GetParticipant(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	if participant == nil {
 		response = utils.Error{
-			Err: "participant does not exist",
+			Message: "participant does not exist",
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {

@@ -4,11 +4,12 @@
 
 ## Features
 
-- **Multiple private one-on-one messaging**: Users can send messages privately to other users.✅ (TESTABLE VERSION DONE)
-- **Group chat**: Users can send messages to multiple users in a group chat.⏳🔜 (In progress)
-- **Authentication and login**: Users can securely log in to the chat server.⏳🔜 (In progress)
-- **Chat history**: The server stores chat history for each user, allowing them to view past messages.✅ (Testablr version)
-- **Front-end Client**: (Currently CLI) A user-friendly application for interacting with the chat server✅ (Testable version)
+- **Multiple private one-on-one messaging**: Users can send messages privately to other users.✅
+- **Group chat**: Users can send messages to multiple users in a group chat.⏳🔜 (In progress).
+- **Authentication**: Users can securely log in to the chat server.✅
+- **JWT-based**: route protection: For securing routes. ✅
+- **Chat history**: The server stores chat history for each user, allowing them to view past messages.✅
+- **Front-end Client**: (Currently CLI) A user-friendly application for interacting with the chat server.✅
 
 ## Getting Started
 
@@ -45,6 +46,8 @@ Make sure you have the following installed:
 
 4. For now, the server will run on `http://localhost:8080` (or the port you have configured).
 
+5. Use `http://localhost:8080/register` to create an account, and test!
+
 ### Usage
 
 Once the server is running, open your web browser and navigate to the server's URL to test the application
@@ -58,9 +61,3 @@ Feel free to open issues or submit pull requests if you'd like to contribute
 ![alt text](<screenshots/Screenshot 2025-03-29 at 6.30.50 PM.png>) ![alt text](<screenshots/Screenshot 2025-03-29 at 6.30.37 PM.png>) ![alt text](<screenshots/Screenshot 2025-03-29 at 5.58.23 PM.png>)
 
 ## TODO
-- Do sanity checks around loading chat history ⏳
-- Render user chat history ✅
-- Use postgres for DB implementation ✅
-- Build simple front-end client ✅
-- Set up db migration for users ✅
-- Implement UI to add new user to chat with ✅

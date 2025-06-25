@@ -74,7 +74,13 @@
 
       (async () => {
         const response = await fetch(
-          `http://{{ .Host }}/messages/{{ .ChatId }}`
+          `http://{{ .Host }}/messages/{{ .ChatId }}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+            },
+          }
         );
         if (!response.ok) {
           // handle failure to fetch chat history

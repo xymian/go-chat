@@ -17,7 +17,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	if user == nil {
 		response = utils.Error{
-			Err: "User does not exist",
+			Message: "User does not exist",
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
@@ -38,7 +38,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	if users == nil {
 		response = utils.Error{
-			Err: "User does not exist",
+			Message: "User does not exist",
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
@@ -65,7 +65,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 	user, err = database.InsertUser(*user)
 	if err != nil {
 		response = utils.Error{
-			Err: err.Error(),
+			Message: err.Error(),
 		}
 		w.WriteHeader(http.StatusBadRequest)
 	}

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login & Sign Up</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f9;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+
+      .container {
+        background-color: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        width: 300px;
+        text-align: center;
+      }
+
+      h2 {
+        margin-bottom: 20px;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      label {
+        font-size: 14px;
+        text-align: left;
+      }
+
+      input[type="text"],
+      input[type="password"] {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+
+      button {
+        padding: 12px;
+        background-color: #007bff;
+        border: none;
+        border-radius: 5px;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      .switch-form-link {
+        margin-top: 15px;
+        font-size: 14px;
+      }
+
+      .switch-form-link a {
+        color: #007bff;
+        text-decoration: none;
+      }
+
+      .switch-form-link a:hover {
+        text-decoration: underline;
+      }
+
+      .form-section {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Login Form -->
+      <div id="login-form" class="form-section">
+        <h2>Login</h2>
+        <form id="login-form-submit">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required />
+
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required />
+
+          <button type="submit">Login</button>
+        </form>
+        <p class="switch-form-link">
+          Don't have an account?
+          <a href="javascript:void(0)" onclick="showSignUp()">Sign up</a>
+        </p>
+      </div>
+
+      <!-- Sign Up Form -->
+      <div id="signup-form" class="form-section" style="display: none">
+        <h2>Sign Up</h2>
+        <form id="signup-form-submit">
+          <label for="username-signup">Username</label>
+          <input type="text" id="username-signup" name="username" required />
+
+          <label for="password-signup">Password</label>
+          <input
+            type="password"
+            id="password-signup"
+            name="password"
+            required
+          />
+
+          <label for="confirm-password">Confirm Password</label>
+          <input
+            type="password"
+            id="confirm-password"
+            name="confirm-password"
+            required
+          />
+
+          <button type="submit">Sign Up</button>
+        </form>
+        <p class="switch-form-link">
+          Already have an account?
+          <a href="javascript:void(0)" onclick="showLogin()">Login</a>
+        </p>
+      </div>
+    </div>
+
+    <script>
+      if (`{{ .IsLogin}}` == "false") {
+        showSignUp();
+      } else {
+        showLogin();
+      }
+      function showSignUp() {
+        document.getElementById("login-form").style.display = "none";
+        document.getElementById("signup-form").style.display = "block";
+      }
+
+      function showLogin() {
+        document.getElementById("login-form").style.display = "block";
+        document.getElementById("signup-form").style.display = "none";
+      }
+
+      // Handle login form submission
+      document
+        .getElementById("login-form-submit")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault(); // Prevent default form submission
+
+          const username = document.getElementById("username").value;
+          const password = document.getElementById("password").value;
+
+          const response = await fetch(`http://{{ .Host }}/login`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              username: username,
+              password: password,
+            }),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (localStorage.getItem("accessToken") == null) {
+              localStorage.setItem("accessToken", data.token);
+            }
+            window.location.href = `http://{{ .Host }}/chat/${username}`;
+          } else {
+            alert("Login failed!");
+          }
+        });
+
+      // Handle signup form submission
+      document
+        .getElementById("signup-form-submit")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault(); // Prevent default form submission
+
+          const username = document.getElementById("username-signup").value;
+          const password = document.getElementById("password-signup").value;
+          const confirmPassword =
+            document.getElementById("confirm-password").value;
+
+          if (password !== confirmPassword) {
+            alert("Passwords do not match!");
+            return;
+          }
+
+          const response = await fetch(`http://{{ .Host }}/register`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              username: username,
+              password: password,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            showLogin();
+            // Redirect or update UI based on the response
+          } else {
+            alert("Sign up failed!");
+          }
+        });
+    </script>
+  </body>
+</html>
