@@ -9,6 +9,7 @@ import (
 	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/utils"
+	"github.com/te6lim/go-chat/requests"
 )
 
 type addChatReferenceRequest struct {
@@ -100,11 +101,56 @@ func HandleNewChat(templatehandler *utils.TemplateHandler) http.HandlerFunc {
 	}
 }
 
+func GetUnacknowledgedMessages(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	chatRef := mux.Vars(r)["chatId"]
+	username := mux.Vars(r)["username"]
+	messages := database.GetAllUnacknowledgedMessages(chatRef, username)
+	if messages == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	res, err := json.Marshal(messages)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
+}
+
+func AcknowledgeMessages(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var ackRequest = &requests.AckRequest{}
+	err := utils.ParseBody(r, ackRequest)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	messages := database.AcknowledgeMessages(
+		ackRequest.ChatReference, ackRequest.Username, ackRequest.From, ackRequest.To,
+	)
+	if (messages == nil) {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	res, err := json.Marshal(messages)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
+}
+
 func InsertMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var message *database.Message
 	var response interface{}
-	utils.ParseBody(r, &message)
+	e := utils.ParseBody(r, &message)
+	if e != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	message, err := database.InsertMessage(*message)
 	if err != nil {
 		response = utils.Error{
