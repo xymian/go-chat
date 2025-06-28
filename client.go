@@ -31,8 +31,8 @@ func main() {
 	go chat.ListenForNewChatRoom()
 
 	http.Handle("/", config.Router)
-	log.Println("Server started on localhost:8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	log.Println("Server started on localhost:6060")
+	if err := http.ListenAndServe(":6060", nil); err != nil {
 		log.Fatal(err)
 	}
 }

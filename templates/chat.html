@@ -148,7 +148,7 @@
         const input = document.getElementById("input");
         if (input.value.trim()) {
           const messageData = {
-            messageReference: crypto.randomUUID(),
+            messageReference: crypto.randomUUID,
             textMessage: input.value,
             senderUsername: "{{ .Me }}",
             receiverUsername: "{{ .Other }}",
