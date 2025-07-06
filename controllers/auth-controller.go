@@ -104,6 +104,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	var request loginRequest
 	var response interface{}
 	err := utils.ParseBody(r, &request)
