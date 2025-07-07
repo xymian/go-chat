@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/te6lim/go-chat/database"
+	"github.com/te6lim/go-chat/responses"
 	"github.com/te6lim/go-chat/utils"
 )
 
@@ -30,6 +31,38 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	w.Write(res)
+}
+
+func GetInteractions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	username := mux.Vars(r)["username"]
+	user := database.GetUser(username)
+	conversationMap := map[int64]string{}
+	if user.Interactions != nil {
+		err := json.Unmarshal([]byte(*user.Interactions), &conversationMap)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	userIds := []int64{}
+	for k := range conversationMap {
+		userIds = append(userIds, k)
+	}
+	users := database.GetUsers(userIds...)
+	userChatInfo := []*responses.UserChatInfo{}
+	for _, u := range users {
+		userChatInfo = append(userChatInfo, &responses.UserChatInfo{
+			Username:        u.Username,
+			DisplayImageUrl: "",
+			ChatReference:   conversationMap[u.Id],
+		})
+	}
+
+	res, _ := json.Marshal(userChatInfo)
+	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 }
 

@@ -7,6 +7,9 @@ import (
 )
 
 func RegisterUserRoutes() {
+
+	config.Router.HandleFunc("/user/{username}/interactions", middleware.WithJWTMiddleware(controllers.GetInteractions)).Methods("GET")
+
 	config.Router.HandleFunc("/user/{username}", middleware.WithJWTMiddleware(controllers.GetUser)).Methods("GET")
 	config.Router.HandleFunc("/user/{username}", middleware.WithJWTMiddleware(controllers.Delete)).Methods("DELETE")
 	config.Router.HandleFunc("/user", middleware.WithJWTMiddleware(controllers.InsertUser)).Methods("POST")
