@@ -174,9 +174,10 @@
           });
           if (response.ok) {
             const data = await response.json();
-            if (localStorage.getItem("accessToken") == null) {
-              localStorage.setItem("accessToken", data.token);
-            }
+            localStorage.setItem("accessToken", data.accessToken);
+            console.log(`token: ${localStorage.getItem(
+                      "accessToken"
+                    )}`)
             window.location.href = `http://{{ .Host }}/chat/${username}`;
           } else {
             alert("Login failed!");

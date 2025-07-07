@@ -334,12 +334,21 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		response = chat
+		user := database.GetUser(refReq.User)
+		if user != nil {
+			user.AddConversation(refReq.Other, chat.ChatReference)
+		}
+
+		response = map[string]string{
+			"chatReference": chat.ChatReference,
+		}
 		w.WriteHeader(http.StatusOK)
 		res, _ := json.Marshal(response)
 		w.Write(res)
 	} else {
-		response = chatRef
+		response = map[string]string{
+			"chatReference": *chatRef,
+		}
 		w.WriteHeader(http.StatusOK)
 		res, _ := json.Marshal(response)
 		w.Write(res)

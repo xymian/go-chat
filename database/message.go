@@ -46,7 +46,8 @@ func InsertMessage(message Message) (*Message, error) {
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername, messageTimestamp, chatReference, seenByReceiver, createdAt, updatedAt`,
 		message.MessageReference, message.TextMessage, message.SenderUsername, message.ReceiverUsername, message.MessageTimestamp, chat.ChatReference,
 	).Scan(
-		&dbMessage.Id, &dbMessage.MessageReference, &dbMessage.TextMessage, &dbMessage.SenderUsername, &dbMessage.ReceiverUsername, &dbMessage.MessageTimestamp,
+		&dbMessage.Id, &dbMessage.MessageReference, &dbMessage.TextMessage,
+		&dbMessage.SenderUsername, &dbMessage.ReceiverUsername, &dbMessage.MessageTimestamp,
 		&dbMessage.ChatReference, &dbMessage.CreatedAt, &dbMessage.UpdatedAt,
 	)
 	if err != nil {

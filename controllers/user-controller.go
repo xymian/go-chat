@@ -13,6 +13,7 @@ import (
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
+	println("username")
 	user := database.GetUser(username)
 	var response interface{}
 	if user == nil {

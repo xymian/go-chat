@@ -19,7 +19,8 @@ type loginRequest struct {
 }
 
 type loginResponse struct {
-	Token string `json:"token"`
+	AccessToken string `json:"accessToken"`
+	ExpiryTime  string `json:"expiryTime"`
 }
 
 func RegisterFE(templateHandler *utils.TemplateHandler) http.HandlerFunc {
@@ -119,6 +120,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user = database.GetUser(request.Username)
+	println(user)
 	if user == nil || !utils.CheckPasswordHash(request.Password, user.PasswordHash) {
 		response = utils.Error{
 			Message: "Invalid credentials",
@@ -129,7 +131,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := utils.GenerateJWT(user.Username)
+	data, err := utils.GenerateJWT(user.Username)
 	if err != nil {
 		response = utils.Error{
 			Message: "Generating token failed",
@@ -137,7 +139,8 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		response = loginResponse{
-			Token: token,
+			AccessToken:      data.Token,
+			ExpiryTime: data.Expiry,
 		}
 		w.WriteHeader(http.StatusOK)
 		res, _ := json.Marshal(response)

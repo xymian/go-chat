@@ -15,6 +15,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type JWTData struct {
+	Token  string
+	Expiry string
+}
+
 func ParseBody(r *http.Request, o interface{}) error {
 	if body, err := io.ReadAll(r.Body); err != nil {
 		return errors.New("parsing body failed")
@@ -36,12 +41,22 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
-func GenerateJWT(username string) (string, error) {
+func GenerateJWT(username string) (*JWTData, error) {
+	exp := jwt.NewNumericDate(time.Now().Add(time.Hour * 72))
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"username": username,
-		"exp":      jwt.NewNumericDate(time.Now().Add(time.Hour * 72)),
+		"exp":      exp,
 	})
-	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+
+	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	if err != nil {
+		return nil, err
+	}
+	data := JWTData{
+		Token:  tokenString,
+		Expiry: exp.String(),
+	}
+	return &data, nil
 }
 
 type Error struct {
