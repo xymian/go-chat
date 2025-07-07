@@ -7,7 +7,7 @@ import (
 )
 
 type User struct {
-	Id           string `json:"id"`
+	Id           int64`json:"id"`
 	Username     string `json:"username"`
 	PasswordHash string `json:"passwordHash"`
 	Conversations *string `json:"conversations"`
@@ -92,13 +92,13 @@ func DeleteAllUsers() []*User {
 	return users
 }
 
-func (user *User) AddConversation(username string, chatReference string) (*User, error) {
+func (user *User) AddConversation(userId int64, chatReference string) (*User, error) {
 	newUser := &User{}
-	conversationMap := map[string]string {}
+	conversationMap := map[int64]string {}
 	if (user.Conversations != nil) {
 		json.Unmarshal([]byte(*user.Conversations), &conversationMap)
 	}
-	conversationMap[username] = chatReference
+	conversationMap[userId] = chatReference
 	conversationsJsonString, err := json.Marshal(conversationMap)
 	if err != nil {
 		return nil, errors.New("unable to add new conversation")

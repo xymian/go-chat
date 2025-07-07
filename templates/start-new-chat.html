@@ -50,9 +50,7 @@
 
           if (username) {
             try {
-              console.log(`${localStorage.getItem(
-                      "accessToken"
-                    )}`)
+              console.log(`${localStorage.getItem("accessToken")}`);
               const userResponse = await fetch(
                 `http://{{ .Host }}/user/${username}`,
                 {
@@ -69,52 +67,30 @@
               if (!userResponse.ok) {
                 throw new Error(userResponse.body);
               }
-              const chatResponse = await fetch(
-                `http://{{ .Host }}/chatReference?user={{ .Me }}&other=${username}`,
+
+              const addChatRes = await fetch(
+                `http://{{ .Host }}/chatReference`,
                 {
-                  method: "GET",
+                  method: "POST",
                   headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${localStorage.getItem(
                       "accessToken"
                     )}`,
                   },
+                  body: JSON.stringify({
+                    user: `{{ .Me }}`,
+                    other: username,
+                  }),
                 }
               );
 
-              if (chatResponse.ok) {
-                const chatData = await chatResponse.json();
-                chatId = chatData.chatReference;
-                console.log("hereee: ", chatId)
+              if (!addChatRes.ok) {
+                throw new Error("User does not exist");
               } else {
-                console.log(chatResponse.status);
-                if (chatResponse.status == "404") {
-                  const addChatRes = await fetch(
-                    `http://{{ .Host }}/chatReference`,
-                    {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${localStorage.getItem(
-                          "accessToken"
-                        )}`,
-                      },
-                      body: JSON.stringify({
-                        user: `{{ .Me }}`,
-                        other: username,
-                      }),
-                    }
-                  );
-
-                  if (!addChatRes.ok) {
-                    throw new Error("User does not exist");
-                  } else {
-                    chatId = await addChatRes.json();
-                    console.log("fetched chat id: ", chatId)
-                  }
-                } else {
-                  // handle case of network error or somerthing
-                }
+                chatRes = await addChatRes.json();
+                chatId = chatRes.chatReference
+                console.log("fetched chat id: ", chatId);
               }
               window.location.href = `http://{{ .Host }}/chat/{{ .Me }}/${chatId}`;
             } catch (error) {
