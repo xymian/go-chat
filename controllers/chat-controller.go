@@ -8,13 +8,14 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/database"
-	"github.com/te6lim/go-chat/utils"
 	"github.com/te6lim/go-chat/requests"
+	"github.com/te6lim/go-chat/responses"
+	"github.com/te6lim/go-chat/utils"
 )
 
 type addChatReferenceRequest struct {
-	User  string
-	Other string
+	User  string `json:"user"`
+	Other string `json:"other"`
 }
 
 func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
@@ -130,7 +131,7 @@ func AcknowledgeMessages(w http.ResponseWriter, r *http.Request) {
 	messages := database.AcknowledgeMessages(
 		ackRequest.ChatReference, ackRequest.Username, ackRequest.From, ackRequest.To,
 	)
-	if (messages == nil) {
+	if messages == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -337,7 +338,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		otheruser := database.GetUser(refReq.Other)
 		user := database.GetUser(refReq.User)
 		println("other user: ", refReq.Other)
-		if otheruser  != nil {
+		if otheruser != nil {
 			user.AddConversation(otheruser.Id, chat.ChatReference)
 		}
 
@@ -353,13 +354,12 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		if user != nil {
 			user.AddConversation(otheruser.Id, *chatRef)
 		}
+		response = responses.NewChat{
+			User:          refReq.User,
+			Other:         refReq.Other,
+			ChatReference: *chatRef,
+		}
 
-		response = map[string]string{
-			"chatReference": *chatRef,
-		}
-		response = map[string]string{
-			"chatReference": *chatRef,
-		}
 		w.WriteHeader(http.StatusOK)
 		res, _ := json.Marshal(response)
 		w.Write(res)
