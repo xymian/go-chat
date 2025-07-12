@@ -75,7 +75,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		response = responses.Response[string] {
 			Data: nil,
 			Message: "User does not exist",
-			Error: err.Error(),
+			Error: "",
 			StatusCode: http.StatusConflict,
 			IsSuccessful: false,
 		}
@@ -152,7 +152,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 				ExpiryTime: data.Expiry,
 			},
 			Message: "login successful",
-			Error: err.Error(),
+			Error: "",
 			StatusCode: http.StatusOK,
 			IsSuccessful: true,
 		}

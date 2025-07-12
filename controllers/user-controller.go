@@ -156,7 +156,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 		response = responses.Response[string] {
 			Data: nil,
 			Message: "new user added",
-			Error: err.Error(),
+			Error: "",
 			StatusCode: http.StatusOK,
 			IsSuccessful: true,
 		}
