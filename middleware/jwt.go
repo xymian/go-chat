@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/te6lim/go-chat/utils"
+	"github.com/te6lim/go-chat/responses"
 )
 
 type contextKey string
@@ -22,8 +22,12 @@ func WithJWTMiddleware(actualhanlder http.HandlerFunc) http.HandlerFunc {
 		var response interface{}
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer") {
-			response = utils.Error{
-				Message: "Unauthorized - not token",
+			response = responses.Response[string]{
+				Data:         nil,
+				Message:      "Unauthorized - not token",
+				Error:        "Unauthorized - not token",
+				StatusCode:   http.StatusUnauthorized,
+				IsSuccessful: false,
 			}
 			w.WriteHeader(http.StatusUnauthorized)
 			res, _ := json.Marshal(response)
@@ -40,8 +44,12 @@ func WithJWTMiddleware(actualhanlder http.HandlerFunc) http.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
-			response = utils.Error{
-				Message: "Unauthorized - invalid token",
+			response = responses.Response[string]{
+				Data:         nil,
+				Message:      "Unauthorized - invalid token",
+				Error:        err.Error(),
+				StatusCode:   http.StatusUnauthorized,
+				IsSuccessful: false,
 			}
 			w.WriteHeader(http.StatusUnauthorized)
 			res, _ := json.Marshal(response)
@@ -51,8 +59,12 @@ func WithJWTMiddleware(actualhanlder http.HandlerFunc) http.HandlerFunc {
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok || claims["username"] == nil {
-			response = utils.Error{
-				Message: "Unauthorized - bad claims",
+			response = responses.Response[string]{
+				Data:         nil,
+				Message:      "Unauthorized - bad claims",
+				Error:        "Unauthorized - bad claims",
+				StatusCode:   http.StatusUnauthorized,
+				IsSuccessful: false,
 			}
 			w.WriteHeader(http.StatusUnauthorized)
 			res, _ := json.Marshal(response)
@@ -72,8 +84,12 @@ func WithJWTMiddlewareWithData(actualhanlder func(username string) http.HandlerF
 		var response interface{}
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer") {
-			response = utils.Error{
-				Message: "Unauthorized - no token",
+			response = responses.Response[string]{
+				Data:         nil,
+				Message:      "Unauthorized - no token",
+				Error:        "Unauthorized - no token",
+				StatusCode:   http.StatusUnauthorized,
+				IsSuccessful: false,
 			}
 			w.WriteHeader(http.StatusUnauthorized)
 			res, _ := json.Marshal(response)
@@ -90,8 +106,12 @@ func WithJWTMiddlewareWithData(actualhanlder func(username string) http.HandlerF
 		})
 
 		if err != nil || !token.Valid {
-			response = utils.Error{
-				Message: "Unauthorized - invalid token",
+			response = responses.Response[string]{
+				Data:         nil,
+				Message:      "Unauthorized - invalid token",
+				Error:        err.Error(),
+				StatusCode:   http.StatusUnauthorized,
+				IsSuccessful: false,
 			}
 			w.WriteHeader(http.StatusUnauthorized)
 			res, _ := json.Marshal(response)
@@ -101,8 +121,12 @@ func WithJWTMiddlewareWithData(actualhanlder func(username string) http.HandlerF
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok || claims["username"] == nil {
-			response = utils.Error{
-				Message: "Unauthorized - bad claims",
+			response = responses.Response[string]{
+				Data:         nil,
+				Message:      "Unauthorized - bad claims",
+				Error:        "Unauthorized - bad claims",
+				StatusCode:   http.StatusUnauthorized,
+				IsSuccessful: false,
 			}
 			w.WriteHeader(http.StatusUnauthorized)
 			res, _ := json.Marshal(response)

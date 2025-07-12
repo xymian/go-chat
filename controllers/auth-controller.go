@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/te6lim/go-chat/database"
+	"github.com/te6lim/go-chat/responses"
 	"github.com/te6lim/go-chat/utils"
 )
 
@@ -51,15 +52,19 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	var regRequest registerRequest
 	err := utils.ParseBody(r, &regRequest)
 	if err != nil {
-		response = utils.Error{
-			Message: "Parsing body failed",
+		response = responses.Response[string] {
+			Data: nil,
+			Message: "",
+			Error: err.Error(),
+			StatusCode: http.StatusBadRequest,
+			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
 	}
 	if regRequest.Username == "" || regRequest.Password == "" {
-		response = utils.Error{
-			Message: "Username and password are required",
-		}
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(response)
 		w.Write(res)
@@ -67,8 +72,12 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 	existingUser := database.GetUser(regRequest.Username)
 	if existingUser != nil {
-		response = utils.Error{
-			Message: "User already exists",
+		response = responses.Response[string] {
+			Data: nil,
+			Message: "User does not exist",
+			Error: err.Error(),
+			StatusCode: http.StatusConflict,
+			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusConflict)
 		res, _ := json.Marshal(response)
@@ -78,9 +87,6 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 	passwordHash, err := utils.HashPassword(regRequest.Password)
 	if err != nil {
-		response = utils.Error{
-			Message: "Hashing password failed",
-		}
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		user, err := database.InsertUser(
@@ -90,13 +96,16 @@ func Register(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 		if err != nil {
-			response = utils.Error{
-				Message: err.Error(),
-			}
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
-			response = user
-			w.WriteHeader(http.StatusCreated)
+			response = responses.Response[string] {
+				Data: &user.Username,
+				Message: "user registered",
+				Error: "",
+				StatusCode: http.StatusOK,
+				IsSuccessful: true,
+			}
+			w.WriteHeader(http.StatusOK)
 		}
 	}
 
@@ -110,8 +119,12 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	err := utils.ParseBody(r, &request)
 	if err != nil {
-		response = utils.Error{
-			Message: "Parsing body failed",
+		response = responses.Response[string] {
+			Data: nil,
+			Message: "error in request body",
+			Error: err.Error(),
+			StatusCode: http.StatusBadRequest,
+			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(response)
@@ -122,9 +135,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	var user = database.GetUser(request.Username)
 	println(user)
 	if user == nil || !utils.CheckPasswordHash(request.Password, user.PasswordHash) {
-		response = utils.Error{
-			Message: "Invalid credentials",
-		}
 		w.WriteHeader(http.StatusUnauthorized)
 		res, _ := json.Marshal(response)
 		w.Write(res)
@@ -133,14 +143,18 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	data, err := utils.GenerateJWT(user.Username)
 	if err != nil {
-		response = utils.Error{
-			Message: "Generating token failed",
-		}
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	} else {
-		response = loginResponse{
-			AccessToken:      data.Token,
-			ExpiryTime: data.Expiry,
+		response = responses.Response[loginResponse] {
+			Data: &loginResponse{
+				AccessToken:      data.Token,
+				ExpiryTime: data.Expiry,
+			},
+			Message: "login successful",
+			Error: err.Error(),
+			StatusCode: http.StatusOK,
+			IsSuccessful: true,
 		}
 		w.WriteHeader(http.StatusOK)
 		res, _ := json.Marshal(response)

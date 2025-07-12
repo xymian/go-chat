@@ -18,12 +18,24 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	user := database.GetUser(username)
 	var response interface{}
 	if user == nil {
-		response = utils.Error{
-			Message: "User does not exist",
+		response = responses.Response[string] {
+			Data: nil,
+			Message: "user does not exist",
+			Error: "",
+			StatusCode: http.StatusNotFound,
+			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(response)
+		w.Write(res)
 	} else {
-		response = user
+		response = responses.Response[string] {
+			Data: &user.Username,
+			Message: "",
+			Error: "",
+			StatusCode: http.StatusOK,
+			IsSuccessful: true,
+		}
 		w.WriteHeader(http.StatusOK)
 	}
 	res, err := json.Marshal(response)
@@ -61,7 +73,15 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	res, _ := json.Marshal(userChatInfo)
+	response := responses.Response[[]*responses.UserChatInfo] {
+		Data: &userChatInfo,
+		Message: "success",
+		Error: "",
+		StatusCode: http.StatusOK,
+		IsSuccessful: true,
+	}
+
+	res, _ := json.Marshal(response)
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 }
@@ -71,12 +91,22 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	users := database.GetAllUsers()
 	var response interface{}
 	if users == nil {
-		response = utils.Error{
-			Message: "User does not exist",
+		response = responses.Response[string] {
+			Data: nil,
+			Message: "cannot get all users",
+			Error: "cannot get all users",
+			StatusCode: http.StatusNotFound,
+			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
-		response = users
+		response = responses.Response[string] {
+			Data: nil,
+			Message: "",
+			Error: "",
+			StatusCode: http.StatusOK,
+			IsSuccessful: false,
+		}
 		w.WriteHeader(http.StatusOK)
 	}
 	res, err := json.Marshal(response)
@@ -89,31 +119,50 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 
 func InsertUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	var response interface{}
 	user := &database.User{}
 	err := utils.ParseBody(r, &user)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	var response interface{}
-	user, err = database.InsertUser(*user)
-	if err != nil {
-		response = utils.Error{
-			Message: err.Error(),
+		response = responses.Response[string] {
+			Data: nil,
+			Message: "bad request",
+			Error: err.Error(),
+			StatusCode: http.StatusBadRequest,
+			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	user, err = database.InsertUser(*user)
+	if err != nil {
+		response = responses.Response[string] {
+			Data: nil,
+			Message: "cannot insert user",
+			Error: err.Error(),
+			StatusCode: http.StatusBadRequest,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
 	}
 	if user == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
-		response = user
+		response = responses.Response[string] {
+			Data: nil,
+			Message: "new user added",
+			Error: err.Error(),
+			StatusCode: http.StatusOK,
+			IsSuccessful: true,
+		}
 		w.WriteHeader(http.StatusOK)
 	}
-	res, err := json.Marshal(response)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	res, _ := json.Marshal(response)
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 }

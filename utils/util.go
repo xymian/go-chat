@@ -59,10 +59,6 @@ func GenerateJWT(username string) (*JWTData, error) {
 	return &data, nil
 }
 
-type Error struct {
-	Message string `json:"error"`
-}
-
 type TemplateHandler struct {
 	Once     sync.Once
 	FileName string
