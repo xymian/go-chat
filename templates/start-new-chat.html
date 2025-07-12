@@ -89,7 +89,7 @@
                 throw new Error("User does not exist");
               } else {
                 chatRes = await addChatRes.json();
-                chatId = chatRes.chatReference
+                chatId = chatRes.data.chatReference
                 console.log("fetched chat id: ", chatId);
               }
               window.location.href = `http://{{ .Host }}/chat/{{ .Me }}/${chatId}`;
