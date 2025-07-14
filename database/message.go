@@ -101,7 +101,7 @@ func GetAllUnacknowledgedMessages(chatReference string, username string) []*Mess
 	messages := []*Message{}
 	rows, err := Instance.Query(
 		`SELECT id, messageReference, textMessage, senderUsername, receiverUsername, messageTimestamp,
-		chatReference, seenByReceiver, createdAt, updatedAt FROM messages WHERE chatReference = $1 AND seenByReceiver = $1 AND receiverUsername <> $1`,
+		chatReference, seenByReceiver, createdAt, updatedAt FROM messages WHERE chatReference = $1 AND seenByReceiver = $2 AND receiverUsername <> $3`,
 		chatReference, "false", username,
 	)
 	if err != nil {

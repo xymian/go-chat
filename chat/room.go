@@ -78,7 +78,11 @@ func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		NewUser <- newUser
 	}
 
-	defer conn.Close()
+	defer func() {
+		room.Tracer.Trace(username, " disconnected")
+		delete(Rooms, room.Id)
+		conn.Close()
+	}()
 	newUser.Conn = conn
 
 	room.JoinRoom(newUser)
