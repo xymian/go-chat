@@ -78,7 +78,8 @@ func AcknowledgeMessages(chatReference string, username string, from string, to 
 	messages := []*Message{}
 
 	rows, err := Instance.Query(
-		`UPDATE messages SET seenByReceiver = $1 WHERE receiverUsername <> $2 chatReference = $3 AND seenByReceiver = $4 AND messageTimestamp BETWEEN $5 AND $6`,
+		`UPDATE messages SET seenByReceiver = $1 WHERE senderUsername <> $2 AND chatReference = $3 AND seenByReceiver = $4 AND messageTimestamp BETWEEN $5 AND $6
+		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername, messageTimestamp, chatReference, seenByReceiver, createdAt, updatedAt`,
 		"true", username, chatReference, "false", from, to,
 	)
 	if err != nil {
@@ -94,6 +95,7 @@ func AcknowledgeMessages(chatReference string, username string, from string, to 
 		)
 		messages = append(messages, message)
 	}
+	println("message size: ", len(messages))
 	return messages
 }
 
@@ -101,7 +103,7 @@ func GetAllUnacknowledgedMessages(chatReference string, username string) []*Mess
 	messages := []*Message{}
 	rows, err := Instance.Query(
 		`SELECT id, messageReference, textMessage, senderUsername, receiverUsername, messageTimestamp,
-		chatReference, seenByReceiver, createdAt, updatedAt FROM messages WHERE chatReference = $1 AND seenByReceiver = $2 AND receiverUsername <> $3`,
+		chatReference, seenByReceiver, createdAt, updatedAt FROM messages WHERE chatReference = $1 AND seenByReceiver = $2 AND senderUsername <> $3`,
 		chatReference, "false", username,
 	)
 	if err != nil {

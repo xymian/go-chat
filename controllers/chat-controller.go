@@ -189,7 +189,7 @@ func AcknowledgeMessages(w http.ResponseWriter, r *http.Request) {
 	response = responses.Response[[]*database.Message]{
 		Data:         &messages,
 		Message:      fmt.Sprintf("%v messages acknowledged", len(messages)),
-		Error:        "you are not a participant in this chat!",
+		Error:        "",
 		StatusCode:   http.StatusOK,
 		IsSuccessful: true,
 	}

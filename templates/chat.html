@@ -63,8 +63,10 @@
       </div>
     </div>
 
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-    <script>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js">
+    </script>
+    <script type="module">
+      import { v4 as uuidv4 } from 'https://jspm.dev/uuid';
       const socket = new WebSocket(
         `ws://{{ .Host }}/room/{{ .ChatId }}?me={{ .Me }}&other={{ .Other }}`
       );
@@ -148,12 +150,13 @@
         const input = document.getElementById("input");
         if (input.value.trim()) {
           const messageData = {
-            messageReference: crypto.randomUUID,
+            messageReference: uuidv4(),
             textMessage: input.value,
             senderUsername: "{{ .Me }}",
             receiverUsername: "{{ .Other }}",
             messageTimestamp: new Date().toISOString(),
             chatReference: "{{ .ChatId }}",
+            seenByReceiver: false
           };
           socket.send(JSON.stringify(messageData));
           input.value = "";
