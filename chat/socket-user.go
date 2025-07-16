@@ -46,6 +46,7 @@ func SetupSocketUser(username string, otherUsername string, chatReference string
 	}
 	endpoint := fmt.Sprintf("/room/%s", chatReference)
 	config.Router.Handle(endpoint, room)
+	room.Tracer.Trace("room handler added")
 }
 
 func CreateNewUser(username string) *Socketuser {

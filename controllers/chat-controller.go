@@ -385,8 +385,32 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 	otheruser := database.GetUser(refReq.Other)
 	user := database.GetUser(refReq.User)
 
-	if user == nil || otheruser == nil {
-		w.WriteHeader(http.StatusBadRequest)
+	if user == nil {
+		w.WriteHeader(http.StatusNotFound)
+		response := responses.Response[string] {
+			Data: nil,
+			Message: "username " + refReq.User + " does not exist",
+			Error: "",
+			StatusCode: http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	if otheruser == nil {
+		w.WriteHeader(http.StatusNotFound)
+		response := responses.Response[string] {
+			Data: nil,
+			Message: "username " + refReq.Other + " does not exist",
+			Error: "",
+			StatusCode: http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
 	}
 
 	chatRef := database.GetChatRefFor(refReq.User, refReq.Other)
