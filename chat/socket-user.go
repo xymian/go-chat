@@ -10,7 +10,7 @@ import (
 	"github.com/te6lim/go-chat/tracer"
 )
 
-var OnlineUsers = make(map[string]*Socketuser)
+// var OnlineUsers = make(map[string]*Socketuser)
 var NewUser chan *Socketuser = make(chan *Socketuser)
 var LoggedOutUser chan *Socketuser = make(chan *Socketuser)
 
@@ -41,12 +41,10 @@ func SetupSocketUser(username string, otherUsername string, chatReference string
 		room = CreateRoom(chatReference)
 		AddRoom <- room
 		go room.Run()
-	} else {
-		room = Rooms[chatReference]
+		endpoint := fmt.Sprintf("/room/%s", chatReference)
+		config.Router.Handle(endpoint, room)
+		room.Tracer.Trace("room handler added")
 	}
-	endpoint := fmt.Sprintf("/room/%s", chatReference)
-	config.Router.Handle(endpoint, room)
-	room.Tracer.Trace("room handler added")
 }
 
 func CreateNewUser(username string) *Socketuser {
@@ -114,11 +112,11 @@ func ListenForActiveUsers() {
 	for {
 		select {
 		case newUser := <-NewUser:
-			OnlineUsers[newUser.Username] = newUser
+			//OnlineUsers[newUser.Username] = newUser
 			newUser.Tracer.Trace("\nNew User", newUser.Username, " is online")
 
 		case loggedOutUser := <-LoggedOutUser:
-			OnlineUsers[loggedOutUser.Username] = nil
+			//OnlineUsers[loggedOutUser.Username] = nil
 			loggedOutUser.Tracer.Trace("User", loggedOutUser.Username, " logged out")
 		}
 	}

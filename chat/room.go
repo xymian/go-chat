@@ -69,14 +69,16 @@ func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username := r.URL.Query().Get("me")
-	var newUser *Socketuser
-	if OnlineUsers[username] != nil {
+
+	newUser := CreateNewUser(username)
+	NewUser <- newUser
+	/*if OnlineUsers[username] != nil {
 		newUser = OnlineUsers[username]
 		newUser.Tracer.Trace("\nUser", username, " is online")
 	} else {
 		newUser = CreateNewUser(username)
 		NewUser <- newUser
-	}
+	}*/
 
 	defer func() {
 		room.Tracer.Trace(username, " disconnected")
