@@ -20,51 +20,54 @@ func InsertParticipant(participant Participant) (*Participant, error) {
 	).Scan(&newParticipant.Id, &newParticipant.Username, &newParticipant.ChatReference, &newParticipant.CreatedAt)
 
 	if err != nil {
-		newParticipant = nil
+		return nil, err
 	}
 	return newParticipant, nil
 }
 
-func GetParticipantsInChat(chatReference string) []*Participant {
-	participants := []*Participant{}
+func GetParticipantsInChat(chatReference string) ([]Participant, error) {
+	participants := []Participant{}
 	rows, err := Instance.Query(
 		`SELECT id, username, chatReference, createdAt FROM participants WHERE chatReference = $1`,
 		chatReference,
 	)
 	for rows.Next() {
 		participant := &Participant{}
-		rows.Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
-		participants = append(participants, participant)
+		scanErr := rows.Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
+		if (scanErr != nil) {
+			return []Participant{}, scanErr
+		}
+		participants = append(participants, *participant)
 	}
 	if err != nil {
-		participants = nil
+		return []Participant{}, err
 	}
-	return participants
+	return participants, nil
 }
 
-func GetParticipant(username string, chatReference string) *Participant {
+func GetParticipant(username string, chatReference string) (*Participant, error) {
 	participant := &Participant{}
 	err := Instance.QueryRow(
 		`SELECT id, username, chatReference, createdAt FROM participants WHERE username = $1 AND chatReference = $2`,
 		username, chatReference,
 	).Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
 	if err != nil {
-		participant = nil
+		return nil, err
 	}
-	return participant
+	return participant, nil
 }
 
-func GetChatRefFor(user string, other string) *string {
+func GetChatRefFor(user string, other string) (*string, error) {
 	var ref string
 	err := Instance.QueryRow(
 		`SELECT chatReference FROM participants WHERE username IN ($1, $2) GROUP BY chatReference HAVING COUNT(chatReference) = 2`,
 		user, other,
 	).Scan(&ref)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	if len(ref) == 0 {
-		return nil
+		return nil, errors.New("reference can't be empty")
 	}
-	return &ref
+	return &ref, nil
 }

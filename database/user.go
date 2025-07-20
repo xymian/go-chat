@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 )
 
 type User struct {
@@ -16,11 +15,11 @@ type User struct {
 	UpdatedAt    string  `json:"updatedAt"`
 }
 
-func GetUsers(ids ...int64) []User {
+func GetUsers(ids ...int64) ([]User, error) {
 	ctx := context.Background()
 	txn, err := Instance.BeginTx(ctx, nil)
 	if err != nil {
-		log.Fatal(err)
+		return []User{}, err
 	}
 	defer txn.Rollback()
 
@@ -31,15 +30,15 @@ func GetUsers(ids ...int64) []User {
 			`SELECT id, username FROM users WHERE id = $1`, id,
 		).Scan(&user.Id, &user.Username)
 		if err != nil {
-			log.Fatal()
+			return []User{}, err
 		}
 		users = append(users, *user)
 	}
 	e := txn.Commit()
 	if e != nil {
-		log.Fatal(e)
+		return []User{}, err
 	}
-	return users
+	return users, nil
 }
 
 func InsertUser(user User) (*User, error) {
@@ -47,71 +46,74 @@ func InsertUser(user User) (*User, error) {
 	if len(user.Username) <= 0 {
 		return nil, errors.New("invalid username")
 	}
-	r := Instance.QueryRow(
+	err := Instance.QueryRow(
 		`INSERT INTO users(username, passwordHash) VALUES($1, $2) RETURNING id, username, passwordHash, createdAt, updatedAt`,
 		user.Username, user.PasswordHash,
 	).Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
-	if r == nil {
-		newUser = nil
+	if err != nil {
+		return nil, err
 	}
 	return newUser, errors.New("error in db query")
 }
 
-func GetUser(username string) *User {
+func GetUser(username string) (*User, error) {
 	user := &User{}
-	Instance.QueryRow(
+	err := Instance.QueryRow(
 		`SELECT id, username, passwordHash, interactions, createdAt, updatedAt FROM users WHERE username = $1`, username,
 	).Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
-	return user
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
-func DeleteUser(username string) *User {
+func DeleteUser(username string) (*User, error) {
 	user := &User{}
-	r := Instance.QueryRow(
+	err := Instance.QueryRow(
 		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, passwordHash, interactions createdAt, updatedAt`, username,
 	).Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
-	if r == nil {
-		user = nil
+	if err == nil {
+		return nil, err
 	}
-	return user
+	return user, nil
 }
 
-func GetAllUsers() []*User {
+func GetAllUsers() ([]*User, error) {
 	users := []*User{}
 	rows, err := Instance.Query(
 		`SELECT id, username, passwordHash, interactions, createdAt, updatedAt FROM users`,
 	)
 	if err != nil {
-		users = nil
+		return nil, err
 	}
 	for rows.Next() {
 		user := &User{}
 		err := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		users = append(users, user)
 	}
-	return users
+	return users, nil
 }
 
-func DeleteAllUsers() []*User {
+func DeleteAllUsers() ([]*User, error) {
 	users := []*User{}
 	rows, err := Instance.Query(
 		`DELETE FROM users RETURNING id, username, passwordHash, interactions, createdAt, updatedAt`,
 	)
 	if err != nil {
-		users = nil
+		return nil, err
 	}
 	for rows.Next() {
 		user := &User{}
 		err := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		users = append(users, user)
 	}
-	return users
+	return users, nil
 }
 
 func (user *User) AddConversation(userId int64, chatReference string) (*User, error) {
@@ -123,7 +125,7 @@ func (user *User) AddConversation(userId int64, chatReference string) (*User, er
 	conversationMap[userId] = chatReference
 	interactionsJsonString, err := json.Marshal(conversationMap)
 	if err != nil {
-		return nil, errors.New("unable to add new conversation")
+		return nil, err
 	}
 	Instance.QueryRow(
 		`UPDATE users SET interactions = $1 WHERE id = $2 RETURNING id, username, passwordHash, interactions, createdAt, updatedAt`,

@@ -19,31 +19,31 @@ func InsertChat(chat Chat) (*Chat, error) {
 		chat.ChatReference,
 	).Scan(&chat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
 	if err != nil {
-		newChat = nil
+		return nil, err
 	}
 	return newChat, nil
 }
 
-func GetChat(reference string) *Chat {
+func GetChat(reference string) (*Chat, error) {
 	newChat := &Chat{}
 	err := Instance.QueryRow(
 		`SELECT id, chatReference, createdAt, updatedAt FROM chats WHERE chatReference = $1`,
 		reference,
 	).Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
 	if err != nil {
-		newChat = nil
+		return nil, err
 	}
-	return newChat
+	return newChat, nil
 }
 
-func DeleteChat(reference string) *Chat {
+func DeleteChat(reference string) (*Chat, error) {
 	newChat := &Chat{}
 	err := Instance.QueryRow(
 		`DELETE FROM chats WHERE chatReference = $1 RETURNING id, chatReference, createdAt, updatedAt`,
 		reference,
 	).Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
 	if err != nil {
-		newChat = nil
+		return nil, err
 	}
-	return newChat
+	return newChat, nil
 }

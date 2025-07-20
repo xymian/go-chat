@@ -64,14 +64,13 @@ func GetParticipant(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := r.URL.Query().Get("username")
 	chatRef := r.URL.Query().Get("chatReference")
-
-	participant := database.GetParticipant(username, chatRef)
 	var response interface{}
-	if participant == nil {
+	participant, err := database.GetParticipant(username, chatRef)
+	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
-			Message:      "participant does not exist",
-			Error:        "",
+			Message:      "",
+			Error:        err.Error(),
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}

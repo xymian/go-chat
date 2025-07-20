@@ -13,48 +13,71 @@ import (
 
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	var response interface{}
 	username := mux.Vars(r)["username"]
 	println("username")
-	user := database.GetUser(username)
-	var response interface{}
+	user, _ := database.GetUser(username)
+
 	if user == nil {
-		response = models.Response[string] {
-			Data: nil,
-			Message: "user does not exist",
-			Error: "",
-			StatusCode: http.StatusNotFound,
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "user does not exist",
+			Error:        "",
+			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusNotFound)
 		res, _ := json.Marshal(response)
 		w.Write(res)
-	} else {
-		response = models.Response[string] {
-			Data: &user.Username,
-			Message: "",
-			Error: "",
-			StatusCode: http.StatusOK,
-			IsSuccessful: true,
-		}
-		w.WriteHeader(http.StatusOK)
-	}
-	res, err := json.Marshal(response)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	//TODO: Fix this
+	response = models.Response[database.User]{
+		Data:         nil,
+		Message:      "",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+
+	res, _ := json.Marshal(response)
 	w.Write(res)
 }
 
 func GetInteractions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
-	user := database.GetUser(username)
+	var response interface{}
+	user, err := database.GetUser(username)
+	if err != nil {
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "",
+			Error:        err.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
 	conversationMap := map[int64]string{}
 	if user.Interactions != nil {
 		err := json.Unmarshal([]byte(*user.Interactions), &conversationMap)
 		if err != nil {
+			response = models.Response[string]{
+				Data:         nil,
+				Message:      "",
+				Error:        err.Error(),
+				StatusCode:   http.StatusInternalServerError,
+				IsSuccessful: false,
+			}
 			w.WriteHeader(http.StatusInternalServerError)
+			res, _ := json.Marshal(response)
+			w.Write(res)
 			return
 		}
 	}
@@ -63,7 +86,20 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 	for k := range conversationMap {
 		userIds = append(userIds, k)
 	}
-	users := database.GetUsers(userIds...)
+	users, err := database.GetUsers(userIds...)
+	if err != nil {
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "",
+			Error:        err.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
 	userChatInfo := []*models.UserChatInfo{}
 	for _, u := range users {
 		userChatInfo = append(userChatInfo, &models.UserChatInfo{
@@ -73,11 +109,11 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	response := models.Response[[]*models.UserChatInfo] {
-		Data: &userChatInfo,
-		Message: "success",
-		Error: "",
-		StatusCode: http.StatusOK,
+	response = models.Response[[]*models.UserChatInfo]{
+		Data:         &userChatInfo,
+		Message:      "success",
+		Error:        "",
+		StatusCode:   http.StatusOK,
 		IsSuccessful: true,
 	}
 
@@ -88,32 +124,42 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	users := database.GetAllUsers()
 	var response interface{}
+	users, err := database.GetAllUsers()
+	if err != nil {
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "",
+			Error:        err.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
 	if users == nil {
-		response = models.Response[string] {
-			Data: nil,
-			Message: "cannot get all users",
-			Error: "cannot get all users",
-			StatusCode: http.StatusNotFound,
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "cannot get all users",
+			Error:        "cannot get all users",
+			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
-		response = models.Response[string] {
-			Data: nil,
-			Message: "",
-			Error: "",
-			StatusCode: http.StatusOK,
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "",
+			Error:        "",
+			StatusCode:   http.StatusOK,
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusOK)
 	}
-	res, err := json.Marshal(response)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	res, _ := json.Marshal(response)
 	w.Write(res)
 }
 
@@ -123,11 +169,11 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 	user := &database.User{}
 	err := utils.ParseBody(r, &user)
 	if err != nil {
-		response = models.Response[string] {
-			Data: nil,
-			Message: "bad request",
-			Error: err.Error(),
-			StatusCode: http.StatusBadRequest,
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "bad request",
+			Error:        err.Error(),
+			StatusCode:   http.StatusBadRequest,
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusBadRequest)
@@ -138,30 +184,39 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err = database.InsertUser(*user)
 	if err != nil {
-		response = models.Response[string] {
-			Data: nil,
-			Message: "cannot insert user",
-			Error: err.Error(),
-			StatusCode: http.StatusBadRequest,
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "cannot insert user",
+			Error:        err.Error(),
+			StatusCode:   http.StatusInternalServerError,
 			IsSuccessful: false,
 		}
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
 		res, _ := json.Marshal(response)
 		w.Write(res)
 		return
 	}
 	if user == nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		response = models.Response[string] {
-			Data: nil,
-			Message: "new user added",
-			Error: "",
-			StatusCode: http.StatusOK,
-			IsSuccessful: true,
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "",
+			Error:        err.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
 		}
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusInternalServerError)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
 	}
+	response = models.Response[string]{
+		Data:         nil,
+		Message:      "new user added",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(response)
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
@@ -169,24 +224,29 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 
 func Delete(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
-	users := database.DeleteUser(username)
-	res, err := json.Marshal(users)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	var response interface{}
+	user, err := database.DeleteUser(username)
+	if user == nil {
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "",
+			Error:        err.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(response)
+		w.Write(res)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Write(res)
-}
-
-func DeleteAllUsers(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	users := database.DeleteAllUsers()
-	res, err := json.Marshal(users)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	response = models.Response[string]{
+		Data:         &user.Username,
+		Message:      "user has been deleted",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: false,
 	}
+	res, _ := json.Marshal(response)
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 }

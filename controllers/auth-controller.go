@@ -52,11 +52,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	var regRequest registerRequest
 	err := utils.ParseBody(r, &regRequest)
 	if err != nil {
-		response = models.Response[string] {
-			Data: nil,
-			Message: "",
-			Error: err.Error(),
-			StatusCode: http.StatusBadRequest,
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "",
+			Error:        err.Error(),
+			StatusCode:   http.StatusBadRequest,
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusBadRequest)
@@ -70,13 +70,13 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	existingUser := database.GetUser(regRequest.Username)
+	existingUser, err := database.GetUser(regRequest.Username)
 	if existingUser != nil {
-		response = models.Response[string] {
-			Data: nil,
-			Message: "User does not exist",
-			Error: "",
-			StatusCode: http.StatusConflict,
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "User does not exist",
+			Error:        err.Error(),
+			StatusCode:   http.StatusConflict,
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusConflict)
@@ -98,11 +98,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
-			response = models.Response[string] {
-				Data: &user.Username,
-				Message: "user registered",
-				Error: "",
-				StatusCode: http.StatusOK,
+			response = models.Response[string]{
+				Data:         &user.Username,
+				Message:      "user registered",
+				Error:        "",
+				StatusCode:   http.StatusOK,
 				IsSuccessful: true,
 			}
 			w.WriteHeader(http.StatusOK)
@@ -119,11 +119,11 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	err := utils.ParseBody(r, &request)
 	if err != nil {
-		response = models.Response[string] {
-			Data: nil,
-			Message: "error in request body",
-			Error: err.Error(),
-			StatusCode: http.StatusBadRequest,
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "error in request body",
+			Error:        err.Error(),
+			StatusCode:   http.StatusBadRequest,
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusBadRequest)
@@ -132,8 +132,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user = database.GetUser(request.Username)
-	println(user)
+	var user, _ = database.GetUser(request.Username)
 	if user == nil || !utils.CheckPasswordHash(request.Password, user.PasswordHash) {
 		w.WriteHeader(http.StatusUnauthorized)
 		res, _ := json.Marshal(response)
@@ -146,14 +145,14 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	} else {
-		response = models.Response[loginResponse] {
+		response = models.Response[loginResponse]{
 			Data: &loginResponse{
-				AccessToken:      data.Token,
-				ExpiryTime: data.Expiry,
+				AccessToken: data.Token,
+				ExpiryTime:  data.Expiry,
 			},
-			Message: "login successful",
-			Error: "",
-			StatusCode: http.StatusOK,
+			Message:      "login successful",
+			Error:        "",
+			StatusCode:   http.StatusOK,
 			IsSuccessful: true,
 		}
 		w.WriteHeader(http.StatusOK)

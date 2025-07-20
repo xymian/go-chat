@@ -41,24 +41,24 @@ func MarkMessagesAsDelivered(w http.ResponseWriter, r *http.Request) {
 	messages, err := database.MarkMessagesAsDelivered(*deliverMessage)
 	if err != nil {
 		response = models.Response[[]database.Message]{
-			Data:         nil,
+			Data:         &messages,
 			Message:      "",
 			Error:        err.Error(),
-			StatusCode:   http.StatusInternalServerError,
+			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		res, _ := json.Marshal(response)
 		w.Write(res)
 		return
 	}
 
 	response = models.Response[[]database.Message]{
-		Data:         messages,
+		Data:         &messages,
 		Message:      "messages marked as delivered",
 		Error:        "",
 		StatusCode:   http.StatusOK,
-		IsSuccessful: false,
+		IsSuccessful: true,
 	}
 	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(response)
@@ -82,9 +82,21 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 		me := mux.Vars(r)["username"]
 		chatId := mux.Vars(r)["chatId"]
 		var response interface{}
-		userChat := database.GetChat(chatId)
+		userChat, err := database.GetChat(chatId)
+		if err != nil {
+			response = models.Response[string]{
+				Data:         nil,
+				Message:      "",
+				Error:        err.Error(),
+				StatusCode:   http.StatusInternalServerError,
+				IsSuccessful: false,
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
+		}
 		if userChat == nil {
-			w.WriteHeader(http.StatusNotFound)
 			response = models.Response[string]{
 				Data:         nil,
 				Message:      "this chat does not exist",
@@ -92,13 +104,26 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 				StatusCode:   http.StatusNotFound,
 				IsSuccessful: false,
 			}
+			w.WriteHeader(http.StatusNotFound)
 			res, _ := json.Marshal(response)
 			w.Write(res)
 			return
 		}
-		var participants = database.GetParticipantsInChat(userChat.ChatReference)
+		var participants, pErr = database.GetParticipantsInChat(userChat.ChatReference)
+		if pErr != nil {
+			response = models.Response[string]{
+				Data:         nil,
+				Message:      "",
+				Error:        err.Error(),
+				StatusCode:   http.StatusNotFound,
+				IsSuccessful: false,
+			}
+			w.WriteHeader(http.StatusNotFound)
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
+		}
 		if len(participants) > 2 {
-			w.WriteHeader(http.StatusForbidden)
 			response = models.Response[string]{
 				Data:         nil,
 				Message:      "too many participants",
@@ -106,6 +131,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 				StatusCode:   http.StatusForbidden,
 				IsSuccessful: false,
 			}
+			w.WriteHeader(http.StatusForbidden)
 			res, _ := json.Marshal(response)
 			w.Write(res)
 			return
@@ -114,12 +140,11 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 		var user *database.Participant
 		for _, value := range participants {
 			if value.Username != me {
-				other = value
+				other = &value
 				break
 			}
 		}
 		if other == nil {
-			w.WriteHeader(http.StatusNotFound)
 			response = models.Response[string]{
 				Data:         nil,
 				Message:      "the other participant in this chat dooes not exist!",
@@ -127,6 +152,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 				StatusCode:   http.StatusNotFound,
 				IsSuccessful: false,
 			}
+			w.WriteHeader(http.StatusNotFound)
 			res, _ := json.Marshal(response)
 			w.Write(res)
 			return
@@ -134,12 +160,12 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 
 		for _, value := range participants {
 			if value.Username == me {
-				user = value
+				user = &value
 				break
 			}
 		}
 		if user == nil {
-			w.WriteHeader(http.StatusNotFound)
+
 			response = models.Response[string]{
 				Data:         nil,
 				Message:      "you are not a participant in this chat!",
@@ -147,6 +173,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 				StatusCode:   http.StatusNotFound,
 				IsSuccessful: false,
 			}
+			w.WriteHeader(http.StatusNotFound)
 			res, _ := json.Marshal(response)
 			w.Write(res)
 			return
@@ -181,23 +208,23 @@ func GetUnacknowledgedMessages(w http.ResponseWriter, r *http.Request) {
 	chatRef := mux.Vars(r)["chatId"]
 	username := mux.Vars(r)["username"]
 	var response interface{}
-	messages := database.GetAllUnacknowledgedMessages(chatRef, username)
-	if messages == nil {
-		response = models.Response[string]{
-			Data:         nil,
+	messages, err := database.GetAllUnacknowledgedMessages(chatRef, username)
+	if err != nil {
+		response = models.Response[[]database.Message]{
+			Data:         &messages,
 			Message:      "no unacknowledged messages",
-			Error:        "",
-			StatusCode:   http.StatusOK,
-			IsSuccessful: true,
+			Error:        err.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
 		}
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusNotFound)
 		res, _ := json.Marshal(response)
 		w.Write(res)
 		return
 	}
-	response = models.Response[[]*database.Message]{
+	response = models.Response[[]database.Message]{
 		Data:         &messages,
-		Message:      "success",
+		Message:      "",
 		Error:        "",
 		StatusCode:   http.StatusOK,
 		IsSuccessful: true,
@@ -216,23 +243,23 @@ func AcknowledgeMessages(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	messages := database.AcknowledgeMessages(
+	messages, err := database.AcknowledgeMessages(
 		ackRequest.ChatReference, ackRequest.Username, ackRequest.From, ackRequest.To,
 	)
-	if messages == nil {
-		response = models.Response[string]{
-			Data:         nil,
-			Message:      "no messages ackowledged",
-			Error:        "no message acknowledged",
-			StatusCode:   http.StatusOK,
-			IsSuccessful: true,
+	if err != nil {
+		response = models.Response[[]database.Message]{
+			Data:         &messages,
+			Message:      "",
+			Error:        err.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
 		}
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusNotFound)
 		res, _ := json.Marshal(response)
 		w.Write(res)
 		return
 	}
-	response = models.Response[[]*database.Message]{
+	response = models.Response[[]database.Message]{
 		Data:         &messages,
 		Message:      fmt.Sprintf("%v messages acknowledged", len(messages)),
 		Error:        "",
@@ -262,38 +289,68 @@ func InsertMessage(w http.ResponseWriter, r *http.Request) {
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusBadRequest)
-	} else {
-		response = models.Response[database.Message]{
-			Data:         message,
-			Message:      "message added successfully",
-			Error:        "",
-			StatusCode:   http.StatusOK,
-			IsSuccessful: true,
-		}
-		w.WriteHeader(http.StatusOK)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
 	}
+	response = models.Response[database.Message]{
+		Data:         message,
+		Message:      "message added successfully",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(response)
 	w.Write(res)
 }
 
 func DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	var response interface{}
 	messageReference := r.URL.Query().Get("messageId")
-	message := database.DeleteMessage(messageReference)
-	res, err := json.Marshal(message)
+	message, err := database.DeleteMessage(messageReference)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		response = models.Response[database.Message]{
+			Data:         nil,
+			Message:      "couldn't add new message",
+			Error:        err.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(response)
+		w.Write(res)
 		return
 	}
+
+	response = models.Response[database.Message]{
+		Data:         message,
+		Message:      "message deleted successfully",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(response)
 	w.Write(res)
 }
 
 func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	chatRef := mux.Vars(r)["chatId"]
-	messages := database.DeleteAllMessages(chatRef)
-	if messages == nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	messages, err := database.DeleteAllMessages(chatRef)
+	if err != nil {
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      fmt.Sprintf("%v messages deleted ", len(messages)),
+			Error:        err.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: true,
+		}
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(response)
+		w.Write(res)
 		return
 	}
 	response := models.Response[string]{
@@ -312,9 +369,9 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	messageRef := r.URL.Query().Get("messageId")
 	chatRef := r.URL.Query().Get("chatId")
-	chat := database.GetChat(chatRef)
+	chat, err := database.GetChat(chatRef)
 	var response interface{}
-	if chat == nil {
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		response = models.Response[string]{
 			Data:         nil,
@@ -327,8 +384,8 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	message := database.GetMessage(chat.ChatReference, messageRef)
-	if message == nil {
+	message, err := database.GetMessage(chat.ChatReference, messageRef)
+	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
 			Message:      "message not found for " + chatRef,
@@ -337,16 +394,18 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusNotFound)
-	} else {
-		response = models.Response[database.Message]{
-			Data:         message,
-			Message:      "",
-			Error:        "",
-			StatusCode:   http.StatusOK,
-			IsSuccessful: true,
-		}
-		w.WriteHeader(http.StatusOK)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
 	}
+	response = models.Response[database.Message]{
+		Data:         message,
+		Message:      "",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(response)
 	w.Write(res)
 }
@@ -354,9 +413,9 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	chatRef := mux.Vars(r)["chatId"]
-	chat := database.GetChat(chatRef)
+	chat, err := database.GetChat(chatRef)
 	var response interface{}
-	if chat == nil {
+	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
 			Message:      chatRef + " not found",
@@ -369,7 +428,7 @@ func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	messages := database.GetAllMessages(chat.ChatReference)
+	messages, err := database.GetAllMessages(chat.ChatReference)
 	if messages == nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -379,16 +438,18 @@ func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusNotFound)
-	} else {
-		response = models.Response[[]*database.Message]{
-			Data:         &messages,
-			Message:      "messages retrieved",
-			Error:        "",
-			StatusCode:   http.StatusOK,
-			IsSuccessful: true,
-		}
-		w.WriteHeader(http.StatusOK)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
 	}
+	response = models.Response[[]database.Message]{
+		Data:         &messages,
+		Message:      "messages retrieved",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(response)
 	w.Write(res)
 }
@@ -397,9 +458,9 @@ func GetChatRefForUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	user := r.URL.Query().Get("user")
 	other := r.URL.Query().Get("other")
-	chatRef := database.GetChatRefFor(user, other)
+	chatRef, err := database.GetChatRefFor(user, other)
 	var response interface{}
-	if chatRef == nil {
+	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
 			Message:      "chat ref not found",
@@ -408,16 +469,18 @@ func GetChatRefForUsers(w http.ResponseWriter, r *http.Request) {
 			IsSuccessful: false,
 		}
 		w.WriteHeader(http.StatusNotFound)
-	} else {
-		response = models.Response[string]{
-			Data:         chatRef,
-			Message:      "",
-			Error:        "",
-			StatusCode:   http.StatusOK,
-			IsSuccessful: true,
-		}
-		w.WriteHeader(http.StatusOK)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
 	}
+	response = models.Response[string]{
+		Data:         chatRef,
+		Message:      "",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(response)
 	w.Write(res)
 }
@@ -428,15 +491,15 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	utils.ParseBody(r, &refReq)
 
-	otheruser := database.GetUser(refReq.Other)
-	user := database.GetUser(refReq.User)
+	otheruser, oErr := database.GetUser(refReq.Other)
+	user, uErr := database.GetUser(refReq.User)
 
 	if user == nil {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
 			Data:         nil,
 			Message:      "username " + refReq.User + " does not exist",
-			Error:        "",
+			Error:        uErr.Error(),
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
@@ -450,7 +513,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		response := models.Response[string]{
 			Data:         nil,
 			Message:      "username " + refReq.Other + " does not exist",
-			Error:        "",
+			Error:        oErr.Error(),
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
@@ -459,7 +522,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chatRef := database.GetChatRefFor(refReq.User, refReq.Other)
+	chatRef, _ := database.GetChatRefFor(refReq.User, refReq.Other)
 	if chatRef == nil {
 		ref := uuid.NewString()
 		_, err := database.InsertParticipant(database.Participant{
@@ -529,8 +592,23 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		res, _ := json.Marshal(response)
 		w.Write(res)
+		return
 	} else {
-		user.AddConversation(otheruser.Id, *chatRef)
+		_, err := user.AddConversation(otheruser.Id, *chatRef)
+
+		if err != nil {
+			response = models.Response[string]{
+				Data:         nil,
+				Message:      "",
+				Error:        err.Error(),
+				StatusCode:   http.StatusInternalServerError,
+				IsSuccessful: false,
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
+		}
 
 		response = models.Response[models.NewChat]{
 			Data: &models.NewChat{
@@ -540,8 +618,8 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			},
 			Message:      "",
 			Error:        "",
-			StatusCode:   http.StatusBadRequest,
-			IsSuccessful: false,
+			StatusCode:   http.StatusOK,
+			IsSuccessful: true,
 		}
 
 		w.WriteHeader(http.StatusOK)
