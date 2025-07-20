@@ -24,7 +24,7 @@ type Message struct {
 }
 
 func MarkMessagesAsDelivered(details models.DeliverMessage) (*[]Message, error) {
-	var messages []Message
+	messages := []Message{}
 	ctx := context.Background()
 	txn, err := Instance.BeginTx(ctx, nil)
 	if err != nil {
@@ -34,11 +34,11 @@ func MarkMessagesAsDelivered(details models.DeliverMessage) (*[]Message, error) 
 
 	for messageRef, timestamp := range details.MessageDetails {
 		message := Message{}
-		Instance.QueryRow(
-			`UPDATE messages SET delivered = $1 WHERE senderUsername = $2 AND chatReference = $3 AND messageReference = $4
-			timestamp = $5 AND seen = $6
-			RETURNING id, messageReference, textMessage, senderUsername, receiverUsername, messageTimestamp, chatReference,
-			ack, delivered, seen, createdAt, updatedAt`,
+		txn.QueryRow(
+			`UPDATE messages SET delivered = $1 WHERE senderUsername = $2 AND chatReference = $3 AND
+			messageReference = $4 AND messageTimestamp = $5 AND seen = $6
+			RETURNING id, messageReference, textMessage, senderUsername, receiverUsername,messageTimestamp,
+			chatReference, ack, delivered, seen, createdAt, updatedAt`,
 			true, details.Sender, details.ChatReference, messageRef, timestamp, details.Seen,
 		).Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage,
@@ -73,22 +73,24 @@ func InsertMessage(msg Message) (*Message, error) {
 	case msg.MessageTimestamp == "":
 		msgErr = errors.New("message timestamp cannot be empty")
 	}
+
 	if msgErr != nil {
+		println("error from one of the cases")
 		return nil, msgErr
 	}
 	message := Message{}
 	Instance.QueryRow(
 		`INSERT INTO messages (messageReference, textMessage, senderUsername, receiverUsername,
-		messageTimestamp, chatReference, ack, delivered, seen, delivered)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		messageTimestamp, chatReference, ack, delivered, seen)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername,
 		messageTimestamp, chatReference, ack, delivered, seen, createdAt, updatedAt`,
-		message.MessageReference, message.TextMessage, message.SenderUsername, message.ReceiverUsername,
-		message.MessageTimestamp, chat.ChatReference, message.Ack, message.Delivered,
+		msg.MessageReference, msg.TextMessage, msg.SenderUsername, msg.ReceiverUsername,
+		msg.MessageTimestamp, chat.ChatReference, msg.Ack, msg.Delivered, msg.Seen,
 	).Scan(
 		&message.Id, &message.MessageReference, &message.TextMessage,
 		&message.SenderUsername, &message.ReceiverUsername, &message.MessageTimestamp,
-		&message.ChatReference, &message.Ack, &message.Delivered, &message.Seen, &message.CreatedAt, &message.UpdatedAt,
+		&message.ChatReference, message.Ack, &message.Delivered, &message.Seen, &message.CreatedAt, &message.UpdatedAt,
 	)
 	return &message, msgErr
 }

@@ -47,35 +47,30 @@ func InsertUser(user User) (*User, error) {
 	if len(user.Username) <= 0 {
 		return nil, errors.New("invalid username")
 	}
-	err := Instance.QueryRow(
+	r := Instance.QueryRow(
 		`INSERT INTO users(username, passwordHash) VALUES($1, $2) RETURNING id, username, passwordHash, createdAt, updatedAt`,
 		user.Username, user.PasswordHash,
 	).Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
-	if err != nil {
+	if r == nil {
 		newUser = nil
 	}
-	return newUser, err
+	return newUser, errors.New("error in db query")
 }
 
 func GetUser(username string) *User {
 	user := &User{}
-	err := Instance.QueryRow(
+	Instance.QueryRow(
 		`SELECT id, username, passwordHash, interactions, createdAt, updatedAt FROM users WHERE username = $1`, username,
 	).Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
-	if err != nil {
-		user = nil
-		println("nil user")
-	}
-
 	return user
 }
 
 func DeleteUser(username string) *User {
 	user := &User{}
-	err := Instance.QueryRow(
+	r := Instance.QueryRow(
 		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, passwordHash, interactions createdAt, updatedAt`, username,
 	).Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
-	if err != nil {
+	if r == nil {
 		user = nil
 	}
 	return user
@@ -130,13 +125,11 @@ func (user *User) AddConversation(userId int64, chatReference string) (*User, er
 	if err != nil {
 		return nil, errors.New("unable to add new conversation")
 	}
-	updateErr := Instance.QueryRow(
+	Instance.QueryRow(
 		`UPDATE users SET interactions = $1 WHERE id = $2 RETURNING id, username, passwordHash, interactions, createdAt, updatedAt`,
 		interactionsJsonString, user.Id,
 	).Scan(&newUser, &newUser.Username, &newUser.PasswordHash, &newUser.Interactions, &newUser.CreatedAt, &newUser.UpdatedAt)
-	if updateErr != nil {
-		newUser = nil
-	}
+	
 	return newUser, nil
 }
 
