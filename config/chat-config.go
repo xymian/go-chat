@@ -8,6 +8,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const BACKEND = "BACKEND"
+
 var Router *mux.Router = mux.NewRouter()
 
 var EnvErr = godotenv.Load()

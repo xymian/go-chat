@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/te6lim/go-chat/chat"
+	"github.com/te6lim/go-chat/config"
 	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/models"
 	"github.com/te6lim/go-chat/utils"
@@ -20,7 +21,7 @@ type addChatReferenceRequest struct {
 
 func MarkMessagesAsDelivered(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	deliverMessage := &models.DeliverMessage{}
+	deliverMessage := &models.DeliverMessages{}
 	var response models.Response[[]database.Message]
 	err := utils.ParseBody(r, deliverMessage)
 
@@ -60,6 +61,14 @@ func MarkMessagesAsDelivered(w http.ResponseWriter, r *http.Request) {
 		StatusCode:   http.StatusOK,
 		IsSuccessful: true,
 	}
+	room := chat.Rooms[deliverMessage.ChatReference]
+	for _, message := range messages {
+		if room != nil {
+			room.Tracer.Trace("forwarding ", message.TextMessage, " as delivered")
+			message.ReceiverUsername = config.BACKEND
+			room.ForwardedMessage <- message
+		}
+	}
 	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(response)
 	w.Write(res)
@@ -96,7 +105,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 			w.Write(res)
 			return
 		}
-		
+
 		var participants, pErr = database.GetParticipantsInChat(userChat.ChatReference)
 		if pErr != nil {
 			response = models.Response[string]{

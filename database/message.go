@@ -22,7 +22,7 @@ type Message struct {
 	UpdatedAt        string `json:"updatedAt"`
 }
 
-func MarkMessagesAsDelivered(details models.DeliverMessage) ([]Message, error) {
+func MarkMessagesAsDelivered(messagesDetails models.DeliverMessages) ([]Message, error) {
 	messages := []Message{}
 	ctx := context.Background()
 	txn, err := Instance.BeginTx(ctx, nil)
@@ -31,14 +31,15 @@ func MarkMessagesAsDelivered(details models.DeliverMessage) ([]Message, error) {
 	}
 	defer txn.Rollback()
 
-	for messageRef, timestamp := range details.MessageDetails {
+	for _, detail := range messagesDetails.MessagesDetails {
 		message := Message{}
-		err := txn.QueryRow(
+		err = txn.QueryRow(
 			`UPDATE messages SET delivered = $1 WHERE senderUsername = $2 AND chatReference = $3 AND
 			messageReference = $4 AND messageTimestamp = $5 AND seen = $6
 			RETURNING id, messageReference, textMessage, senderUsername, receiverUsername,messageTimestamp,
 			chatReference, ack, delivered, seen, createdAt, updatedAt`,
-			true, details.Sender, details.ChatReference, messageRef, timestamp, details.Seen,
+			len(detail.DeliveredTimestamp) > 0, messagesDetails.Sender, messagesDetails.ChatReference,
+			detail.MessageReference, detail.SentTimestamp, len(detail.ReadTimestamp) > 0,
 		).Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage,
 			&message.SenderUsername, &message.ReceiverUsername, &message.MessageTimestamp,
@@ -93,7 +94,7 @@ func InsertMessage(msg Message) (*Message, error) {
 	).Scan(
 		&message.Id, &message.MessageReference, &message.TextMessage,
 		&message.SenderUsername, &message.ReceiverUsername, &message.MessageTimestamp,
-		&message.ChatReference, message.Ack, &message.Delivered, &message.Seen, &message.CreatedAt, &message.UpdatedAt,
+		&message.ChatReference, &message.Ack, &message.Delivered, &message.Seen, &message.CreatedAt, &message.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err

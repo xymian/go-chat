@@ -1,10 +1,16 @@
 package models
 
-type DeliverMessage struct {
-	Sender         string            `json:"sender"`
-	MessageDetails map[string]string `json:"messageDetails"`
-	ChatReference  string            `json:"chatReference"`
-	Seen           bool              `json:"seen"`
+type DeliverMessages struct {
+	Sender          string           `json:"sender"`
+	MessagesDetails []MessageDetails `json:"messagesDetails"`
+	ChatReference   string           `json:"chatReference"`
+}
+
+type MessageDetails struct {
+	MessageReference   string `json:"messageReference"`
+	SentTimestamp      string `json:"sentTimestamp"`
+	DeliveredTimestamp string `json:"deliveredTimestamp"`
+	ReadTimestamp      string `json:"readTimestamp"`
 }
 
 type AckRequest struct {
