@@ -86,19 +86,6 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 		if err != nil {
 			response = models.Response[string]{
 				Data:         nil,
-				Message:      "",
-				Error:        err.Error(),
-				StatusCode:   http.StatusInternalServerError,
-				IsSuccessful: false,
-			}
-			w.WriteHeader(http.StatusInternalServerError)
-			res, _ := json.Marshal(response)
-			w.Write(res)
-			return
-		}
-		if userChat == nil {
-			response = models.Response[string]{
-				Data:         nil,
 				Message:      "this chat does not exist",
 				Error:        "",
 				StatusCode:   http.StatusNotFound,
@@ -109,12 +96,13 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 			w.Write(res)
 			return
 		}
+		
 		var participants, pErr = database.GetParticipantsInChat(userChat.ChatReference)
 		if pErr != nil {
 			response = models.Response[string]{
 				Data:         nil,
 				Message:      "",
-				Error:        err.Error(),
+				Error:        pErr.Error(),
 				StatusCode:   http.StatusNotFound,
 				IsSuccessful: false,
 			}
@@ -429,11 +417,11 @@ func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	messages, err := database.GetAllMessages(chat.ChatReference)
-	if messages == nil {
-		response = models.Response[string]{
-			Data:         nil,
+	if err != nil {
+		response = models.Response[[]database.Message]{
+			Data:         &messages,
 			Message:      "could not get messages",
-			Error:        "",
+			Error:        err.Error(),
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
@@ -494,7 +482,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 	otheruser, oErr := database.GetUser(refReq.Other)
 	user, uErr := database.GetUser(refReq.User)
 
-	if user == nil {
+	if uErr != nil {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
 			Data:         nil,
@@ -508,7 +496,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if otheruser == nil {
+	if oErr != nil {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
 			Data:         nil,
@@ -522,8 +510,8 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chatRef, _ := database.GetChatRefFor(refReq.User, refReq.Other)
-	if chatRef == nil {
+	chatRef, cErr := database.GetChatRefFor(refReq.User, refReq.Other)
+	if cErr != nil {
 		ref := uuid.NewString()
 		_, err := database.InsertParticipant(database.Participant{
 			Username:      refReq.User,

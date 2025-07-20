@@ -25,23 +25,10 @@ func InsertParticipant(w http.ResponseWriter, r *http.Request) {
 			Data:         nil,
 			Message:      "could not add participant",
 			Error:        err.Error(),
-			StatusCode:   http.StatusBadRequest,
+			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
-		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-	if participant == nil {
-		response = models.Response[string]{
-			Data:         nil,
-			Message:      "unable to insert participant",
-			Error:        "unable to insert perticipant",
-			StatusCode:   http.StatusInternalServerError,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		res, _ := json.Marshal(response)
 		w.Write(res)
 		return

@@ -70,12 +70,12 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	existingUser, err := database.GetUser(regRequest.Username)
+	existingUser, _ := database.GetUser(regRequest.Username)
 	if existingUser != nil {
 		response = models.Response[string]{
 			Data:         nil,
-			Message:      "User does not exist",
-			Error:        err.Error(),
+			Message:      "User already exists",
+			Error:        "",
 			StatusCode:   http.StatusConflict,
 			IsSuccessful: false,
 		}
@@ -89,13 +89,13 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
-		user, err := database.InsertUser(
+		user, uErr := database.InsertUser(
 			database.User{
 				Username:     regRequest.Username,
 				PasswordHash: passwordHash,
 			},
 		)
-		if err != nil {
+		if uErr != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			response = models.Response[string]{

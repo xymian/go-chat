@@ -16,13 +16,13 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	username := mux.Vars(r)["username"]
 	println("username")
-	user, _ := database.GetUser(username)
+	_, err := database.GetUser(username)
 
-	if user == nil {
+	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
 			Message:      "user does not exist",
-			Error:        "",
+			Error:        err.Error(),
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
@@ -125,11 +125,11 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var response interface{}
-	users, err := database.GetAllUsers()
+	_, err := database.GetAllUsers()
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
-			Message:      "",
+			Message:      "couldn't get all users",
 			Error:        err.Error(),
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
@@ -140,25 +140,14 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if users == nil {
-		response = models.Response[string]{
-			Data:         nil,
-			Message:      "cannot get all users",
-			Error:        "cannot get all users",
-			StatusCode:   http.StatusNotFound,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusNotFound)
-	} else {
-		response = models.Response[string]{
-			Data:         nil,
-			Message:      "",
-			Error:        "",
-			StatusCode:   http.StatusOK,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusOK)
+	response = models.Response[string]{
+		Data:         nil,
+		Message:      "",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: false,
 	}
+	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(response)
 	w.Write(res)
 }
@@ -182,25 +171,12 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err = database.InsertUser(*user)
-	if err != nil {
+	_, uErr := database.InsertUser(*user)
+	if uErr != nil {
 		response = models.Response[string]{
 			Data:         nil,
-			Message:      "cannot insert user",
-			Error:        err.Error(),
-			StatusCode:   http.StatusInternalServerError,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-	if user == nil {
-		response = models.Response[string]{
-			Data:         nil,
-			Message:      "",
-			Error:        err.Error(),
+			Message:      "could not insert user",
+			Error:        uErr.Error(),
 			StatusCode:   http.StatusInternalServerError,
 			IsSuccessful: false,
 		}
@@ -226,7 +202,7 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
 	var response interface{}
 	user, err := database.DeleteUser(username)
-	if user == nil {
+	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
 			Message:      "",

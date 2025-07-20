@@ -59,8 +59,8 @@ func MarkMessagesAsDelivered(details models.DeliverMessage) ([]Message, error) {
 }
 
 func InsertMessage(msg Message) (*Message, error) {
-	chat, _ := GetChat(msg.ChatReference)
-	if chat == nil {
+	chat, err := GetChat(msg.ChatReference)
+	if err != nil {
 		return nil, errors.New("chat reference for this message does not exits")
 	}
 	var msgErr error = nil
@@ -82,7 +82,7 @@ func InsertMessage(msg Message) (*Message, error) {
 		return nil, msgErr
 	}
 	message := Message{}
-	err := Instance.QueryRow(
+	err = Instance.QueryRow(
 		`INSERT INTO messages (messageReference, textMessage, senderUsername, receiverUsername,
 		messageTimestamp, chatReference, ack, delivered, seen)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)

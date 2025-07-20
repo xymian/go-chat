@@ -53,7 +53,7 @@ func InsertUser(user User) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newUser, errors.New("error in db query")
+	return newUser, nil
 }
 
 func GetUser(username string) (*User, error) {
@@ -72,7 +72,7 @@ func DeleteUser(username string) (*User, error) {
 	err := Instance.QueryRow(
 		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, passwordHash, interactions createdAt, updatedAt`, username,
 	).Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
-	if err == nil {
+	if err != nil {
 		return nil, err
 	}
 	return user, nil
