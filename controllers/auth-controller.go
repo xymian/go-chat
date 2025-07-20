@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/te6lim/go-chat/database"
-	"github.com/te6lim/go-chat/responses"
+	"github.com/te6lim/go-chat/models"
 	"github.com/te6lim/go-chat/utils"
 )
 
@@ -52,7 +52,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	var regRequest registerRequest
 	err := utils.ParseBody(r, &regRequest)
 	if err != nil {
-		response = responses.Response[string] {
+		response = models.Response[string] {
 			Data: nil,
 			Message: "",
 			Error: err.Error(),
@@ -72,7 +72,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 	existingUser := database.GetUser(regRequest.Username)
 	if existingUser != nil {
-		response = responses.Response[string] {
+		response = models.Response[string] {
 			Data: nil,
 			Message: "User does not exist",
 			Error: "",
@@ -98,7 +98,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
-			response = responses.Response[string] {
+			response = models.Response[string] {
 				Data: &user.Username,
 				Message: "user registered",
 				Error: "",
@@ -119,7 +119,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	err := utils.ParseBody(r, &request)
 	if err != nil {
-		response = responses.Response[string] {
+		response = models.Response[string] {
 			Data: nil,
 			Message: "error in request body",
 			Error: err.Error(),
@@ -146,7 +146,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	} else {
-		response = responses.Response[loginResponse] {
+		response = models.Response[loginResponse] {
 			Data: &loginResponse{
 				AccessToken:      data.Token,
 				ExpiryTime: data.Expiry,

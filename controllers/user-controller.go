@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/te6lim/go-chat/database"
-	"github.com/te6lim/go-chat/responses"
+	"github.com/te6lim/go-chat/models"
 	"github.com/te6lim/go-chat/utils"
 )
 
@@ -18,7 +18,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	user := database.GetUser(username)
 	var response interface{}
 	if user == nil {
-		response = responses.Response[string] {
+		response = models.Response[string] {
 			Data: nil,
 			Message: "user does not exist",
 			Error: "",
@@ -29,7 +29,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 		res, _ := json.Marshal(response)
 		w.Write(res)
 	} else {
-		response = responses.Response[string] {
+		response = models.Response[string] {
 			Data: &user.Username,
 			Message: "",
 			Error: "",
@@ -64,16 +64,16 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 		userIds = append(userIds, k)
 	}
 	users := database.GetUsers(userIds...)
-	userChatInfo := []*responses.UserChatInfo{}
+	userChatInfo := []*models.UserChatInfo{}
 	for _, u := range users {
-		userChatInfo = append(userChatInfo, &responses.UserChatInfo{
+		userChatInfo = append(userChatInfo, &models.UserChatInfo{
 			Username:        u.Username,
 			DisplayImageUrl: "",
 			ChatReference:   conversationMap[u.Id],
 		})
 	}
 
-	response := responses.Response[[]*responses.UserChatInfo] {
+	response := models.Response[[]*models.UserChatInfo] {
 		Data: &userChatInfo,
 		Message: "success",
 		Error: "",
@@ -91,7 +91,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	users := database.GetAllUsers()
 	var response interface{}
 	if users == nil {
-		response = responses.Response[string] {
+		response = models.Response[string] {
 			Data: nil,
 			Message: "cannot get all users",
 			Error: "cannot get all users",
@@ -100,7 +100,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
-		response = responses.Response[string] {
+		response = models.Response[string] {
 			Data: nil,
 			Message: "",
 			Error: "",
@@ -123,7 +123,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 	user := &database.User{}
 	err := utils.ParseBody(r, &user)
 	if err != nil {
-		response = responses.Response[string] {
+		response = models.Response[string] {
 			Data: nil,
 			Message: "bad request",
 			Error: err.Error(),
@@ -138,7 +138,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err = database.InsertUser(*user)
 	if err != nil {
-		response = responses.Response[string] {
+		response = models.Response[string] {
 			Data: nil,
 			Message: "cannot insert user",
 			Error: err.Error(),
@@ -153,7 +153,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 	if user == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
-		response = responses.Response[string] {
+		response = models.Response[string] {
 			Data: nil,
 			Message: "new user added",
 			Error: "",

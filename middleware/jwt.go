@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/te6lim/go-chat/responses"
+	"github.com/te6lim/go-chat/models"
 )
 
 type contextKey string
@@ -22,7 +22,7 @@ func WithJWTMiddleware(actualhanlder http.HandlerFunc) http.HandlerFunc {
 		var response interface{}
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer") {
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "Unauthorized - not token",
 				Error:        "Unauthorized - not token",
@@ -44,7 +44,7 @@ func WithJWTMiddleware(actualhanlder http.HandlerFunc) http.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "Unauthorized - invalid token",
 				Error:        err.Error(),
@@ -59,7 +59,7 @@ func WithJWTMiddleware(actualhanlder http.HandlerFunc) http.HandlerFunc {
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok || claims["username"] == nil {
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "Unauthorized - bad claims",
 				Error:        "Unauthorized - bad claims",
@@ -84,7 +84,7 @@ func WithJWTMiddlewareWithData(actualhanlder func(username string) http.HandlerF
 		var response interface{}
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer") {
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "Unauthorized - no token",
 				Error:        "Unauthorized - no token",
@@ -106,7 +106,7 @@ func WithJWTMiddlewareWithData(actualhanlder func(username string) http.HandlerF
 		})
 
 		if err != nil || !token.Valid {
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "Unauthorized - invalid token",
 				Error:        err.Error(),
@@ -121,7 +121,7 @@ func WithJWTMiddlewareWithData(actualhanlder func(username string) http.HandlerF
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok || claims["username"] == nil {
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "Unauthorized - bad claims",
 				Error:        "Unauthorized - bad claims",

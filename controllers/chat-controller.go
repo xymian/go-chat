@@ -9,8 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/database"
-	"github.com/te6lim/go-chat/requests"
-	"github.com/te6lim/go-chat/responses"
+	"github.com/te6lim/go-chat/models"
 	"github.com/te6lim/go-chat/utils"
 )
 
@@ -19,9 +18,56 @@ type addChatReferenceRequest struct {
 	Other string `json:"other"`
 }
 
+func MarkMessagesAsDelivered(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	deliverMessage := &models.DeliverMessage{}
+	var response models.Response[[]database.Message]
+	err := utils.ParseBody(r, deliverMessage)
+
+	if err != nil {
+		response = models.Response[[]database.Message]{
+			Data:         nil,
+			Message:      "bad request",
+			Error:        "request parse error",
+			StatusCode:   http.StatusBadRequest,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	messages, err := database.MarkMessagesAsDelivered(*deliverMessage)
+	if err != nil {
+		response = models.Response[[]database.Message]{
+			Data:         nil,
+			Message:      "",
+			Error:        err.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	response = models.Response[[]database.Message]{
+		Data:         messages,
+		Message:      "messages marked as delivered",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: false,
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}
+
 func SetupUniqueSocket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var newChat = &responses.NewChat {}
+	var newChat = &models.NewChat{}
 	utils.ParseBody(r, newChat)
 	me := newChat.User
 	other := newChat.Other
@@ -39,7 +85,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 		userChat := database.GetChat(chatId)
 		if userChat == nil {
 			w.WriteHeader(http.StatusNotFound)
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "this chat does not exist",
 				Error:        "",
@@ -53,7 +99,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 		var participants = database.GetParticipantsInChat(userChat.ChatReference)
 		if len(participants) > 2 {
 			w.WriteHeader(http.StatusForbidden)
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "too many participants",
 				Error:        "too many participants",
@@ -74,7 +120,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 		}
 		if other == nil {
 			w.WriteHeader(http.StatusNotFound)
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "the other participant in this chat dooes not exist!",
 				Error:        "the other participant in this chat dooes not exist!",
@@ -94,7 +140,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 		}
 		if user == nil {
 			w.WriteHeader(http.StatusNotFound)
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "you are not a participant in this chat!",
 				Error:        "you are not a participant in this chat!",
@@ -137,7 +183,7 @@ func GetUnacknowledgedMessages(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	messages := database.GetAllUnacknowledgedMessages(chatRef, username)
 	if messages == nil {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      "no unacknowledged messages",
 			Error:        "",
@@ -149,7 +195,7 @@ func GetUnacknowledgedMessages(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	response = responses.Response[[]*database.Message]{
+	response = models.Response[[]*database.Message]{
 		Data:         &messages,
 		Message:      "success",
 		Error:        "",
@@ -163,7 +209,7 @@ func GetUnacknowledgedMessages(w http.ResponseWriter, r *http.Request) {
 
 func AcknowledgeMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var ackRequest = &requests.AckRequest{}
+	var ackRequest = &models.AckRequest{}
 	var response interface{}
 	err := utils.ParseBody(r, ackRequest)
 	if err != nil {
@@ -174,7 +220,7 @@ func AcknowledgeMessages(w http.ResponseWriter, r *http.Request) {
 		ackRequest.ChatReference, ackRequest.Username, ackRequest.From, ackRequest.To,
 	)
 	if messages == nil {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      "no messages ackowledged",
 			Error:        "no message acknowledged",
@@ -186,7 +232,7 @@ func AcknowledgeMessages(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	response = responses.Response[[]*database.Message]{
+	response = models.Response[[]*database.Message]{
 		Data:         &messages,
 		Message:      fmt.Sprintf("%v messages acknowledged", len(messages)),
 		Error:        "",
@@ -208,7 +254,7 @@ func InsertMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	message, err := database.InsertMessage(*message)
 	if err != nil {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      "couldn't add new message",
 			Error:        err.Error(),
@@ -217,7 +263,7 @@ func InsertMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusBadRequest)
 	} else {
-		response = responses.Response[database.Message]{
+		response = models.Response[database.Message]{
 			Data:         message,
 			Message:      "message added successfully",
 			Error:        "",
@@ -250,7 +296,7 @@ func DeleteAllMessages(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	response := responses.Response[string]{
+	response := models.Response[string]{
 		Data:         nil,
 		Message:      fmt.Sprintf("%v messages deleted ", len(messages)),
 		Error:        "",
@@ -270,7 +316,7 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	if chat == nil {
 		w.WriteHeader(http.StatusNotFound)
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      chatRef + " not found",
 			Error:        "",
@@ -283,7 +329,7 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	message := database.GetMessage(chat.ChatReference, messageRef)
 	if message == nil {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      "message not found for " + chatRef,
 			Error:        "",
@@ -292,7 +338,7 @@ func GetMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
-		response = responses.Response[database.Message]{
+		response = models.Response[database.Message]{
 			Data:         message,
 			Message:      "",
 			Error:        "",
@@ -311,7 +357,7 @@ func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	chat := database.GetChat(chatRef)
 	var response interface{}
 	if chat == nil {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      chatRef + " not found",
 			Error:        "",
@@ -325,7 +371,7 @@ func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	messages := database.GetAllMessages(chat.ChatReference)
 	if messages == nil {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      "could not get messages",
 			Error:        "",
@@ -334,7 +380,7 @@ func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
-		response = responses.Response[[]*database.Message]{
+		response = models.Response[[]*database.Message]{
 			Data:         &messages,
 			Message:      "messages retrieved",
 			Error:        "",
@@ -354,7 +400,7 @@ func GetChatRefForUsers(w http.ResponseWriter, r *http.Request) {
 	chatRef := database.GetChatRefFor(user, other)
 	var response interface{}
 	if chatRef == nil {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      "chat ref not found",
 			Error:        "",
@@ -363,7 +409,7 @@ func GetChatRefForUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusNotFound)
 	} else {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         chatRef,
 			Message:      "",
 			Error:        "",
@@ -387,11 +433,11 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 
 	if user == nil {
 		w.WriteHeader(http.StatusNotFound)
-		response := responses.Response[string] {
-			Data: nil,
-			Message: "username " + refReq.User + " does not exist",
-			Error: "",
-			StatusCode: http.StatusNotFound,
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "username " + refReq.User + " does not exist",
+			Error:        "",
+			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
 		res, _ := json.Marshal(response)
@@ -401,11 +447,11 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 
 	if otheruser == nil {
 		w.WriteHeader(http.StatusNotFound)
-		response := responses.Response[string] {
-			Data: nil,
-			Message: "username " + refReq.Other + " does not exist",
-			Error: "",
-			StatusCode: http.StatusNotFound,
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "username " + refReq.Other + " does not exist",
+			Error:        "",
+			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
 		res, _ := json.Marshal(response)
@@ -421,7 +467,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			ChatReference: ref,
 		})
 		if err != nil {
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "could not add participant to " + ref,
 				Error:        err.Error(),
@@ -439,7 +485,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			ChatReference: ref,
 		})
 		if otherErr != nil {
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "could not add participant to " + ref,
 				Error:        otherErr.Error(),
@@ -456,7 +502,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			ChatReference: ref,
 		})
 		if chatErr != nil {
-			response = responses.Response[string]{
+			response = models.Response[string]{
 				Data:         nil,
 				Message:      "",
 				Error:        chatErr.Error(),
@@ -471,7 +517,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 
 		user.AddConversation(otheruser.Id, chat.ChatReference)
 
-		response = responses.Response[map[string]string]{
+		response = models.Response[map[string]string]{
 			Data: &map[string]string{
 				"chatReference": chat.ChatReference,
 			},
@@ -486,8 +532,8 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 	} else {
 		user.AddConversation(otheruser.Id, *chatRef)
 
-		response = responses.Response[responses.NewChat]{
-			Data: &responses.NewChat{
+		response = models.Response[models.NewChat]{
+			Data: &models.NewChat{
 				User:          refReq.User,
 				Other:         refReq.Other,
 				ChatReference: *chatRef,

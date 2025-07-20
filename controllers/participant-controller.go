@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/te6lim/go-chat/database"
-	"github.com/te6lim/go-chat/responses"
+	"github.com/te6lim/go-chat/models"
 	"github.com/te6lim/go-chat/utils"
 )
 
@@ -21,7 +21,7 @@ func InsertParticipant(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	participant, err = database.InsertParticipant(*participant)
 	if err != nil {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      "could not add participant",
 			Error:        err.Error(),
@@ -34,7 +34,7 @@ func InsertParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if participant == nil {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      "unable to insert participant",
 			Error:        "unable to insert perticipant",
@@ -47,7 +47,7 @@ func InsertParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response = responses.Response[database.Participant]{
+	response = models.Response[database.Participant]{
 		Data:         participant,
 		Message:      "",
 		Error:        "",
@@ -68,7 +68,7 @@ func GetParticipant(w http.ResponseWriter, r *http.Request) {
 	participant := database.GetParticipant(username, chatRef)
 	var response interface{}
 	if participant == nil {
-		response = responses.Response[string]{
+		response = models.Response[string]{
 			Data:         nil,
 			Message:      "participant does not exist",
 			Error:        "",
@@ -80,7 +80,7 @@ func GetParticipant(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	response = responses.Response[database.Participant]{
+	response = models.Response[database.Participant]{
 		Data:         participant,
 		Message:      "",
 		Error:        "",
