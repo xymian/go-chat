@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -10,29 +11,25 @@ import (
 	"github.com/te6lim/go-chat/tracer"
 )
 
-// var OnlineUsers = make(map[string]*Socketuser)
+var OnlineUsers = make(map[string]*Socketuser)
 var NewUser chan *Socketuser = make(chan *Socketuser)
 var LoggedOutUser chan *Socketuser = make(chan *Socketuser)
 
 var AskForUserToChatWith = make(chan *Socketuser)
 
-type UserListeners struct {
+type PrivateChat struct {
 	Conn           *websocket.Conn
 	SendMessage    chan database.Message
 	ReceiveMessage chan database.Message
 	Room           chan *Room
 }
 
-type JoinSessionRequest struct {
-	RoomId         string
-	RequestingUser string
-}
-
 type Socketuser struct {
-	UserListeners
-	Username   string
-	SessionIds map[string]bool
-	Tracer     tracer.Tracer
+	PrivateChat
+	*Interactions
+	Username string
+	Activity Activity
+	Tracer   tracer.Tracer
 }
 
 func SetupSocketUser(username string, otherUsername string, chatReference string) {
@@ -47,18 +44,35 @@ func SetupSocketUser(username string, otherUsername string, chatReference string
 	}
 }
 
-func CreateNewUser(username string) *Socketuser {
-	return &Socketuser{
-		Username:   username,
-		SessionIds: make(map[string]bool),
-		Tracer:     tracer.New(),
+func SetUpInteractionsSocket(username string) {
+	endpoint := fmt.Sprintf("/interactions/%s", username)
+	config.Router.HandleFunc(endpoint, HandleInteractions)
+}
 
-		UserListeners: UserListeners{
+func CreateNewSocketUser(user *database.User, activity Activity) (*Socketuser, error) {
+	interactions := &Interactions{}
+	interactions.Tracer = tracer.New()
+	conversationMap := map[int64]string{}
+	err := json.Unmarshal([]byte(*user.Interactions), &conversationMap)
+	if err != nil {
+		return nil, err
+	}
+	for _, chatRef := range conversationMap {
+		interactions.Chats[chatRef] = true
+	}
+	return &Socketuser{
+		Username: user.Username,
+		Activity: activity,
+		Tracer:   tracer.New(),
+
+		PrivateChat: PrivateChat{
 			SendMessage:    make(chan database.Message),
 			ReceiveMessage: make(chan database.Message),
 			Room:           make(chan *Room),
 		},
-	}
+
+		Interactions: interactions,
+	}, nil
 }
 
 func (user *Socketuser) ReadMessages(room *Room) {
@@ -112,11 +126,11 @@ func ListenForActiveUsers() {
 	for {
 		select {
 		case newUser := <-NewUser:
-			//OnlineUsers[newUser.Username] = newUser
+			OnlineUsers[newUser.Username] = newUser
 			newUser.Tracer.Trace("\nNew User", newUser.Username, " is online")
 
 		case loggedOutUser := <-LoggedOutUser:
-			//OnlineUsers[loggedOutUser.Username] = nil
+			delete(OnlineUsers, loggedOutUser.Username)
 			loggedOutUser.Tracer.Trace("User", loggedOutUser.Username, " logged out")
 		}
 	}

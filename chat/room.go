@@ -1,11 +1,13 @@
 package chat
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 
 	"github.com/te6lim/go-chat/config"
 	"github.com/te6lim/go-chat/database"
+	"github.com/te6lim/go-chat/models"
 	"github.com/te6lim/go-chat/tracer"
 )
 
@@ -47,6 +49,7 @@ func (room *Room) Run() {
 			if len(room.participants) == 0 {
 				delete(Rooms, room.Id)
 			}
+			delete(OnlineUsers, user.Username)
 			room.Tracer.Trace("User", user.Username, " left the room")
 
 		case message := <-room.ForwardedMessage:
@@ -55,6 +58,12 @@ func (room *Room) Run() {
 				room.Tracer.Trace(err)
 				delete(Rooms, room.Id)
 				return
+			}
+			receiver := OnlineUsers[message.ReceiverUsername]
+			if receiver != nil {
+				if receiver.Activity == AWAY {
+					receiver.ReceiveMessage <- message
+				}
 			}
 			for user := range room.participants {
 				user.ReceiveMessage <- message
@@ -71,8 +80,35 @@ func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username := r.URL.Query().Get("me")
+	user, errUser := database.GetUser(username)
+	if errUser != nil {
+		w.WriteHeader(http.StatusNotFound)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "user does not exist",
+			Error:        errUser.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
 
-	newUser := CreateNewUser(username)
+	newUser, errInteractions := CreateNewSocketUser(user, ONLINE)
+	if errInteractions != nil {
+		w.WriteHeader(http.StatusNotFound)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "user does not exist",
+			Error:        errInteractions.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
 	NewUser <- newUser
 
 	defer func() {
