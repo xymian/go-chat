@@ -33,21 +33,29 @@ func MarkMessagesAsDelivered(messagesDetails models.DeliverMessages) ([]Message,
 
 	for _, detail := range messagesDetails.MessagesDetails {
 		message := Message{}
-		err = txn.QueryRow(
+		rows, err := txn.Query(
 			`UPDATE messages SET deliveredTimestamp = $1 WHERE senderUsername = $2 AND chatReference = $3 AND
 			messageReference = $4 AND messageTimestamp = $5 AND seenTimestamp = $6
 			RETURNING id, messageReference, textMessage, senderUsername, receiverUsername,messageTimestamp,
 			chatReference, ack, deliveredTimestamp, seenTimestamp, createdAt, updatedAt`,
 			detail.DeliveredTimestamp, messagesDetails.Sender, messagesDetails.ChatReference,
 			detail.MessageReference, detail.SentTimestamp, detail.ReadTimestamp,
-		).Scan(
-			&message.Id, &message.MessageReference, &message.TextMessage,
-			&message.SenderUsername, &message.ReceiverUsername, &message.MessageTimestamp,
-			&message.ChatReference, &message.Ack, &message.DeliveredTimestamp, &message.SeenTimestamp, &message.CreatedAt, &message.UpdatedAt,
 		)
 
 		if err != nil {
-			return []Message{}, err
+			return []Message{}, nil
+		}
+
+		for rows.Next() {
+			scanErr := rows.Scan(
+				&message.Id, &message.MessageReference, &message.TextMessage,
+				&message.SenderUsername, &message.ReceiverUsername, &message.MessageTimestamp,
+				&message.ChatReference, &message.Ack, &message.DeliveredTimestamp, &message.SeenTimestamp, &message.CreatedAt, &message.UpdatedAt,
+			)
+
+			if scanErr != nil {
+				return nil, scanErr
+			}
 		}
 
 		messages = append(messages, message)
@@ -83,7 +91,7 @@ func InsertMessage(msg Message) (*Message, error) {
 		return nil, msgErr
 	}
 	message := Message{}
-	err = Instance.QueryRow(
+	rows, queryErr := Instance.Query(
 		`INSERT OR REPLACE INTO messages (messageReference, textMessage, senderUsername, receiverUsername,
 		messageTimestamp, chatReference, ack, deliveredTimestamp, seenTimestamp)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -91,32 +99,47 @@ func InsertMessage(msg Message) (*Message, error) {
 		messageTimestamp, chatReference, ack, deliveredTimestamp, seenTimestamp, createdAt, updatedAt`,
 		msg.MessageReference, msg.TextMessage, msg.SenderUsername, msg.ReceiverUsername,
 		msg.MessageTimestamp, chat.ChatReference, msg.Ack, msg.DeliveredTimestamp, msg.SeenTimestamp,
-	).Scan(
+	)
+
+	if queryErr != nil {
+		return nil, nil
+	}
+
+	rows.Next()
+	scanErr := rows.Scan(
 		&message.Id, &message.MessageReference, &message.TextMessage,
 		&message.SenderUsername, &message.ReceiverUsername, &message.MessageTimestamp,
 		&message.ChatReference, &message.Ack, &message.DeliveredTimestamp, &message.SeenTimestamp, &message.CreatedAt, &message.UpdatedAt,
 	)
-	if err != nil {
-		return nil, err
+	if scanErr != nil {
+		return nil, scanErr
 	}
 	return &message, nil
 }
 
 func GetMessage(chatReference string, messageReference string) (*Message, error) {
 	message := Message{}
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`SELECT id, textMessage, senderUsername, receiverUsername, messageTimestamp,
 		chatReference, ack, deliveredTimestamp, seenTimestamp, createdAt, UpdatedAt FROM messages
 		WHERE chatReference = $1 AND messageReference = $2`,
 		chatReference, messageReference,
-	).Scan(
+	)
+
+	if err != nil {
+		return nil, nil
+	}
+
+	rows.Next()
+
+	scanErr := rows.Scan(
 		&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername,
 		&message.ReceiverUsername, &message.MessageTimestamp, &message.ChatReference, &message.Ack,
 		&message.DeliveredTimestamp, &message.SeenTimestamp, &message.CreatedAt, &message.UpdatedAt,
 	)
 
-	if err != nil {
-		return nil, err
+	if scanErr != nil {
+		return nil, scanErr
 	}
 
 	return &message, nil
@@ -134,19 +157,20 @@ func AcknowledgeMessages(
 		"true", username, chatReference, "false", from, to,
 	)
 	if err != nil {
-		return []Message{}, err
+		return []Message{}, nil
 	}
 
 	for rows.Next() {
 		message := Message{}
-		err = rows.Scan(
+		scanErr := rows.Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername,
 			&message.ReceiverUsername, &message.MessageTimestamp, &message.ChatReference, &message.Ack,
 			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.CreatedAt, &message.UpdatedAt,
 		)
-		if err != nil {
-			return []Message{}, err
+		if scanErr != nil {
+			return []Message{}, scanErr
 		}
+
 		messages = append(messages, message)
 	}
 
@@ -162,17 +186,17 @@ func GetAllUnacknowledgedMessages(chatReference string, username string) ([]Mess
 		chatReference, "false", username,
 	)
 	if err != nil {
-		return []Message{}, err
+		return []Message{}, nil
 	}
 	for rows.Next() {
 		message := Message{}
-		err = rows.Scan(
+		scanErr := rows.Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername,
 			&message.ReceiverUsername, &message.MessageTimestamp, &message.ChatReference, &message.Ack,
 			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.CreatedAt, &message.UpdatedAt,
 		)
-		if err != nil {
-			return []Message{}, err
+		if scanErr != nil {
+			return nil, scanErr
 		}
 		messages = append(messages, message)
 	}
@@ -187,18 +211,18 @@ func GetAllMessages(chatReference string) ([]Message, error) {
 		chatReference,
 	)
 	if err != nil {
-		return []Message{}, err
+		return []Message{}, nil
 	}
 
 	for rows.Next() {
 		message := Message{}
-		err = rows.Scan(
+		scanErr := rows.Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername,
 			&message.ReceiverUsername, &message.MessageTimestamp, &message.ChatReference, &message.Ack,
 			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.CreatedAt, &message.UpdatedAt,
 		)
-		if err != nil {
-			return []Message{}, err
+		if scanErr != nil {
+			return nil, scanErr
 		}
 		messages = append(messages, message)
 	}
@@ -207,18 +231,26 @@ func GetAllMessages(chatReference string) ([]Message, error) {
 
 func DeleteMessage(messageReference string) (*Message, error) {
 	message := Message{}
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`DELETE FROM messages WHERE messageReference = $1
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername, messageTimestamp,
 		chatReference, ack, deliveredTimestamp, seenTimestamp, createdAt, updatedAt`,
-	).Scan(
+	)
+
+	if err != nil {
+		return nil, nil
+	}
+
+	rows.Next()
+
+	scanErr := rows.Scan(
 		&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername, &message.ReceiverUsername,
 		&message.MessageTimestamp, &message.ChatReference, &message.Ack, &message.DeliveredTimestamp,
 		&message.SeenTimestamp, &message.CreatedAt, &message.UpdatedAt,
 	)
 
-	if err != nil {
-		return nil, err
+	if scanErr != nil {
+		return nil, scanErr
 	}
 
 	return &message, nil
@@ -233,18 +265,18 @@ func DeleteAllMessages(chatReference string) ([]Message, error) {
 		chatReference,
 	)
 	if err != nil {
-		return []Message{}, err
+		return []Message{}, nil
 	}
 
 	for rows.Next() {
 		message := Message{}
-		err = rows.Scan(
+		scanErr := rows.Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername,
 			&message.ReceiverUsername, &message.MessageTimestamp, &message.ChatReference,
 			&message.Ack, &message.DeliveredTimestamp, &message.SeenTimestamp, &message.CreatedAt, &message.UpdatedAt,
 		)
-		if err != nil {
-			return []Message{}, err
+		if scanErr != nil {
+			return []Message{}, scanErr
 		}
 		messages = append(messages, message)
 	}

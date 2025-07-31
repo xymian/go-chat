@@ -14,13 +14,19 @@ func InsertParticipant(participant Participant) (*Participant, error) {
 	if len(participant.Username) == 0 || len(participant.ChatReference) == 0 {
 		return nil, errors.New("invalid participant")
 	}
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`INSERT INTO participants (username, chatReference) VALUES ($1, $2) RETURNING id, username, chatReference, createdAt`,
 		participant.Username, participant.ChatReference,
-	).Scan(&newParticipant.Id, &newParticipant.Username, &newParticipant.ChatReference, &newParticipant.CreatedAt)
+	)
 
 	if err != nil {
-		return nil, err
+		return nil, nil
+	}
+
+	rows.Next()
+	scanErr := rows.Scan(&newParticipant.Id, &newParticipant.Username, &newParticipant.ChatReference, &newParticipant.CreatedAt)
+	if scanErr != nil {
+		return nil, scanErr
 	}
 	return newParticipant, nil
 }
@@ -31,41 +37,55 @@ func GetParticipantsInChat(chatReference string) ([]Participant, error) {
 		`SELECT id, username, chatReference, createdAt FROM participants WHERE chatReference = $1`,
 		chatReference,
 	)
+	if err != nil {
+		return []Participant{}, nil
+	}
+
 	for rows.Next() {
 		participant := &Participant{}
 		scanErr := rows.Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
-		if (scanErr != nil) {
+		if scanErr != nil {
 			return []Participant{}, scanErr
 		}
 		participants = append(participants, *participant)
-	}
-	if err != nil {
-		return []Participant{}, err
 	}
 	return participants, nil
 }
 
 func GetParticipant(username string, chatReference string) (*Participant, error) {
 	participant := &Participant{}
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`SELECT id, username, chatReference, createdAt FROM participants WHERE username = $1 AND chatReference = $2`,
 		username, chatReference,
-	).Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
+	)
+
 	if err != nil {
-		return nil, err
+		return nil, nil
+	}
+
+	rows.Next()
+	scanErr := rows.Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
+	if scanErr != nil {
+		return nil, scanErr
 	}
 	return participant, nil
 }
 
 func GetChatRefFor(user string, other string) (*string, error) {
 	var ref string
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`SELECT chatReference FROM participants WHERE username IN ($1, $2) GROUP BY chatReference HAVING COUNT(chatReference) = 2`,
 		user, other,
-	).Scan(&ref)
+	)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
+
+	scanErr := rows.Scan(&ref)
+	if scanErr != nil {
+		return nil, scanErr
+	}
+
 	if len(ref) == 0 {
 		return nil, errors.New("reference can't be empty")
 	}

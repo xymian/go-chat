@@ -14,36 +14,58 @@ func InsertChat(chat Chat) (*Chat, error) {
 	if len(chat.ChatReference) == 0 {
 		return nil, errors.New("invalid chat")
 	}
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`INSERT INTO chats (chatReference) VALUES ($1) RETURNING id, chatReference, createdAt, updatedAt`,
 		chat.ChatReference,
-	).Scan(&chat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+	)
+
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
+
+	rows.Next()
+
+	scanErr := rows.Scan(&chat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+	if scanErr != nil {
+		return nil, scanErr
+	}
+
 	return newChat, nil
 }
 
 func GetChat(reference string) (*Chat, error) {
 	newChat := &Chat{}
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`SELECT id, chatReference, createdAt, updatedAt FROM chats WHERE chatReference = $1`,
 		reference,
-	).Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+	)
 	if err != nil {
-		return nil, err
+		return nil, nil
+	}
+
+	rows.Next()
+	scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+	if scanErr != nil {
+		return nil, scanErr
 	}
 	return newChat, nil
 }
 
 func DeleteChat(reference string) (*Chat, error) {
 	newChat := &Chat{}
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`DELETE FROM chats WHERE chatReference = $1 RETURNING id, chatReference, createdAt, updatedAt`,
 		reference,
-	).Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+	)
+
 	if err != nil {
-		return nil, err
+		return nil, nil
+	}
+
+	rows.Next()
+	scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+	if scanErr != nil {
+		return nil, scanErr
 	}
 	return newChat, nil
 }

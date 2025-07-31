@@ -26,17 +26,24 @@ func GetUsers(ids ...int64) ([]User, error) {
 	users := []User{}
 	for _, id := range ids {
 		user := &User{}
-		err := txn.QueryRow(
+		rows, queryErr := txn.Query(
 			`SELECT id, username FROM users WHERE id = $1`, id,
-		).Scan(&user.Id, &user.Username)
-		if err != nil {
-			return []User{}, err
+		)
+
+		if queryErr != nil {
+			return []User{}, nil
+		}
+
+		rows.Next()
+		scanErr := rows.Scan(&user.Id, &user.Username)
+		if scanErr != nil {
+			return nil, scanErr
 		}
 		users = append(users, *user)
 	}
 	e := txn.Commit()
 	if e != nil {
-		return []User{}, err
+		return []User{}, e
 	}
 	return users, nil
 }
@@ -46,70 +53,89 @@ func InsertUser(user User) (*User, error) {
 	if len(user.Username) <= 0 {
 		return nil, errors.New("invalid username")
 	}
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`INSERT INTO users(username, passwordHash) VALUES($1, $2) RETURNING id, username, passwordHash, createdAt, updatedAt`,
 		user.Username, user.PasswordHash,
-	).Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
+	)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
+
+	rows.Next()
+	scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
+	if scanErr != nil {
+		return nil, scanErr
+	}
+
 	return newUser, nil
 }
 
 func GetUser(username string) (*User, error) {
 	user := &User{}
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`SELECT id, username, passwordHash, interactions, createdAt, updatedAt FROM users WHERE username = $1`, username,
-	).Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+	)
 	if err != nil {
-		return nil, err
+		return nil, nil
+	}
+
+	rows.Next()
+	scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+	if scanErr != nil {
+		return nil, scanErr
 	}
 	return user, nil
 }
 
 func DeleteUser(username string) (*User, error) {
 	user := &User{}
-	err := Instance.QueryRow(
+	rows, err := Instance.Query(
 		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, passwordHash, interactions createdAt, updatedAt`, username,
-	).Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+	)
 	if err != nil {
-		return nil, err
+		return nil, nil
+	}
+
+	rows.Next()
+	scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+	if scanErr != nil {
+		return nil, scanErr
 	}
 	return user, nil
 }
 
-func GetAllUsers() ([]*User, error) {
-	users := []*User{}
+func GetAllUsers() ([]User, error) {
+	users := []User{}
 	rows, err := Instance.Query(
 		`SELECT id, username, passwordHash, interactions, createdAt, updatedAt FROM users`,
 	)
 	if err != nil {
-		return nil, err
+		return []User{}, nil
 	}
 	for rows.Next() {
-		user := &User{}
-		err := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+		user := User{}
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
-			return nil, err
+			return nil, scanErr
 		}
 		users = append(users, user)
 	}
 	return users, nil
 }
 
-func DeleteAllUsers() ([]*User, error) {
-	users := []*User{}
+func DeleteAllUsers() ([]User, error) {
+	users := []User{}
 	rows, err := Instance.Query(
 		`DELETE FROM users RETURNING id, username, passwordHash, interactions, createdAt, updatedAt`,
 	)
 	if err != nil {
-		return nil, err
+		return []User{}, nil
 	}
 	for rows.Next() {
-		user := &User{}
-		err := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
-		if err != nil {
-			return nil, err
+		user := User{}
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
 		}
 		users = append(users, user)
 	}
@@ -127,22 +153,20 @@ func (user *User) AddConversation(userId int64, chatReference string) (*User, er
 	if err != nil {
 		return nil, err
 	}
-	Instance.QueryRow(
+	rows, queryErr := Instance.Query(
 		`UPDATE users SET interactions = $1 WHERE id = $2 RETURNING id, username, passwordHash, interactions, createdAt, updatedAt`,
 		interactionsJsonString, user.Id,
-	).Scan(&newUser, &newUser.Username, &newUser.PasswordHash, &newUser.Interactions, &newUser.CreatedAt, &newUser.UpdatedAt)
-	
+	)
+
+	if queryErr != nil {
+		return nil, queryErr
+	}
+
+	rows.Next()
+	scanErr := rows.Scan(&newUser, &newUser.Username, &newUser.PasswordHash, &newUser.Interactions, &newUser.CreatedAt, &newUser.UpdatedAt)
+	if scanErr != nil {
+		return nil, scanErr
+	}
+
 	return newUser, nil
 }
-
-/*func UpdateUser(user User) (*User, error) {
-	newUser := &User{}
-	updateErr := Instance.QueryRow(
-		`UPDATE users SET username = $1 WHERE id = $3 RETURNING id, username, createdAt, updatedAt`,
-		user.Username, user.Id,
-	).Scan(&newUser, &newUser.Username, &newUser.CreatedAt, &newUser.UpdatedAt)
-	if updateErr != nil {
-		newUser = nil
-	}
-	return newUser, nil
-}*/
