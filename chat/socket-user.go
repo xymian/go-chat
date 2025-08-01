@@ -50,7 +50,9 @@ func SetUpInteractionsSocket(username string) {
 }
 
 func CreateNewSocketUser(user *database.User, activity Activity) (*Socketuser, error) {
-	interactions := &Interactions{}
+	interactions := &Interactions{
+		Chats: map[string]bool{},
+	}
 	interactions.Tracer = tracer.New()
 	conversationMap := map[int64]string{}
 	err := json.Unmarshal([]byte(*user.Interactions), &conversationMap)

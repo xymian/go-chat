@@ -511,107 +511,137 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 	}
 
 	chatRef, cErr := database.GetChatRefFor(refReq.User, refReq.Other)
-	if cErr != nil {
-		ref := uuid.NewString()
-		_, err := database.InsertParticipant(database.Participant{
-			Username:      refReq.User,
-			ChatReference: ref,
-		})
-		if err != nil {
-			response = models.Response[string]{
-				Data:         nil,
-				Message:      "could not add participant to " + ref,
-				Error:        err.Error(),
-				StatusCode:   http.StatusBadRequest,
-				IsSuccessful: false,
+	if cErr == nil {
+		if chatRef == nil {
+			ref := uuid.NewString()
+			_, pErr := database.InsertParticipant(database.Participant{
+				Username:      refReq.User,
+				ChatReference: ref,
+			})
+			if pErr != nil {
+				response = models.Response[string]{
+					Data:         nil,
+					Message:      "could not add participant to " + ref,
+					Error:        pErr.Error(),
+					StatusCode:   http.StatusBadRequest,
+					IsSuccessful: false,
+				}
+				w.WriteHeader(http.StatusBadRequest)
+				res, _ := json.Marshal(response)
+				w.Write(res)
+				return
 			}
-			w.WriteHeader(http.StatusBadRequest)
-			res, _ := json.Marshal(response)
-			w.Write(res)
-			return
-		}
 
-		_, otherErr := database.InsertParticipant(database.Participant{
-			Username:      refReq.Other,
-			ChatReference: ref,
-		})
-		if otherErr != nil {
-			response = models.Response[string]{
-				Data:         nil,
-				Message:      "could not add participant to " + ref,
-				Error:        otherErr.Error(),
-				StatusCode:   http.StatusBadRequest,
-				IsSuccessful: false,
+			_, otherErr := database.InsertParticipant(database.Participant{
+				Username:      refReq.Other,
+				ChatReference: ref,
+			})
+			if otherErr != nil {
+				response = models.Response[string]{
+					Data:         nil,
+					Message:      "could not add participant to " + ref,
+					Error:        otherErr.Error(),
+					StatusCode:   http.StatusBadRequest,
+					IsSuccessful: false,
+				}
+				w.WriteHeader(http.StatusBadRequest)
+				res, _ := json.Marshal(response)
+				w.Write(res)
+				return
 			}
-			w.WriteHeader(http.StatusBadRequest)
-			res, _ := json.Marshal(response)
-			w.Write(res)
-			return
-		}
 
-		chat, chatErr := database.InsertChat(database.Chat{
-			ChatReference: ref,
-		})
-		if chatErr != nil {
-			response = models.Response[string]{
-				Data:         nil,
+			chat, chatErr := database.InsertChat(database.Chat{
+				ChatReference: ref,
+			})
+			if chatErr != nil {
+				response = models.Response[string]{
+					Data:         nil,
+					Message:      "",
+					Error:        chatErr.Error(),
+					StatusCode:   http.StatusBadRequest,
+					IsSuccessful: false,
+				}
+				w.WriteHeader(http.StatusBadRequest)
+				res, _ := json.Marshal(response)
+				w.Write(res)
+				return
+			}
+
+			_, err := user.AddConversation(otheruser.Id, chat.ChatReference)
+			if err != nil {
+				response = models.Response[string]{
+					Data:         nil,
+					Message:      "",
+					Error:        err.Error(),
+					StatusCode:   http.StatusInternalServerError,
+					IsSuccessful: false,
+				}
+				w.WriteHeader(http.StatusInternalServerError)
+				res, _ := json.Marshal(response)
+				w.Write(res)
+				return
+			}
+
+			response = models.Response[models.NewChat]{
+				Data: &models.NewChat{
+					User:          refReq.User,
+					Other:         refReq.Other,
+					ChatReference: chat.ChatReference,
+				},
 				Message:      "",
-				Error:        chatErr.Error(),
-				StatusCode:   http.StatusBadRequest,
-				IsSuccessful: false,
+				Error:        "",
+				StatusCode:   http.StatusOK,
+				IsSuccessful: true,
 			}
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusOK)
 			res, _ := json.Marshal(response)
 			w.Write(res)
 			return
+		} else {
+			_, err := user.AddConversation(otheruser.Id, *chatRef)
+
+			if err != nil {
+				response = models.Response[string]{
+					Data:         nil,
+					Message:      "",
+					Error:        err.Error(),
+					StatusCode:   http.StatusInternalServerError,
+					IsSuccessful: false,
+				}
+				w.WriteHeader(http.StatusInternalServerError)
+				res, _ := json.Marshal(response)
+				w.Write(res)
+				return
+			}
+
+			response = models.Response[models.NewChat]{
+				Data: &models.NewChat{
+					User:          refReq.User,
+					Other:         refReq.Other,
+					ChatReference: *chatRef,
+				},
+				Message:      "",
+				Error:        "",
+				StatusCode:   http.StatusOK,
+				IsSuccessful: true,
+			}
+
+			w.WriteHeader(http.StatusOK)
+			res, _ := json.Marshal(response)
+			w.Write(res)
 		}
-
-		user.AddConversation(otheruser.Id, chat.ChatReference)
-
-		response = models.Response[map[string]string]{
-			Data: &map[string]string{
-				"chatReference": chat.ChatReference,
-			},
+	} else {
+		println(cErr.Error())
+		response = models.Response[string]{
+			Data:         nil,
 			Message:      "",
-			Error:        "",
-			StatusCode:   http.StatusOK,
-			IsSuccessful: true,
+			Error:        cErr.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
 		}
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusInternalServerError)
 		res, _ := json.Marshal(response)
 		w.Write(res)
 		return
-	} else {
-		_, err := user.AddConversation(otheruser.Id, *chatRef)
-
-		if err != nil {
-			response = models.Response[string]{
-				Data:         nil,
-				Message:      "",
-				Error:        err.Error(),
-				StatusCode:   http.StatusInternalServerError,
-				IsSuccessful: false,
-			}
-			w.WriteHeader(http.StatusInternalServerError)
-			res, _ := json.Marshal(response)
-			w.Write(res)
-			return
-		}
-
-		response = models.Response[models.NewChat]{
-			Data: &models.NewChat{
-				User:          refReq.User,
-				Other:         refReq.Other,
-				ChatReference: *chatRef,
-			},
-			Message:      "",
-			Error:        "",
-			StatusCode:   http.StatusOK,
-			IsSuccessful: true,
-		}
-
-		w.WriteHeader(http.StatusOK)
-		res, _ := json.Marshal(response)
-		w.Write(res)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 )
 
 type User struct {
@@ -31,15 +32,17 @@ func GetUsers(ids ...int64) ([]User, error) {
 		)
 
 		if queryErr != nil {
-			return []User{}, nil
+			log.Fatal(queryErr)
 		}
 
-		rows.Next()
-		scanErr := rows.Scan(&user.Id, &user.Username)
-		if scanErr != nil {
-			return nil, scanErr
+		hasRows := rows.Next()
+		if hasRows {
+			scanErr := rows.Scan(&user.Id, &user.Username)
+			if scanErr != nil {
+				return nil, scanErr
+			}
+			users = append(users, *user)
 		}
-		users = append(users, *user)
 	}
 	e := txn.Commit()
 	if e != nil {
@@ -58,16 +61,19 @@ func InsertUser(user User) (*User, error) {
 		user.Username, user.PasswordHash,
 	)
 	if err != nil {
-		return nil, nil
+		log.Fatal(err)
 	}
 
-	rows.Next()
-	scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
-	if scanErr != nil {
-		return nil, scanErr
-	}
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
 
-	return newUser, nil
+		return newUser, nil
+	}
+	return nil, nil
 }
 
 func GetUser(username string) (*User, error) {
@@ -76,15 +82,18 @@ func GetUser(username string) (*User, error) {
 		`SELECT id, username, passwordHash, interactions, createdAt, updatedAt FROM users WHERE username = $1`, username,
 	)
 	if err != nil {
-		return nil, nil
+		log.Fatal(err)
 	}
 
-	rows.Next()
-	scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
-	if scanErr != nil {
-		return nil, scanErr
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		return user, nil
 	}
-	return user, nil
+	return nil, nil
 }
 
 func DeleteUser(username string) (*User, error) {
@@ -93,15 +102,18 @@ func DeleteUser(username string) (*User, error) {
 		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, passwordHash, interactions createdAt, updatedAt`, username,
 	)
 	if err != nil {
-		return nil, nil
+		log.Fatal(err)
 	}
 
-	rows.Next()
-	scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
-	if scanErr != nil {
-		return nil, scanErr
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		return user, nil
 	}
-	return user, nil
+	return nil, nil
 }
 
 func GetAllUsers() ([]User, error) {
@@ -159,14 +171,17 @@ func (user *User) AddConversation(userId int64, chatReference string) (*User, er
 	)
 
 	if queryErr != nil {
-		return nil, queryErr
+		log.Fatal(queryErr)
 	}
 
-	rows.Next()
-	scanErr := rows.Scan(&newUser, &newUser.Username, &newUser.PasswordHash, &newUser.Interactions, &newUser.CreatedAt, &newUser.UpdatedAt)
-	if scanErr != nil {
-		return nil, scanErr
-	}
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.Interactions, &newUser.CreatedAt, &newUser.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
 
-	return newUser, nil
+		return newUser, nil
+	}
+	return nil, nil
 }

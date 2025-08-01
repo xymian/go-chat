@@ -1,0 +1,5 @@
+ALTER TABLE messages DROP COLUMN delivered;
+ALTER TABLE messages DROP COLUMN seen;
+
+ALTER TABLE messages ADD COLUMN deliveredTimestamp TIMESTAMP WITH TIME ZONE;
+ALTER TABLE messages ADD COLUMN seenTimestamp TIMESTAMP WITH TIME ZONE;

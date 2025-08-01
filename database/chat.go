@@ -1,6 +1,9 @@
 package database
 
-import "errors"
+import (
+	"errors"
+	"log"
+)
 
 type Chat struct {
 	Id            string `json:"id"`
@@ -20,17 +23,19 @@ func InsertChat(chat Chat) (*Chat, error) {
 	)
 
 	if err != nil {
-		return nil, nil
+		log.Fatal(err)
 	}
 
-	rows.Next()
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&chat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
 
-	scanErr := rows.Scan(&chat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
-	if scanErr != nil {
-		return nil, scanErr
+		return newChat, nil
 	}
-
-	return newChat, nil
+	return nil, nil
 }
 
 func GetChat(reference string) (*Chat, error) {
@@ -40,15 +45,18 @@ func GetChat(reference string) (*Chat, error) {
 		reference,
 	)
 	if err != nil {
-		return nil, nil
+		log.Fatal(err)
 	}
 
-	rows.Next()
-	scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
-	if scanErr != nil {
-		return nil, scanErr
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		return newChat, nil
 	}
-	return newChat, nil
+	return nil, nil
 }
 
 func DeleteChat(reference string) (*Chat, error) {
@@ -59,13 +67,17 @@ func DeleteChat(reference string) (*Chat, error) {
 	)
 
 	if err != nil {
-		return nil, nil
+		log.Fatal(err)
 	}
 
-	rows.Next()
-	scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
-	if scanErr != nil {
-		return nil, scanErr
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		return newChat, nil
 	}
-	return newChat, nil
+
+	return nil, nil
 }

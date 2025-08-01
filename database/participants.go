@@ -1,6 +1,9 @@
 package database
 
-import "errors"
+import (
+	"errors"
+	"log"
+)
 
 type Participant struct {
 	Id            string `json:"id"`
@@ -20,15 +23,18 @@ func InsertParticipant(participant Participant) (*Participant, error) {
 	)
 
 	if err != nil {
-		return nil, nil
+		log.Fatal(err)
 	}
 
-	rows.Next()
-	scanErr := rows.Scan(&newParticipant.Id, &newParticipant.Username, &newParticipant.ChatReference, &newParticipant.CreatedAt)
-	if scanErr != nil {
-		return nil, scanErr
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&newParticipant.Id, &newParticipant.Username, &newParticipant.ChatReference, &newParticipant.CreatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		return newParticipant, nil
 	}
-	return newParticipant, nil
+	return nil, nil
 }
 
 func GetParticipantsInChat(chatReference string) ([]Participant, error) {
@@ -60,34 +66,44 @@ func GetParticipant(username string, chatReference string) (*Participant, error)
 	)
 
 	if err != nil {
-		return nil, nil
+		log.Fatal(err)
 	}
 
-	rows.Next()
-	scanErr := rows.Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
-	if scanErr != nil {
-		return nil, scanErr
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		return participant, nil
 	}
-	return participant, nil
+	return nil, nil
 }
 
 func GetChatRefFor(user string, other string) (*string, error) {
 	var ref string
 	rows, err := Instance.Query(
-		`SELECT chatReference FROM participants WHERE username IN ($1, $2) GROUP BY chatReference HAVING COUNT(chatReference) = 2`,
+		`SELECT chatReference FROM participants
+		WHERE username IN ($1, $2) GROUP BY chatReference HAVING COUNT(chatReference) = 2`,
 		user, other,
 	)
 	if err != nil {
-		return nil, nil
+		log.Fatal(err)
 	}
 
-	scanErr := rows.Scan(&ref)
-	if scanErr != nil {
-		return nil, scanErr
-	}
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&ref)
+		if scanErr != nil {
+			println("failed due to scan error")
+			return nil, scanErr
+		}
 
-	if len(ref) == 0 {
-		return nil, errors.New("reference can't be empty")
+		if len(ref) == 0 {
+			return nil, errors.New("reference can't be empty")
+		}
+		println("shared ref: ", ref)
+		return &ref, nil
 	}
-	return &ref, nil
+	return nil, nil
 }
