@@ -17,8 +17,8 @@ type Message struct {
 	MessageTimestamp   string  `json:"messageTimestamp"`
 	ChatReference      string  `json:"chatReference"`
 	Ack                bool    `json:"ack"`
-	DeliveredTimestamp *string `json:"deliveredTimestampTimestamp"`
-	SeenTimestamp      *string `json:"seenTimestampTimestamp"`
+	DeliveredTimestamp *string `json:"deliveredTimestamp"`
+	SeenTimestamp      *string `json:"seenTimestamp"`
 	CreatedAt          string  `json:"createdAt"`
 	UpdatedAt          string  `json:"updatedAt"`
 }
@@ -91,15 +91,15 @@ func InsertMessage(msg Message) (*Message, error) {
 		println("error from one of the cases")
 		return nil, msgErr
 	}
+	println("delivered message timestamp: ", msg.DeliveredTimestamp)
 	message := Message{}
 	rows, queryErr := Instance.Query(
 		`INSERT INTO messages (messageReference, textMessage, senderUsername, receiverUsername,
 		messageTimestamp, chatReference, ack, deliveredTimestamp, seenTimestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (messageReference)
-		DO UPDATE SET
-		messageTimestamp = $5,
-		deliveredTimestamp = $8,
-		seenTimestamp = $9
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (messageReference) DO UPDATE SET
+		deliveredTimestamp = EXCLUDED.deliveredTimestamp,
+		seenTimestamp = EXCLUDED.seenTimestamp
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername,
 		messageTimestamp, chatReference, ack, deliveredTimestamp, seenTimestamp, createdAt, updatedAt`,
 		msg.MessageReference, msg.TextMessage, msg.SenderUsername, msg.ReceiverUsername,
