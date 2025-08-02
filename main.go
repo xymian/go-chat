@@ -21,7 +21,10 @@ func main() {
 		log.Fatal(pingErr)
 	}
 
-	defer database.Instance.Close()
+	defer func(){
+		database.Instance.Close()
+		database.Instance = nil
+	}()
 
 	routes.RegisterUserRoutes()
 	routes.RegisterChatRoutes()

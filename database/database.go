@@ -31,14 +31,16 @@ func ConnectToDB() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		Instance = newdb
+		Instance.SetMaxOpenConns(0)
 
 		mig, migErr := migrate.New("file://database/migrations", connURL)
 		if migErr != nil {
 			log.Fatal("error creating migration instance: ", migErr)
 		}
 		if err := mig.Up(); err != nil && err != migrate.ErrNoChange {
-			log.Fatal("error apllying migrations: ", err)
+			log.Fatal("error applying migrations: ", err)
 		}
 		fmt.Println("successfully migrated db")
 	}
