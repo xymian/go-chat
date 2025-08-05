@@ -98,6 +98,7 @@ func InsertMessage(msg Message) (*Message, error) {
 		messageTimestamp, chatReference, ack, deliveredTimestamp, seenTimestamp)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (messageReference) DO UPDATE SET
+		ack = EXCLUDED.ack,
 		deliveredTimestamp = EXCLUDED.deliveredTimestamp,
 		seenTimestamp = EXCLUDED.seenTimestamp
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername,

@@ -98,16 +98,7 @@ func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	newUser, errInteractions := CreateNewSocketUser(user, ONLINE)
 	if errInteractions != nil {
 		w.WriteHeader(http.StatusNotFound)
-		response := models.Response[string]{
-			Data:         nil,
-			Message:      "user does not exist",
-			Error:        errInteractions.Error(),
-			StatusCode:   http.StatusNotFound,
-			IsSuccessful: false,
-		}
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
+		log.Fatal("error creating socket user")
 	}
 	NewUser <- newUser
 

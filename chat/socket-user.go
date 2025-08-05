@@ -21,7 +21,6 @@ type PrivateChat struct {
 	Conn           *websocket.Conn
 	SendMessage    chan database.Message
 	ReceiveMessage chan database.Message
-	Room           chan *Room
 }
 
 type Socketuser struct {
@@ -70,7 +69,6 @@ func CreateNewSocketUser(user *database.User, activity Activity) (*Socketuser, e
 		PrivateChat: PrivateChat{
 			SendMessage:    make(chan database.Message),
 			ReceiveMessage: make(chan database.Message),
-			Room:           make(chan *Room),
 		},
 
 		Interactions: interactions,
@@ -129,7 +127,8 @@ func ListenForActiveUsers() {
 		select {
 		case newUser := <-NewUser:
 			OnlineUsers[newUser.Username] = newUser
-			newUser.Tracer.Trace("\nNew User", newUser.Username, " is online")
+			newUser.Tracer.Trace("number of users: ", len(OnlineUsers))
+			newUser.Tracer.Trace("New User", newUser.Username, " is online")
 
 		case loggedOutUser := <-LoggedOutUser:
 			delete(OnlineUsers, loggedOutUser.Username)
