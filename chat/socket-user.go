@@ -91,7 +91,7 @@ func (user *Socketuser) ReadMessages(room *Room) {
 	}
 }
 
-func (user *Socketuser) MessageReceiver(room *Room) {
+func (user *Socketuser) WriteMessages(room *Room) {
 	defer func() {
 		user.Tracer.Trace("done receiving")
 	}()

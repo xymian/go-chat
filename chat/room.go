@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/te6lim/go-chat/config"
 	"github.com/te6lim/go-chat/database"
@@ -109,9 +110,25 @@ func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	newUser.Conn = conn
 
+	urlSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	chatRef := urlSegments[1]
+
 	room.JoinRoom(newUser)
-	go newUser.MessageReceiver(room)
+	go newUser.WriteMessages(room)
+	go room.sendUnacknowledgedMessages(chatRef, username)
 	newUser.ReadMessages(room)
+}
+
+func (room *Room) sendUnacknowledgedMessages(chatRef string, user string) error  {
+	messages, err := database.GetAllUnacknowledgedMessages(chatRef, user)
+	if err != nil {
+		return err
+	}
+
+	for _, message := range messages {
+		room.ForwardedMessage <- message
+	}
+	return nil
 }
 
 func ListenForNewChatRoom() {
