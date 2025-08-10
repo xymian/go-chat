@@ -62,6 +62,8 @@ func HandleInteractions(w http.ResponseWriter, r *http.Request) {
 	}
 	newSocketUser.Interactions.IReceiveMessage = make(chan database.Message)
 	newSocketUser.Interactions.MultipleChatConn = conn
+
+	newSocketUser.Activity = AWAY
 	NewUser <- newSocketUser
 
 	defer func() {

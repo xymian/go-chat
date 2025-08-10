@@ -63,7 +63,8 @@ func (room *Room) Run() {
 			receiver := OnlineUsers[message.ReceiverUsername]
 			if receiver != nil {
 				if receiver.Activity == AWAY {
-					receiver.ReceiveMessage <- message
+					receiver.IReceiveMessage <- message
+					room.Tracer.Trace("Message sent through conversation socket: ", message.TextMessage, " to User", receiver.Username)
 				}
 			}
 			for user := range room.participants {
@@ -101,6 +102,7 @@ func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		log.Fatal("error creating socket user")
 	}
+	newUser.Activity = ONLINE
 	NewUser <- newUser
 
 	defer func() {

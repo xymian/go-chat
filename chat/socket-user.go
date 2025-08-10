@@ -128,7 +128,7 @@ func ListenForActiveUsers() {
 		case newUser := <-NewUser:
 			OnlineUsers[newUser.Username] = newUser
 			newUser.Tracer.Trace("number of users: ", len(OnlineUsers))
-			newUser.Tracer.Trace("New User", newUser.Username, " is online")
+			newUser.Tracer.Trace("New User", newUser.Username, " is ", newUser.Activity)
 
 		case loggedOutUser := <-LoggedOutUser:
 			delete(OnlineUsers, loggedOutUser.Username)

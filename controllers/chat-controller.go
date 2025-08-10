@@ -65,6 +65,13 @@ func MarkMessagesAsDelivered(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
+func SetupUniqueIntractionsSocket(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	username := mux.Vars(r)["username"]
+	chat.SetUpInteractionsSocket(username)
+	w.WriteHeader(http.StatusOK)
+}
+
 func SetupUniqueSocket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var newChat = &models.NewChat{}
