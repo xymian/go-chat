@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"github.com/te6lim/go-chat/config"
@@ -31,7 +32,8 @@ func HandleInteractions(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	username := r.URL.Query().Get("me")
+	urlSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	username := urlSegments[1]
 	user, errUser := database.GetUser(username)
 	if errUser != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -63,11 +65,29 @@ func HandleInteractions(w http.ResponseWriter, r *http.Request) {
 	newSocketUser.Interactions.IReceiveMessage = make(chan database.Message)
 	newSocketUser.Interactions.MultipleChatConn = conn
 
-	newSocketUser.Activity = AWAY
-	NewUser <- newSocketUser
-
 	defer func() {
 		conn.Close()
 		delete(OnlineUsers, user.Username)
 	}()
+
+	newSocketUser.Activity = AWAY
+	NewUser <- newSocketUser
+
+	newSocketUser.WriteMessagesToClientSocket()
+}
+
+func (socketUser *Socketuser) WriteMessagesToClientSocket() {
+	defer func() {
+		socketUser.MultipleChatConn.Close()
+		socketUser.Tracer.Trace("interactions socket closed")
+	}()
+
+	for {
+		msg := <- socketUser.IReceiveMessage
+		err := socketUser.MultipleChatConn.WriteJSON(msg)
+		if err != nil {
+			socketUser.Tracer.Trace("Connection error: ", err)
+			return
+		}
+	}
 }
