@@ -26,54 +26,57 @@ func (intrxn *Interactions) Run() {
 	}
 }
 
-func HandleInteractions(w http.ResponseWriter, r *http.Request) {
-	conn, err := config.Upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	urlSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	username := urlSegments[1]
-	user, errUser := database.GetUser(username)
-	if errUser != nil {
-		w.WriteHeader(http.StatusNotFound)
-		response := models.Response[string]{
-			Data:         nil,
-			Message:      "user does not exist",
-			Error:        errUser.Error(),
-			StatusCode:   http.StatusNotFound,
-			IsSuccessful: false,
+func HandleInteractions(completion func(isConnected bool)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		conn, err := config.Upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Fatal(err)
 		}
-		res, _ := json.Marshal(response)
-		w.Write(res)
-	}
 
-	newSocketUser, errInteractions := CreateNewSocketUser(user, AWAY)
-	if errInteractions != nil {
-		w.WriteHeader(http.StatusNotFound)
-		response := models.Response[string]{
-			Data:         nil,
-			Message:      "user does not exist",
-			Error:        errInteractions.Error(),
-			StatusCode:   http.StatusNotFound,
-			IsSuccessful: false,
+		urlSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		username := urlSegments[1]
+		user, errUser := database.GetUser(username)
+		if errUser != nil {
+			w.WriteHeader(http.StatusNotFound)
+			response := models.Response[string]{
+				Data:         nil,
+				Message:      "user does not exist",
+				Error:        errUser.Error(),
+				StatusCode:   http.StatusNotFound,
+				IsSuccessful: false,
+			}
+			res, _ := json.Marshal(response)
+			w.Write(res)
 		}
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
+
+		newSocketUser, errInteractions := CreateNewSocketUser(user, AWAY)
+		if errInteractions != nil {
+			w.WriteHeader(http.StatusNotFound)
+			response := models.Response[string]{
+				Data:         nil,
+				Message:      "user does not exist",
+				Error:        errInteractions.Error(),
+				StatusCode:   http.StatusNotFound,
+				IsSuccessful: false,
+			}
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
+		}
+		newSocketUser.Interactions.IReceiveMessage = make(chan database.Message)
+		newSocketUser.Interactions.MultipleChatConn = conn
+
+		defer func() {
+			conn.Close()
+			delete(OnlineUsers, user.Username)
+			completion(false)
+		}()
+
+		newSocketUser.Activity = AWAY
+		NewUser <- newSocketUser
+		completion(true)
+		newSocketUser.WriteMessagesToClientSocket()
 	}
-	newSocketUser.Interactions.IReceiveMessage = make(chan database.Message)
-	newSocketUser.Interactions.MultipleChatConn = conn
-
-	defer func() {
-		conn.Close()
-		delete(OnlineUsers, user.Username)
-	}()
-
-	newSocketUser.Activity = AWAY
-	NewUser <- newSocketUser
-
-	newSocketUser.WriteMessagesToClientSocket()
 }
 
 func (socketUser *Socketuser) WriteMessagesToClientSocket() {
@@ -83,7 +86,7 @@ func (socketUser *Socketuser) WriteMessagesToClientSocket() {
 	}()
 
 	for {
-		msg := <- socketUser.IReceiveMessage
+		msg := <-socketUser.IReceiveMessage
 		err := socketUser.MultipleChatConn.WriteJSON(msg)
 		if err != nil {
 			socketUser.Tracer.Trace("Connection error: ", err)

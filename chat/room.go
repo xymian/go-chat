@@ -75,50 +75,52 @@ func (room *Room) Run() {
 	}
 }
 
-func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	conn, err := config.Upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	username := r.URL.Query().Get("me")
-	user, errUser := database.GetUser(username)
-	if errUser != nil {
-		w.WriteHeader(http.StatusNotFound)
-		response := models.Response[string]{
-			Data:         nil,
-			Message:      "user does not exist",
-			Error:        errUser.Error(),
-			StatusCode:   http.StatusNotFound,
-			IsSuccessful: false,
+func HandleRoom(room *Room, completion func(isConnected bool)) http.HandlerFunc {
+	return func (w http.ResponseWriter, r *http.Request) {
+		conn, err := config.Upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Fatal(err)
 		}
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
+	
+		username := r.URL.Query().Get("me")
+		user, errUser := database.GetUser(username)
+		if errUser != nil {
+			w.WriteHeader(http.StatusNotFound)
+			response := models.Response[string]{
+				Data:         nil,
+				Message:      "user does not exist",
+				Error:        errUser.Error(),
+				StatusCode:   http.StatusNotFound,
+				IsSuccessful: false,
+			}
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
+		}
+	
+		newUser, errInteractions := CreateNewSocketUser(user, ONLINE)
+		if errInteractions != nil {
+			w.WriteHeader(http.StatusNotFound)
+			log.Fatal("error creating socket user")
+		}
+		newUser.Activity = ONLINE
+		NewUser <- newUser
+	
+		defer func() {
+			newUser.LeaveRoom(room)
+			room.Tracer.Trace(username, " disconnected")
+			conn.Close()
+		}()
+		newUser.Conn = conn
+	
+		urlSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		chatRef := urlSegments[1]
+	
+		room.JoinRoom(newUser)
+		go newUser.WriteMessages(room)
+		go room.sendUnacknowledgedMessages(chatRef, username)
+		newUser.ReadMessages(room)
 	}
-
-	newUser, errInteractions := CreateNewSocketUser(user, ONLINE)
-	if errInteractions != nil {
-		w.WriteHeader(http.StatusNotFound)
-		log.Fatal("error creating socket user")
-	}
-	newUser.Activity = ONLINE
-	NewUser <- newUser
-
-	defer func() {
-		newUser.LeaveRoom(room)
-		room.Tracer.Trace(username, " disconnected")
-		conn.Close()
-	}()
-	newUser.Conn = conn
-
-	urlSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	chatRef := urlSegments[1]
-
-	room.JoinRoom(newUser)
-	go newUser.WriteMessages(room)
-	go room.sendUnacknowledgedMessages(chatRef, username)
-	newUser.ReadMessages(room)
 }
 
 func (room *Room) sendUnacknowledgedMessages(chatRef string, user string) error  {

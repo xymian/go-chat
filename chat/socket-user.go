@@ -31,21 +31,24 @@ type Socketuser struct {
 	Tracer   tracer.Tracer
 }
 
-func SetupSocketUser(username string, otherUsername string, chatReference string) {
+func SetupSocketUser(
+	username string, otherUsername string, chatReference string,
+	completion func(isConnected bool)) {
+
 	var room *Room
 	if Rooms[chatReference] == nil {
 		room = CreateRoom(chatReference)
 		AddRoom <- room
 		go room.Run()
 		endpoint := fmt.Sprintf("/room/%s", chatReference)
-		config.Router.Handle(endpoint, room)
+		config.Router.Handle(endpoint, HandleRoom(room, completion))
 		room.Tracer.Trace("room handler added")
 	}
 }
 
-func SetUpInteractionsSocket(username string) {
+func SetUpInteractionsSocket(username string, completion func(isConnected bool)) {
 	endpoint := fmt.Sprintf("/interactions/%s", username)
-	config.Router.HandleFunc(endpoint, HandleInteractions)
+	config.Router.HandleFunc(endpoint, HandleInteractions(completion))
 }
 
 func CreateNewSocketUser(user *database.User, activity Activity) (*Socketuser, error) {

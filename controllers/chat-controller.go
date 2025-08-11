@@ -68,8 +68,16 @@ func MarkMessagesAsDelivered(w http.ResponseWriter, r *http.Request) {
 func SetupUniqueIntractionsSocket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
-	chat.SetUpInteractionsSocket(username)
-	w.WriteHeader(http.StatusOK)
+	chat.SetUpInteractionsSocket(
+		username,
+		func(isConnected bool) {
+			if isConnected {
+				w.WriteHeader(http.StatusOK)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+		},
+	)
 }
 
 func SetupUniqueSocket(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +87,16 @@ func SetupUniqueSocket(w http.ResponseWriter, r *http.Request) {
 	me := newChat.User
 	other := newChat.Other
 	chatId := newChat.ChatReference
-	chat.SetupSocketUser(me, other, chatId)
+	chat.SetupSocketUser(
+		me, other, chatId,
+		func(isConnected bool) {
+			if isConnected {
+				w.WriteHeader(http.StatusOK)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+		},
+	)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -180,7 +197,16 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 			"Me":     user.Username,
 			"Other":  other.Username,
 		}
-		chat.SetupSocketUser(me, other.Username, userChat.ChatReference)
+		chat.SetupSocketUser(
+			me, other.Username, userChat.ChatReference,
+			func(isConnected bool) {
+				if (isConnected) {
+					w.WriteHeader(http.StatusOK)
+				} else {
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+			},
+		)
 
 		templateHandler.Template.Execute(w, data)
 	}
