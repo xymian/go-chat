@@ -200,7 +200,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 		chat.SetupSocketUser(
 			me, other.Username, userChat.ChatReference,
 			func(isConnected bool) {
-				if (isConnected) {
+				if isConnected {
 					w.WriteHeader(http.StatusOK)
 				} else {
 					w.WriteHeader(http.StatusInternalServerError)
@@ -511,6 +511,20 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 	var refReq addChatReferenceRequest
 	var response interface{}
 	utils.ParseBody(r, &refReq)
+
+	if refReq.User == refReq.Other {
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "cannot create a chat reference to the same user",
+			Error:        "",
+			StatusCode:   http.StatusForbidden,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.WriteHeader(http.StatusForbidden)
+		w.Write(res)
+		return
+	}
 
 	otheruser, oErr := database.GetUser(refReq.Other)
 	user, uErr := database.GetUser(refReq.User)
