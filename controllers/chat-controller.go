@@ -533,8 +533,22 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
 			Data:         nil,
-			Message:      "username " + request.User + " does not exist",
+			Message:      "",
 			Error:        uErr.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	if user == nil {
+		w.WriteHeader(http.StatusNotFound)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "username " + request.User + " does not exist",
+			Error:        "",
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
@@ -547,8 +561,22 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
 			Data:         nil,
-			Message:      "username " + request.Other + " does not exist",
+			Message:      "",
 			Error:        oErr.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	if otheruser == nil {
+		w.WriteHeader(http.StatusNotFound)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "username " + request.Other + " does not exist",
+			Error:        "",
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
