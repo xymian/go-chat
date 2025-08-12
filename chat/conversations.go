@@ -2,6 +2,7 @@ package chat
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -13,17 +14,22 @@ import (
 	"github.com/te6lim/go-chat/tracer"
 )
 
-type Interactions struct {
-	MultipleChatConn *websocket.Conn
+type Conversations struct {
+	PublicConn *websocket.Conn
 	Chats            map[string]bool
 	IReceiveMessage  chan database.Message
 	Tracer           tracer.Tracer
 }
 
-func (intrxn *Interactions) Run() {
+func (intrxn *Conversations) Run() {
 	for r := range intrxn.IReceiveMessage {
-		intrxn.MultipleChatConn.WriteJSON(r)
+		intrxn.PublicConn.WriteJSON(r)
 	}
+}
+
+func SetUpPublicSocket(username string, completion func(isConnected bool)) {
+	endpoint := fmt.Sprintf("/interactions/%s", username)
+	config.Router.HandleFunc(endpoint, HandleInteractions(completion))
 }
 
 func HandleInteractions(completion func(isConnected bool)) http.HandlerFunc {
@@ -63,8 +69,8 @@ func HandleInteractions(completion func(isConnected bool)) http.HandlerFunc {
 			w.Write(res)
 			return
 		}
-		newSocketUser.Interactions.IReceiveMessage = make(chan database.Message)
-		newSocketUser.Interactions.MultipleChatConn = conn
+		newSocketUser.Conversations.IReceiveMessage = make(chan database.Message)
+		newSocketUser.Conversations.PublicConn = conn
 
 		defer func() {
 			conn.Close()
@@ -81,13 +87,13 @@ func HandleInteractions(completion func(isConnected bool)) http.HandlerFunc {
 
 func (socketUser *Socketuser) WriteMessagesToClientSocket() {
 	defer func() {
-		socketUser.MultipleChatConn.Close()
+		socketUser.PublicConn.Close()
 		socketUser.Tracer.Trace("interactions socket closed")
 	}()
 
 	for {
 		msg := <-socketUser.IReceiveMessage
-		err := socketUser.MultipleChatConn.WriteJSON(msg)
+		err := socketUser.PublicConn.WriteJSON(msg)
 		if err != nil {
 			socketUser.Tracer.Trace("Connection error: ", err)
 			return

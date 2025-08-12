@@ -17,8 +17,8 @@ func RegisterChatRoutes() {
 		controllers.HandleChat(&utils.TemplateHandler{FileName: "chat.html"}),
 	).Methods("GET")
 
-	config.Router.HandleFunc("/chat", middleware.WithJWTMiddleware(controllers.SetupUniqueSocket)).Methods("POST")
-	config.Router.HandleFunc("/interactions/{username}", controllers.SetupUniqueIntractionsSocket).Methods("POST")
+	config.Router.HandleFunc("/chat", middleware.WithJWTMiddleware(controllers.SetupRoomSocket)).Methods("POST")
+	config.Router.HandleFunc("/interactions/{username}", controllers.SetupPublicSocket).Methods("POST")
 
 	config.Router.HandleFunc("/messages/deliver", middleware.WithJWTMiddleware(controllers.MarkMessagesAsDelivered)).Methods("POST")
 	config.Router.HandleFunc("/messages/acknowledge", middleware.WithJWTMiddleware(controllers.AcknowledgeMessages)).Methods("POST")

@@ -65,10 +65,10 @@ func MarkMessagesAsDelivered(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
-func SetupUniqueIntractionsSocket(w http.ResponseWriter, r *http.Request) {
+func SetupPublicSocket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
-	chat.SetUpInteractionsSocket(
+	chat.SetUpPublicSocket(
 		username,
 		func(isConnected bool) {
 			if isConnected {
@@ -80,14 +80,14 @@ func SetupUniqueIntractionsSocket(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-func SetupUniqueSocket(w http.ResponseWriter, r *http.Request) {
+func SetupRoomSocket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var newChat = &models.NewChat{}
 	utils.ParseBody(r, newChat)
 	me := newChat.User
 	other := newChat.Other
 	chatId := newChat.ChatReference
-	chat.SetupSocketUser(
+	chat.SetupRoomSocket(
 		me, other, chatId,
 		func(isConnected bool) {
 			if isConnected {
@@ -197,7 +197,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 			"Me":     user.Username,
 			"Other":  other.Username,
 		}
-		chat.SetupSocketUser(
+		chat.SetupRoomSocket(
 			me, other.Username, userChat.ChatReference,
 			func(isConnected bool) {
 				if isConnected {
@@ -508,11 +508,11 @@ func GetChatRefForUsers(w http.ResponseWriter, r *http.Request) {
 
 func AddChatReference(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var refReq addChatReferenceRequest
+	var request addChatReferenceRequest
 	var response interface{}
-	utils.ParseBody(r, &refReq)
+	utils.ParseBody(r, &request)
 
-	if refReq.User == refReq.Other {
+	if request.User == request.Other {
 		response := models.Response[string]{
 			Data:         nil,
 			Message:      "cannot create a chat reference to the same user",
@@ -526,14 +526,14 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	otheruser, oErr := database.GetUser(refReq.Other)
-	user, uErr := database.GetUser(refReq.User)
+	otheruser, oErr := database.GetUser(request.Other)
+	user, uErr := database.GetUser(request.User)
 
 	if uErr != nil {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
 			Data:         nil,
-			Message:      "username " + refReq.User + " does not exist",
+			Message:      "username " + request.User + " does not exist",
 			Error:        uErr.Error(),
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
@@ -547,7 +547,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
 			Data:         nil,
-			Message:      "username " + refReq.Other + " does not exist",
+			Message:      "username " + request.Other + " does not exist",
 			Error:        oErr.Error(),
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
@@ -557,12 +557,12 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chatRef, cErr := database.GetChatRefFor(refReq.User, refReq.Other)
+	chatRef, cErr := database.GetChatRefFor(request.User, request.Other)
 	if cErr == nil {
 		if chatRef == nil {
 			ref := uuid.NewString()
 			_, pErr := database.InsertParticipant(database.Participant{
-				Username:      refReq.User,
+				Username:      request.User,
 				ChatReference: ref,
 			})
 			if pErr != nil {
@@ -580,7 +580,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			}
 
 			_, otherErr := database.InsertParticipant(database.Participant{
-				Username:      refReq.Other,
+				Username:      request.Other,
 				ChatReference: ref,
 			})
 			if otherErr != nil {
@@ -631,8 +631,8 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 
 			response = models.Response[models.NewChat]{
 				Data: &models.NewChat{
-					User:          refReq.User,
-					Other:         refReq.Other,
+					User:          request.User,
+					Other:         request.Other,
 					ChatReference: chat.ChatReference,
 				},
 				Message:      "",
@@ -663,8 +663,8 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 
 			response = models.Response[models.NewChat]{
 				Data: &models.NewChat{
-					User:          refReq.User,
-					Other:         refReq.Other,
+					User:          request.User,
+					Other:         request.Other,
 					ChatReference: *chatRef,
 				},
 				Message:      "",
