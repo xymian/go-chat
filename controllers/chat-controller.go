@@ -68,16 +68,7 @@ func MarkMessagesAsDelivered(w http.ResponseWriter, r *http.Request) {
 func SetupPublicSocket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
-	chat.SetUpPublicSocket(
-		username,
-		func(isConnected bool) {
-			if isConnected {
-				w.WriteHeader(http.StatusOK)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-		},
-	)
+	chat.SetUpPublicSocket(username)
 }
 
 func SetupRoomSocket(w http.ResponseWriter, r *http.Request) {
@@ -87,16 +78,7 @@ func SetupRoomSocket(w http.ResponseWriter, r *http.Request) {
 	me := newChat.User
 	other := newChat.Other
 	chatId := newChat.ChatReference
-	chat.SetupRoomSocket(
-		me, other, chatId,
-		func(isConnected bool) {
-			if isConnected {
-				w.WriteHeader(http.StatusOK)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-		},
-	)
+	chat.SetupRoomSocket(me, other, chatId)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -197,16 +179,7 @@ func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 			"Me":     user.Username,
 			"Other":  other.Username,
 		}
-		chat.SetupRoomSocket(
-			me, other.Username, userChat.ChatReference,
-			func(isConnected bool) {
-				if isConnected {
-					w.WriteHeader(http.StatusOK)
-				} else {
-					w.WriteHeader(http.StatusInternalServerError)
-				}
-			},
-		)
+		chat.SetupRoomSocket(me, other.Username, userChat.ChatReference)
 
 		templateHandler.Template.Execute(w, data)
 	}

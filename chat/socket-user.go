@@ -8,15 +8,13 @@ import (
 	"github.com/te6lim/go-chat/tracer"
 )
 
-var OnlineUsers = make(map[string]*Socketuser)
-var NewUser chan *Socketuser = make(chan *Socketuser)
+var ActiveSocketUsers = make(map[string]*Socketuser)
+var NewUserFromRoomSetup chan *Socketuser = make(chan *Socketuser)
+var NewUserFromConversationsSetup chan *Socketuser = make(chan *Socketuser)
 var LoggedOutUser chan *Socketuser = make(chan *Socketuser)
-
-var AskForUserToChatWith = make(chan *Socketuser)
 
 type PrivateChat struct {
 	PrivateConn    *websocket.Conn
-	SendMessage    chan database.Message
 	ReceiveMessage chan database.Message
 }
 
@@ -28,7 +26,7 @@ type Socketuser struct {
 	Tracer   tracer.Tracer
 }
 
-func CreateNewSocketUser(user *database.User, activity Activity) (*Socketuser, error) {
+func SetupSocketUser(user *database.User, activity Activity) (*Socketuser, error) {
 	conversations := &Conversations{
 		Chats: map[string]bool{},
 	}
@@ -47,7 +45,6 @@ func CreateNewSocketUser(user *database.User, activity Activity) (*Socketuser, e
 		Tracer:   tracer.New(),
 
 		PrivateChat: PrivateChat{
-			SendMessage:    make(chan database.Message),
 			ReceiveMessage: make(chan database.Message),
 		},
 
@@ -58,13 +55,36 @@ func CreateNewSocketUser(user *database.User, activity Activity) (*Socketuser, e
 func ListenForActiveUsers() {
 	for {
 		select {
-		case newUser := <-NewUser:
-			OnlineUsers[newUser.Username] = newUser
-			newUser.Tracer.Trace("number of users: ", len(OnlineUsers))
-			newUser.Tracer.Trace("New User", newUser.Username, " is ", newUser.Activity.GetStatus())
+		case newUser := <-NewUserFromRoomSetup:
+			activeUser := ActiveSocketUsers[newUser.Username]
+			if activeUser != nil {
+				activeUser.PrivateConn = newUser.PrivateConn
+				activeUser.ReceiveMessage = newUser.ReceiveMessage
+				activeUser.Activity = newUser.Activity
+			} else {
+				ActiveSocketUsers[newUser.Username] = newUser
+				activeUser = newUser
+			}
+
+			newUser.Tracer.Trace("number of users: ", len(ActiveSocketUsers))
+			newUser.Tracer.Trace("New User", newUser.Username, " is ", activeUser.Activity.GetStatus())
+
+		case newUser := <-NewUserFromConversationsSetup:
+			activeUser := ActiveSocketUsers[newUser.Username]
+			if activeUser != nil {
+				activeUser.PublicConn = newUser.PublicConn
+				activeUser.IReceiveMessage = newUser.IReceiveMessage
+				activeUser.Chats = newUser.Chats
+				activeUser.Activity = newUser.Activity
+			} else {
+				ActiveSocketUsers[newUser.Username] = newUser
+				activeUser = newUser
+			}
+			newUser.Tracer.Trace("number of users: ", len(ActiveSocketUsers))
+			newUser.Tracer.Trace("New User", newUser.Username, " is ", activeUser.Activity.GetStatus())
 
 		case loggedOutUser := <-LoggedOutUser:
-			delete(OnlineUsers, loggedOutUser.Username)
+			delete(ActiveSocketUsers, loggedOutUser.Username)
 			loggedOutUser.Tracer.Trace("User", loggedOutUser.Username, " logged out")
 		}
 	}
