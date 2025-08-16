@@ -22,7 +22,7 @@ type Conversations struct {
 }
 
 func SetUpPublicSocket(username string) {
-	endpoint := fmt.Sprintf("/interactions/%s", username)
+	endpoint := fmt.Sprintf("/conversations/%s", username)
 	config.Router.HandleFunc(endpoint, HandleConversations)
 }
 
@@ -49,7 +49,7 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newSocketUser, errInteractions := CreateSocketUser(user, AWAY)
+	socketUser, errInteractions := CreateSocketUser(user, AWAY)
 	if errInteractions != nil {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
@@ -64,19 +64,20 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newSocketUser.Conversations.IReceiveMessage = make(chan database.Message)
-	newSocketUser.Conversations.PublicConn = conn
+	socketUser.Conversations.IReceiveMessage = make(chan database.Message)
+	socketUser.Conversations.PublicConn = conn
 
 	defer func() {
-		newSocketUser.PublicConn.Close()
-		newSocketUser.Tracer.Trace("conversations socket closed")
-		LoggedOutUser <- newSocketUser
+		socketUser.PublicConn.Close()
+		socketUser.Tracer.Trace("conversations socket closed")
+		LoggedOutUser <- socketUser
 	}()
 
-	newSocketUser.Activity = AWAY
-	NewUserFromConversationsSetup <- newSocketUser
-	go newSocketUser.Conversations.ReadMessagesFromClient()
-	newSocketUser.Conversations.WriteMessagesToClientSocket()
+	socketUser.Activity = AWAY
+	NewUserFromConversationsSetup <- socketUser
+	go socketUser.Conversations.ReadMessagesFromClient()
+	go sendUnacknowledgedMessagesForAllUserCoversations(socketUser)
+	socketUser.Conversations.WriteMessagesToClientSocket()
 }
 
 func (conversations *Conversations) ReadMessagesFromClient() {
@@ -116,5 +117,25 @@ func (conversations *Conversations) WriteMessagesToClientSocket() {
 			conversations.Tracer.Trace("Connection error: ", err)
 			return
 		}
+	}
+}
+
+func (conversations *Conversations) sendUnacknowledgedMessages(chatRef string, user string) error {
+	messages, err := database.GetAllUnacknowledgedMessages(chatRef, user)
+	if err != nil {
+		return err
+	}
+
+	for _, message := range messages {
+		conversations.IReceiveMessage <- message
+	}
+	return nil
+}
+
+func sendUnacknowledgedMessagesForAllUserCoversations(socketUser *Socketuser) {
+	for chatRef := range socketUser.Chats {
+		go func() {
+			socketUser.Conversations.sendUnacknowledgedMessages(chatRef, socketUser.Username)
+		}()
 	}
 }
