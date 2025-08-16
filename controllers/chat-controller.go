@@ -69,6 +69,15 @@ func SetupPublicSocket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
 	chat.SetUpPublicSocket(username)
+	response := models.Response[string]{
+		Data:         nil,
+		Message:      "",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	res, _ := json.Marshal(response)
+	w.Write(res)
 }
 
 func SetupRoomSocket(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +88,15 @@ func SetupRoomSocket(w http.ResponseWriter, r *http.Request) {
 	other := newChat.Other
 	chatId := newChat.ChatReference
 	chat.SetupRoomSocket(me, other, chatId)
-	w.WriteHeader(http.StatusOK)
+	response := models.Response[string]{
+		Data:         &chatId,
+		Message:      "",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	res, _ := json.Marshal(response)
+	w.Write(res)
 }
 
 func HandleChat(templateHandler *utils.TemplateHandler) http.HandlerFunc {

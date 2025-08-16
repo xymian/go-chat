@@ -26,7 +26,7 @@ type Socketuser struct {
 	Tracer   tracer.Tracer
 }
 
-func SetupSocketUser(user *database.User, activity Activity) (*Socketuser, error) {
+func CreateSocketUser(user *database.User, activity Activity) (*Socketuser, error) {
 	conversations := &Conversations{
 		Chats: map[string]bool{},
 	}

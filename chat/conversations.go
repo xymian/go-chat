@@ -49,7 +49,7 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newSocketUser, errInteractions := SetupSocketUser(user, AWAY)
+	newSocketUser, errInteractions := CreateSocketUser(user, AWAY)
 	if errInteractions != nil {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
@@ -75,13 +75,14 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 
 	newSocketUser.Activity = AWAY
 	NewUserFromConversationsSetup <- newSocketUser
-	go newSocketUser.ReadMessagesFromClient()
-	newSocketUser.WriteMessagesToClientSocket()
+	go newSocketUser.Conversations.ReadMessagesFromClient()
+	newSocketUser.Conversations.WriteMessagesToClientSocket()
 }
 
 func (conversations *Conversations) ReadMessagesFromClient() {
 	defer func() {
 		conversations.PublicConn.Close()
+		conversations.Tracer.Trace("conversations socket closed")
 	}()
 
 	message := database.Message{}
@@ -102,17 +103,17 @@ func (conversations *Conversations) ReadMessagesFromClient() {
 	}
 }
 
-func (socketUser *Socketuser) WriteMessagesToClientSocket() {
+func (conversations *Conversations) WriteMessagesToClientSocket() {
 	defer func() {
-		socketUser.PublicConn.Close()
-		socketUser.Tracer.Trace("conversations socket closed")
+		conversations.PublicConn.Close()
+		conversations.Tracer.Trace("conversations socket closed")
 	}()
 
 	for {
-		msg := <-socketUser.IReceiveMessage
-		err := socketUser.PublicConn.WriteJSON(msg)
+		msg := <-conversations.IReceiveMessage
+		err := conversations.PublicConn.WriteJSON(msg)
 		if err != nil {
-			socketUser.Tracer.Trace("Connection error: ", err)
+			conversations.Tracer.Trace("Connection error: ", err)
 			return
 		}
 	}

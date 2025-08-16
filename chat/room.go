@@ -38,16 +38,14 @@ func CreateRoom(roomId string) *Room {
 	return room
 }
 
-func SetupRoomSocket(
-	username string, otherUsername string, chatReference string) {
-
+func SetupRoomSocket(username string, otherUsername string, chatReference string) {
 	var room *Room
 	if Rooms[chatReference] == nil {
 		room = CreateRoom(chatReference)
 		AddRoom <- room
 		go room.Run()
 		endpoint := fmt.Sprintf("/room/%s", chatReference)
-		config.Router.HandleFunc(endpoint, room.HandleRoom)
+		config.Router.Handle(endpoint, room)
 		room.Tracer.Trace("room handler added")
 	}
 }
@@ -65,7 +63,9 @@ func (room *Room) Run() {
 			if len(room.participants) == 0 {
 				delete(Rooms, room.Id)
 			}
-			delete(ActiveSocketUsers, user.Username)
+			if (ActiveSocketUsers[user.Username] != nil) {
+				ActiveSocketUsers[user.Username].Activity = AWAY
+			}
 			room.Tracer.Trace("User", user.Username, " left the room")
 
 		case message := <-room.ForwardedMessage:
@@ -76,6 +76,7 @@ func (room *Room) Run() {
 				return
 			}
 			receiver := ActiveSocketUsers[message.ReceiverUsername]
+			room.Tracer.Trace("receiver on conversations: ", receiver)
 			if receiver != nil {
 				if receiver.Activity == AWAY {
 					receiver.IReceiveMessage <- message
@@ -137,7 +138,7 @@ func (room *Room) JoinRoom(user *Socketuser) error {
 	}
 }
 
-func (room *Room) HandleRoom(w http.ResponseWriter, r *http.Request) {
+func (room *Room) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := config.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -159,7 +160,7 @@ func (room *Room) HandleRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newUser, errInteractions := SetupSocketUser(user, ONLINE)
+	newUser, errInteractions := CreateSocketUser(user, ONLINE)
 	if errInteractions != nil {
 		w.WriteHeader(http.StatusNotFound)
 		log.Fatal("error creating socket user")
