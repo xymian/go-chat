@@ -49,13 +49,13 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	socketUser, errInteractions := CreateSocketUser(user, AWAY)
-	if errInteractions != nil {
+	socketUser, createErr := CreateSocketUser(user, AWAY)
+	if createErr != nil {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
 			Data:         nil,
 			Message:      "user does not exist",
-			Error:        errInteractions.Error(),
+			Error:        createErr.Error(),
 			StatusCode:   http.StatusNotFound,
 			IsSuccessful: false,
 		}
