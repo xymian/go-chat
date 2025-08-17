@@ -58,8 +58,7 @@ func ListenForActiveUsers() {
 		case newUser := <-NewUserFromRoomSetup:
 			activeUser := ActiveSocketUsers[newUser.Username]
 			if activeUser != nil {
-				activeUser.PrivateConn = newUser.PrivateConn
-				activeUser.ReceiveMessage = newUser.ReceiveMessage
+				activeUser.PrivateChat = newUser.PrivateChat
 				activeUser.Activity = newUser.Activity
 			} else {
 				ActiveSocketUsers[newUser.Username] = newUser
@@ -72,9 +71,7 @@ func ListenForActiveUsers() {
 		case newUser := <-NewUserFromConversationsSetup:
 			activeUser := ActiveSocketUsers[newUser.Username]
 			if activeUser != nil {
-				activeUser.PublicConn = newUser.PublicConn
-				activeUser.IReceiveMessage = newUser.IReceiveMessage
-				activeUser.Chats = newUser.Chats
+				activeUser.Conversations = newUser.Conversations
 				activeUser.Activity = newUser.Activity
 			} else {
 				ActiveSocketUsers[newUser.Username] = newUser
@@ -84,8 +81,10 @@ func ListenForActiveUsers() {
 			newUser.Tracer.Trace("New User", newUser.Username, " is ", activeUser.Activity.GetStatus())
 
 		case loggedOutUser := <-LoggedOutUser:
-			delete(ActiveSocketUsers, loggedOutUser.Username)
+			if (ActiveSocketUsers[loggedOutUser.Username].PublicConn == nil) {
+				delete(ActiveSocketUsers, loggedOutUser.Username)
 			loggedOutUser.Tracer.Trace("User", loggedOutUser.Username, " logged out")
+			}
 		}
 	}
 }

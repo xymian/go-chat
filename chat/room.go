@@ -58,6 +58,7 @@ func (room *Room) Run() {
 			room.Tracer.Trace("User", user.Username, " joined the room")
 
 		case user := <-room.leave:
+			LoggedOutUser <- user
 			room.participants[user.Username] = false
 			delete(room.participants, user.Username)
 			if len(room.participants) == 0 {
