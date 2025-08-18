@@ -91,7 +91,6 @@ func InsertMessage(msg Message) (*Message, error) {
 		println("error from one of the cases")
 		return nil, msgErr
 	}
-	println("delivered message timestamp: ", msg.DeliveredTimestamp)
 	message := Message{}
 	rows, queryErr := Instance.Query(
 		`INSERT INTO messages (messageReference, textMessage, senderUsername, receiverUsername,
@@ -121,7 +120,6 @@ func InsertMessage(msg Message) (*Message, error) {
 		if scanErr != nil {
 			return nil, scanErr
 		}
-		println(message.TextMessage, " was saved to db")
 		return &message, nil
 	}
 

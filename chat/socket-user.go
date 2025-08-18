@@ -12,6 +12,7 @@ var ActiveSocketUsers = make(map[string]*Socketuser)
 var NewUserFromRoomSetup chan *Socketuser = make(chan *Socketuser)
 var NewUserFromConversationsSetup chan *Socketuser = make(chan *Socketuser)
 var LoggedOutUser chan *Socketuser = make(chan *Socketuser)
+var AwayUser chan *Socketuser = make(chan *Socketuser)
 
 type PrivateChat struct {
 	PrivateConn    *websocket.Conn
@@ -81,10 +82,8 @@ func ListenForActiveUsers() {
 			newUser.Tracer.Trace("New User", newUser.Username, " is ", activeUser.Activity.GetStatus())
 
 		case loggedOutUser := <-LoggedOutUser:
-			if (ActiveSocketUsers[loggedOutUser.Username].PublicConn == nil) {
-				delete(ActiveSocketUsers, loggedOutUser.Username)
+			delete(ActiveSocketUsers, loggedOutUser.Username)
 			loggedOutUser.Tracer.Trace("User", loggedOutUser.Username, " logged out")
-			}
 		}
 	}
 }

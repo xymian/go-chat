@@ -75,46 +75,53 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 
 	socketUser.Activity = AWAY
 	NewUserFromConversationsSetup <- socketUser
-	go socketUser.Conversations.ReadMessagesFromClient()
+	go socketUser.ReadFromPublicSocket()
 	go sendUnacknowledgedMessagesForAllUserCoversations(socketUser)
-	socketUser.Conversations.WriteMessagesToClientSocket()
+	socketUser.WriteToPublicSocket()
 }
 
-func (conversations *Conversations) ReadMessagesFromClient() {
+func (user *Socketuser) ReadFromPublicSocket() {
 	defer func() {
-		conversations.PublicConn.Close()
-		conversations.Tracer.Trace("conversations socket closed")
+		user.PublicConn.Close()
+		user.Tracer.Trace("conversations socket closed")
+		LoggedOutUser <- user
 	}()
 
 	message := database.Message{}
 	for {
-		err := conversations.PublicConn.ReadJSON(&message)
+		err := user.PublicConn.ReadJSON(&message)
 		if err != nil {
 			return
 		}
+		_, insertErr := database.InsertMessage(message)
 		room := Rooms[message.ChatReference]
 		if room != nil {
+			if insertErr != nil {
+				room.Tracer.Trace(err)
+				delete(Rooms, room.Id)
+				return
+			}
 			room.ForwardedMessage <- message
 		} else {
-			_, err := database.InsertMessage(message)
-			if err != nil {
+			if insertErr != nil {
 				return
 			}
 		}
 	}
 }
 
-func (conversations *Conversations) WriteMessagesToClientSocket() {
+func (user *Socketuser) WriteToPublicSocket() {
 	defer func() {
-		conversations.PublicConn.Close()
-		conversations.Tracer.Trace("conversations socket closed")
+		user.PublicConn.Close()
+		user.Tracer.Trace("conversations socket closed")
+		LoggedOutUser <- user
 	}()
 
 	for {
-		msg := <-conversations.IReceiveMessage
-		err := conversations.PublicConn.WriteJSON(msg)
+		msg := <-user.IReceiveMessage
+		err := user.PublicConn.WriteJSON(msg)
 		if err != nil {
-			conversations.Tracer.Trace("Connection error: ", err)
+			user.Tracer.Trace("Connection error: ", err)
 			return
 		}
 	}
