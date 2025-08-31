@@ -51,7 +51,9 @@ func (room *Room) Run() {
 			room.Tracer.Trace("User", user.Username, " joined the room")
 
 		case user := <-room.leave:
-			ActiveSocketUsers[user.Username].Activity = AWAY
+			if ActiveSocketUsers[user.Username] != nil {
+				ActiveSocketUsers[user.Username].Activity = AWAY
+			}
 			room.participants[user.Username] = false
 			delete(room.participants, user.Username)
 			if len(room.participants) == 0 {
@@ -93,6 +95,7 @@ func (user *Socketuser) ReadMessages(room *Room) {
 		}
 
 		_, insertErr := database.InsertMessage(newMessage)
+		room.Tracer.Trace("message: ", newMessage.TextMessage, " from ", newMessage.SenderUsername, " inserted")
 
 		room := Rooms[newMessage.ChatReference]
 		if insertErr != nil {
@@ -112,7 +115,6 @@ func (user *Socketuser) WriteMessages(room *Room) {
 	for message := range user.ReceiveMessage {
 		if room.participants[user.Username] {
 			user.PrivateConn.WriteJSON(message)
-			//user.Tracer.Trace("message: ", message.TextMessage, "from", message.SenderUsername, "has been received")
 		} else {
 			user.Tracer.Trace("You are not in this room")
 		}
