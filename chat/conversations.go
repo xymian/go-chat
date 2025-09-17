@@ -93,15 +93,15 @@ func (user *Socketuser) ReadFromPublicSocket() {
 		if err != nil {
 			return
 		}
-		_, insertErr := database.InsertMessage(message)
-		room := Rooms[message.ChatReference]
+		upToDateMessage, insertErr := database.MaybeInsertAndReturnMostUpToDateMessage(&message)
+		room := Rooms[upToDateMessage.ChatReference]
 		if room != nil {
 			if insertErr != nil {
 				room.Tracer.Trace(err)
 				delete(Rooms, room.Id)
 				return
 			}
-			room.ForwardedMessage <- message
+			room.ForwardedMessage <- *upToDateMessage
 		} else {
 			if insertErr != nil {
 				return

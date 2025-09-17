@@ -94,16 +94,16 @@ func (user *Socketuser) ReadMessages(room *Room) {
 			return
 		}
 
-		_, insertErr := database.InsertMessage(newMessage)
-		room.Tracer.Trace("message: ", newMessage.TextMessage, " from ", newMessage.SenderUsername, " inserted")
+		upToDateMessage, insertErr := database.MaybeInsertAndReturnMostUpToDateMessage(&newMessage)
+		room.Tracer.Trace("message: ", upToDateMessage.TextMessage, " from ", upToDateMessage.SenderUsername, " inserted")
 
-		room := Rooms[newMessage.ChatReference]
+		room := Rooms[upToDateMessage.ChatReference]
 		if insertErr != nil {
 			room.Tracer.Trace(err)
 			delete(Rooms, room.Id)
 			return
 		}
-		room.ForwardedMessage <- newMessage
+		room.ForwardedMessage <- *upToDateMessage
 	}
 }
 

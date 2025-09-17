@@ -68,6 +68,24 @@ func MarkMessagesAsDelivered(messagesDetails models.DeliverMessages) ([]Message,
 	return messages, nil
 }
 
+func MaybeInsertAndReturnMostUpToDateMessage(message *Message) (*Message, error) {
+	existingMessage, err := GetMessage(message.ChatReference, message.MessageReference)
+
+	if existingMessage == nil {
+		return InsertMessage(*message)
+	}
+	if existingMessage.DeliveredTimestamp == nil {
+		return InsertMessage(*message)
+	}
+	if existingMessage.SeenTimestamp == nil {
+		message.Ack = existingMessage.Ack
+		message.DeliveredTimestamp = existingMessage.DeliveredTimestamp
+		return InsertMessage(*message)
+	}
+
+	return existingMessage, err
+}
+
 func InsertMessage(msg Message) (*Message, error) {
 	chat, err := GetChat(msg.ChatReference)
 	if err != nil {
@@ -129,14 +147,14 @@ func InsertMessage(msg Message) (*Message, error) {
 func GetMessage(chatReference string, messageReference string) (*Message, error) {
 	message := Message{}
 	rows, err := Instance.Query(
-		`SELECT id, textMessage, senderUsername, receiverUsername, messageTimestamp,
+		`SELECT id, messageReference, textMessage, senderUsername, receiverUsername, messageTimestamp,
 		chatReference, ack, deliveredTimestamp, seenTimestamp, createdAt, UpdatedAt FROM messages
 		WHERE chatReference = $1 AND messageReference = $2`,
 		chatReference, messageReference,
 	)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	hasRows := rows.Next()
@@ -193,8 +211,8 @@ func GetAllUnacknowledgedMessages(chatReference string, username string) ([]Mess
 	rows, err := Instance.Query(
 		`SELECT id, messageReference, textMessage, senderUsername, receiverUsername,
 		messageTimestamp, chatReference, ack, deliveredTimestamp, seenTimestamp, createdAt, updatedAt
-		FROM messages WHERE chatReference = $1 AND ack = $2 AND senderUsername <> $3`,
-		chatReference, "false", username,
+		FROM messages WHERE chatReference = $1 AND deliveredTimestamp IS NULL AND senderUsername <> $2`,
+		chatReference, username,
 	)
 	if err != nil {
 		return []Message{}, nil
