@@ -93,7 +93,24 @@ func (user *Socketuser) ReadFromPublicSocket() {
 		if err != nil {
 			return
 		}
-		upToDateMessage, insertErr := database.MaybeInsertAndReturnMostUpToDateMessage(&message)
+
+		var upToDateMessage *database.Message = &message
+		var insertErr error = nil
+
+		if message.PresenceStatus != nil {
+			switch *message.PresenceStatus {
+			case ONLINE.GetStatus(), AWAY.GetStatus():
+				upToDateMessage = &message
+			default:
+			}
+		} else {
+			if message.MessageStatus != nil {
+				if *message.MessageStatus == database.SENT.GetStatus() {
+					upToDateMessage, insertErr = database.MaybeInsertAndReturnMostUpToDateMessage(&message)
+				}
+			}
+		}
+
 		room := Rooms[upToDateMessage.ChatReference]
 		if room != nil {
 			if insertErr != nil {

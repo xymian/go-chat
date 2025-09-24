@@ -1,14 +1,14 @@
 package chat
 
-type Activity int
+type PresenceStatus int
 
 const (
-	ONLINE Activity = iota
+	ONLINE PresenceStatus = iota
 	AWAY
 	OFFLINE
 )
 
-func (activity Activity) GetStatus() string {
+func (activity PresenceStatus) GetStatus() string {
 	switch activity {
 	case ONLINE:
 		return "ONLINE"

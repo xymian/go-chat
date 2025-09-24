@@ -26,6 +26,8 @@ func InsertParticipant(participant Participant) (*Participant, error) {
 		log.Fatal(err)
 	}
 
+	defer rows.Close()
+
 	hasRows := rows.Next()
 	if hasRows {
 		scanErr := rows.Scan(&newParticipant.Id, &newParticipant.Username, &newParticipant.ChatReference, &newParticipant.CreatedAt)
@@ -46,6 +48,8 @@ func GetParticipantsInChat(chatReference string) ([]Participant, error) {
 	if err != nil {
 		return []Participant{}, nil
 	}
+
+	defer rows.Close()
 
 	for rows.Next() {
 		participant := &Participant{}
@@ -69,6 +73,8 @@ func GetParticipant(username string, chatReference string) (*Participant, error)
 		log.Fatal(err)
 	}
 
+	defer rows.Close()
+
 	hasRows := rows.Next()
 	if hasRows {
 		scanErr := rows.Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
@@ -90,6 +96,8 @@ func GetChatRefFor(user string, other string) (*string, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	defer rows.Close()
 
 	hasRows := rows.Next()
 	if hasRows {

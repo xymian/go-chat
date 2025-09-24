@@ -27,13 +27,12 @@ func ConnectToDB() {
 		var dbName = os.Getenv("DB_NAME")
 		var sslmode = os.Getenv("SSL_MODE")
 		var connURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", dbUser, dbPassword, dbHost, dbPort, dbName, sslmode)
-		newdb, err := sql.Open("pgx", connURL)
+		newdb, err := sql.Open("postgres", connURL)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		Instance = newdb
-		Instance.SetMaxOpenConns(0)
 
 		mig, migErr := migrate.New("file://database/migrations", connURL)
 		if migErr != nil {

@@ -19,8 +19,27 @@ type Message struct {
 	Ack                bool    `json:"ack"`
 	DeliveredTimestamp *string `json:"deliveredTimestamp"`
 	SeenTimestamp      *string `json:"seenTimestamp"`
+	MessageStatus      *string `json:"messageStatus"`
+	PresenceStatus     *string `json:"presenceStatus"`
 	CreatedAt          string  `json:"createdAt"`
 	UpdatedAt          string  `json:"updatedAt"`
+}
+
+type MessageStatus int
+
+const (
+	TYPING MessageStatus = iota
+	SENT
+)
+
+func (messageStatus MessageStatus) GetStatus() string {
+	switch messageStatus {
+	case TYPING:
+		return "TYPING"
+	case SENT:
+		return "SENT"
+	}
+	return ""
 }
 
 func MarkMessagesAsDelivered(messagesDetails models.DeliverMessages) ([]Message, error) {
@@ -55,6 +74,7 @@ func MarkMessagesAsDelivered(messagesDetails models.DeliverMessages) ([]Message,
 			)
 
 			if scanErr != nil {
+				rows.Close()
 				return nil, scanErr
 			}
 		}
@@ -106,7 +126,7 @@ func InsertMessage(msg Message) (*Message, error) {
 	}
 
 	if msgErr != nil {
-		println("error from one of the cases")
+		println(msgErr.Error())
 		return nil, msgErr
 	}
 	message := Message{}
@@ -127,6 +147,8 @@ func InsertMessage(msg Message) (*Message, error) {
 	if queryErr != nil {
 		log.Fatal(queryErr)
 	}
+
+	defer rows.Close()
 
 	hasRows := rows.Next()
 	if hasRows {
@@ -156,6 +178,8 @@ func GetMessage(chatReference string, messageReference string) (*Message, error)
 	if err != nil {
 		return nil, err
 	}
+
+	defer rows.Close()
 
 	hasRows := rows.Next()
 	if hasRows {
@@ -189,6 +213,8 @@ func AcknowledgeMessages(
 		return []Message{}, nil
 	}
 
+	defer rows.Close()
+
 	for rows.Next() {
 		message := Message{}
 		scanErr := rows.Scan(
@@ -217,6 +243,9 @@ func GetAllUnacknowledgedMessages(chatReference string, username string) ([]Mess
 	if err != nil {
 		return []Message{}, nil
 	}
+
+	defer rows.Close()
+
 	for rows.Next() {
 		message := Message{}
 		scanErr := rows.Scan(
@@ -242,6 +271,8 @@ func GetAllMessages(chatReference string) ([]Message, error) {
 	if err != nil {
 		return []Message{}, nil
 	}
+
+	defer rows.Close()
 
 	for rows.Next() {
 		message := Message{}
@@ -269,6 +300,8 @@ func DeleteMessage(messageReference string) (*Message, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	defer rows.Close()
 
 	hasRows := rows.Next()
 	if hasRows {
@@ -299,6 +332,8 @@ func DeleteAllMessages(chatReference string) ([]Message, error) {
 	if err != nil {
 		return []Message{}, nil
 	}
+
+	defer rows.Close()
 
 	for rows.Next() {
 		message := Message{}

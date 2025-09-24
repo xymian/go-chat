@@ -21,7 +21,7 @@ func main() {
 		log.Fatal(pingErr)
 	}
 
-	defer func(){
+	defer func() {
 		database.Instance.Close()
 		database.Instance = nil
 	}()

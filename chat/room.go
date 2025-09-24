@@ -94,8 +94,23 @@ func (user *Socketuser) ReadMessages(room *Room) {
 			return
 		}
 
-		upToDateMessage, insertErr := database.MaybeInsertAndReturnMostUpToDateMessage(&newMessage)
-		room.Tracer.Trace("message: ", upToDateMessage.TextMessage, " from ", upToDateMessage.SenderUsername, " inserted")
+		var upToDateMessage *database.Message = &newMessage
+		var insertErr error = nil
+
+		if newMessage.PresenceStatus != nil {
+			switch *newMessage.PresenceStatus {
+			case ONLINE.GetStatus(), AWAY.GetStatus():
+				upToDateMessage = &newMessage
+			default:
+			}
+		} else {
+			if newMessage.MessageStatus != nil {
+				if *newMessage.MessageStatus == database.SENT.GetStatus() {
+					upToDateMessage, insertErr = database.MaybeInsertAndReturnMostUpToDateMessage(&newMessage)
+					room.Tracer.Trace("message: ", upToDateMessage.TextMessage, " from ", upToDateMessage.SenderUsername, " inserted")
+				}
+			}
+		}
 
 		room := Rooms[upToDateMessage.ChatReference]
 		if insertErr != nil {
@@ -103,6 +118,7 @@ func (user *Socketuser) ReadMessages(room *Room) {
 			delete(Rooms, room.Id)
 			return
 		}
+		println("message sent: ", upToDateMessage.MessageReference)
 		room.ForwardedMessage <- *upToDateMessage
 	}
 }

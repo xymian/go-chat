@@ -64,6 +64,8 @@ func InsertUser(user User) (*User, error) {
 		log.Fatal(err)
 	}
 
+	defer rows.Close()
+
 	hasRows := rows.Next()
 	if hasRows {
 		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
@@ -85,6 +87,8 @@ func GetUser(username string) (*User, error) {
 		log.Fatal(err)
 	}
 
+	defer rows.Close()
+
 	hasRows := rows.Next()
 	if hasRows {
 		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
@@ -105,6 +109,8 @@ func DeleteUser(username string) (*User, error) {
 		log.Fatal(err)
 	}
 
+	defer rows.Close()
+
 	hasRows := rows.Next()
 	if hasRows {
 		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
@@ -124,6 +130,7 @@ func GetAllUsers() ([]User, error) {
 	if err != nil {
 		return []User{}, nil
 	}
+
 	for rows.Next() {
 		user := User{}
 		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
@@ -132,6 +139,9 @@ func GetAllUsers() ([]User, error) {
 		}
 		users = append(users, user)
 	}
+
+	defer rows.Close()
+
 	return users, nil
 }
 
@@ -143,6 +153,9 @@ func DeleteAllUsers() ([]User, error) {
 	if err != nil {
 		return []User{}, nil
 	}
+
+	defer rows.Close()
+
 	for rows.Next() {
 		user := User{}
 		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
@@ -173,6 +186,8 @@ func (user *User) AddConversation(userId int64, chatReference string) (*User, er
 	if queryErr != nil {
 		log.Fatal(queryErr)
 	}
+
+	defer rows.Close()
 
 	hasRows := rows.Next()
 	if hasRows {

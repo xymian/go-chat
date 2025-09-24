@@ -23,11 +23,11 @@ type Socketuser struct {
 	PrivateChat
 	*Conversations
 	Username string
-	Activity Activity
+	Activity PresenceStatus
 	Tracer   tracer.Tracer
 }
 
-func CreateSocketUser(user *database.User, activity Activity) (*Socketuser, error) {
+func CreateSocketUser(user *database.User, activity PresenceStatus) (*Socketuser, error) {
 	conversations := &Conversations{
 		Chats: map[string]bool{},
 	}

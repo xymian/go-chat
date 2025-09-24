@@ -26,6 +26,8 @@ func InsertChat(chat Chat) (*Chat, error) {
 		log.Fatal(err)
 	}
 
+	defer rows.Close()
+
 	hasRows := rows.Next()
 	if hasRows {
 		scanErr := rows.Scan(&chat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
@@ -48,6 +50,8 @@ func GetChat(reference string) (*Chat, error) {
 		log.Fatal(err)
 	}
 
+	defer rows.Close()
+
 	hasRows := rows.Next()
 	if hasRows {
 		scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
@@ -69,6 +73,8 @@ func DeleteChat(reference string) (*Chat, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	defer rows.Close()
 
 	hasRows := rows.Next()
 	if hasRows {
