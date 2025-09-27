@@ -29,15 +29,15 @@ type MessageStatus int
 
 const (
 	TYPING MessageStatus = iota
-	SENT
+	NOT_TYPING
 )
 
 func (messageStatus MessageStatus) GetStatus() string {
 	switch messageStatus {
 	case TYPING:
 		return "TYPING"
-	case SENT:
-		return "SENT"
+	case NOT_TYPING:
+		return "NOT_TYPING"
 	}
 	return ""
 }

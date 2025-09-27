@@ -97,19 +97,10 @@ func (user *Socketuser) ReadMessages(room *Room) {
 		var upToDateMessage *database.Message = &newMessage
 		var insertErr error = nil
 
-		if newMessage.PresenceStatus != nil {
-			switch *newMessage.PresenceStatus {
-			case ONLINE.GetStatus(), AWAY.GetStatus():
-				upToDateMessage = &newMessage
-			default:
-			}
-		} else {
-			if newMessage.MessageStatus != nil {
-				if *newMessage.MessageStatus == database.SENT.GetStatus() {
-					upToDateMessage, insertErr = database.MaybeInsertAndReturnMostUpToDateMessage(&newMessage)
-					room.Tracer.Trace("message: ", upToDateMessage.TextMessage, " from ", upToDateMessage.SenderUsername, " inserted")
-				}
-			}
+		switch {
+		case newMessage.PresenceStatus == nil && newMessage.MessageStatus == nil:
+			upToDateMessage, insertErr = database.MaybeInsertAndReturnMostUpToDateMessage(&newMessage)
+			room.Tracer.Trace("message: ", upToDateMessage.TextMessage, " from ", upToDateMessage.SenderUsername, " inserted")
 		}
 
 		room := Rooms[upToDateMessage.ChatReference]

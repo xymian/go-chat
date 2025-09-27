@@ -4,6 +4,7 @@
 
 ## Features
 
+- **Message Receipts**: Suppports message receipts such as: SENT, DELIVERED, READ ✅
 - **Multiple private one-on-one messaging**: Users can send messages privately to other users.✅
 - **Group chat**: Users can send messages to multiple users in a group chat.⏳🔜 (In progress).
 - **Authentication**: Users can securely log in to the chat server.✅
