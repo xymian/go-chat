@@ -87,8 +87,8 @@ func (user *Socketuser) ReadFromPublicSocket() {
 		LoggedOutUser <- user
 	}()
 
-	message := database.Message{}
 	for {
+		message := database.Message{}
 		err := user.PublicConn.ReadJSON(&message)
 		if err != nil {
 			return
@@ -126,7 +126,7 @@ func (user *Socketuser) WriteToPublicSocket() {
 	}()
 
 	for {
-		msg := <-user.IReceiveMessage
+		msg := <- user.IReceiveMessage
 		err := user.PublicConn.WriteJSON(msg)
 		if err != nil {
 			user.Tracer.Trace("Connection error: ", err)

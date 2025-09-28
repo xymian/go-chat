@@ -109,7 +109,6 @@ func (user *Socketuser) ReadMessages(room *Room) {
 			delete(Rooms, room.Id)
 			return
 		}
-		println("message sent: ", upToDateMessage.MessageReference)
 		room.ForwardedMessage <- *upToDateMessage
 	}
 }
