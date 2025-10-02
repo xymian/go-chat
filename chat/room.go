@@ -52,14 +52,17 @@ func (room *Room) Run() {
 
 		case user := <-room.leave:
 			if ActiveSocketUsers[user.Username] != nil {
-				ActiveSocketUsers[user.Username].Activity = AWAY
+				if ActiveSocketUsers[user.Username].PublicConn != nil {
+					ActiveSocketUsers[user.Username].Activity = AWAY
+				} else {
+					LoggedOutUser <- user
+				}
 			}
 			room.participants[user.Username] = false
 			delete(room.participants, user.Username)
 			if len(room.participants) == 0 {
 				room.Tracer.Trace("User", user.Username, " left the room")
 				delete(Rooms, room.Id)
-				return
 			}
 			room.Tracer.Trace("User", user.Username, " left the room")
 
