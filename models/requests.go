@@ -7,10 +7,11 @@ type DeliverMessages struct {
 }
 
 type MessageDetails struct {
-	MessageReference   string `json:"messageReference"`
-	SentTimestamp      string `json:"sentTimestamp"`
-	DeliveredTimestamp string `json:"deliveredTimestamp"`
-	ReadTimestamp      string `json:"readTimestamp"`
+	MessageReference     string `json:"messageReference"`
+	SentTimestamp        string `json:"sentTimestamp"`
+	DeliveredTimestamp   string `json:"deliveredTimestamp"`
+	ReadTimestamp        string `json:"readTimestamp"`
+	IsReadReceiptEnabled string `json:"isReadReceiptEnabled"`
 }
 
 type AckRequest struct {
