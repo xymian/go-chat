@@ -15,6 +15,7 @@ func RegisterUserRoutes() {
 	config.Router.HandleFunc("/user", middleware.WithJWTMiddleware(controllers.InsertUser)).Methods("POST")
 	config.Router.HandleFunc("/users", middleware.WithJWTMiddleware(controllers.GetAllUsers)).Methods("GET")
 
+	//TODO (move to participant service)
 	config.Router.HandleFunc("/participant", middleware.WithJWTMiddleware(controllers.GetParticipant)).Methods("GET")
 	config.Router.HandleFunc("/participant", middleware.WithJWTMiddleware(controllers.InsertParticipant)).Methods("POST")
 }

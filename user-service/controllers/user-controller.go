@@ -1,22 +1,26 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"github.com/gorilla/mux"
 
-	"github.com/te6lim/go-chat/database"
 	"github.com/te6lim/go-chat/models"
+	userService "github.com/te6lim/go-chat/user-service"
+
 	"github.com/te6lim/go-chat/utils"
+	pb "github.com/xymian/go-chat-protos/userpb"
 )
 
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var response interface{}
 	username := mux.Vars(r)["username"]
-	println("username")
-	_, err := database.GetUser(username)
+	_, err := userService.UserServer.GetUser(context.Background(), &pb.UserRequest{
+		UserId: username,
+	})
 
 	if err != nil {
 		response = models.Response[string]{
@@ -33,7 +37,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//TODO: Fix this
-	response = models.Response[database.User]{
+	response = models.Response[pb.UserResponse]{
 		Data:         nil,
 		Message:      "",
 		Error:        "",
@@ -50,7 +54,9 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
 	var response interface{}
-	user, err := database.GetUser(username)
+	user, err := userService.UserServer.GetUser(context.Background(), &pb.UserRequest{
+		UserId: username,
+	})
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -65,8 +71,8 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conversationMap := map[int64]string{}
-	if user.Interactions != nil {
-		err := json.Unmarshal([]byte(*user.Interactions), &conversationMap)
+	if len(user.Interactions) != 0 {
+		err := json.Unmarshal([]byte(user.Interactions), &conversationMap)
 		if err != nil {
 			response = models.Response[string]{
 				Data:         nil,
@@ -86,7 +92,7 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 	for k := range conversationMap {
 		userIds = append(userIds, k)
 	}
-	users, err := database.GetUsers(userIds...)
+	userList, err := userService.UserServer.GetUsers(context.Background(), nil)
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -101,11 +107,11 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userChatInfo := []*models.UserChatInfo{}
-	for _, u := range users {
+	for _, u := range userList.Users {
 		userChatInfo = append(userChatInfo, &models.UserChatInfo{
 			Username:        u.Username,
 			DisplayImageUrl: "",
-			ChatReference:   conversationMap[u.Id],
+			ChatReference:   conversationMap[int64(u.Id)],
 		})
 	}
 
@@ -125,7 +131,7 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var response interface{}
-	_, err := database.GetAllUsers()
+	_, err := userService.UserServer.GetUsers(context.Background(), nil)
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -155,7 +161,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 func InsertUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var response interface{}
-	user := &database.User{}
+	user := &pb.UserResponse{}
 	err := utils.ParseBody(r, &user)
 	if err != nil {
 		response = models.Response[string]{
@@ -171,7 +177,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, uErr := database.InsertUser(*user)
+	_, uErr := userService.UserServer.InsertUser(context.Background(), user)
 	if uErr != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -201,7 +207,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 func Delete(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
 	var response interface{}
-	user, err := database.DeleteUser(username)
+	user, err := userService.UserServer.DeleteUser(context.Background(), &pb.UserRequest{UserId: username})
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
