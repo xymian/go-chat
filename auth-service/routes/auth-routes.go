@@ -1,20 +1,23 @@
 package routes
 
 import (
-	"github.com/te6lim/go-chat/config"
-	"github.com/te6lim/go-chat/controllers"
-	"github.com/te6lim/go-chat/utils"
+	"github.com/te6lim/go-chat/auth-service/controllers"
+	"github.com/te6lim/go-chat/auth-service/util"
+
+	"github.com/gorilla/mux"
 )
 
+var router *mux.Router = mux.NewRouter()
+
 func RegisterAuthRoutes() {
-	config.Router.HandleFunc(
-		"/register", controllers.RegisterFE(&utils.TemplateHandler{FileName: "auth.html"}),
+	router.HandleFunc(
+		"/register", controllers.RegisterFE(&util.TemplateHandler{FileName: "auth.html"}),
 	).Methods("GET")
-	config.Router.HandleFunc(
-		"/login", controllers.LoginFE(&utils.TemplateHandler{FileName: "auth.html"}),
+	router.HandleFunc(
+		"/login", controllers.LoginFE(&util.TemplateHandler{FileName: "auth.html"}),
 	).Methods("GET")
 
-	config.Router.HandleFunc("/register", controllers.Register).Methods("POST")
-	config.Router.HandleFunc("/login", controllers.Login).Methods("POST")
-	config.Router.HandleFunc("/logout", controllers.Logout).Methods("POST")
+	router.HandleFunc("/register", controllers.Register).Methods("POST")
+	router.HandleFunc("/login", controllers.Login).Methods("POST")
+	router.HandleFunc("/logout", controllers.Logout).Methods("POST")
 }

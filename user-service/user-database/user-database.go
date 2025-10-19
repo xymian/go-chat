@@ -10,14 +10,16 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5"
-	"github.com/te6lim/go-chat/config"
+
+	"github.com/joho/godotenv"
 )
 
 var Instance *sql.DB
+var envErr = godotenv.Load()
 
 func ConnectToDB() {
 	if Instance == nil {
-		if config.EnvErr != nil {
+		if envErr != nil {
 			log.Fatal("Error loading .env file")
 		}
 		var dbUser = os.Getenv("DB_USER")

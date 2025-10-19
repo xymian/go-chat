@@ -1,21 +1,22 @@
 package routes
 
 import (
-	"github.com/te6lim/go-chat/config"
-	"github.com/te6lim/go-chat/controllers"
-	"github.com/te6lim/go-chat/middleware"
+	"github.com/gorilla/mux"
+	controllers "github.com/te6lim/go-chat/user-service/controllers"
+	"github.com/te6lim/go-chat/user-service/middleware"
 )
+
+var router *mux.Router = mux.NewRouter()
 
 func RegisterUserRoutes() {
 
-	config.Router.HandleFunc("/user/{username}/interactions", middleware.WithJWTMiddleware(controllers.GetInteractions)).Methods("GET")
-
-	config.Router.HandleFunc("/user/{username}", middleware.WithJWTMiddleware(controllers.GetUser)).Methods("GET")
-	config.Router.HandleFunc("/user/{username}", middleware.WithJWTMiddleware(controllers.Delete)).Methods("DELETE")
-	config.Router.HandleFunc("/user", middleware.WithJWTMiddleware(controllers.InsertUser)).Methods("POST")
-	config.Router.HandleFunc("/users", middleware.WithJWTMiddleware(controllers.GetAllUsers)).Methods("GET")
+	router.HandleFunc("/user/{username}/interactions", middleware.WithJWTMiddleware(controllers.GetInteractions)).Methods("GET")
+	router.HandleFunc("/user/{username}", middleware.WithJWTMiddleware(controllers.GetUser)).Methods("GET")
+	router.HandleFunc("/user/{username}", middleware.WithJWTMiddleware(controllers.Delete)).Methods("DELETE")
+	router.HandleFunc("/user", middleware.WithJWTMiddleware(controllers.InsertUser)).Methods("POST")
+	router.HandleFunc("/users", middleware.WithJWTMiddleware(controllers.GetAllUsers)).Methods("GET")
 
 	//TODO (move to participant service)
-	config.Router.HandleFunc("/participant", middleware.WithJWTMiddleware(controllers.GetParticipant)).Methods("GET")
-	config.Router.HandleFunc("/participant", middleware.WithJWTMiddleware(controllers.InsertParticipant)).Methods("POST")
+	//config.Router.HandleFunc("/participant", middleware.WithJWTMiddleware(controllers.GetParticipant)).Methods("GET")
+	//config.Router.HandleFunc("/participant", middleware.WithJWTMiddleware(controllers.InsertParticipant)).Methods("POST")
 }

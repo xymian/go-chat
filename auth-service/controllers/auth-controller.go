@@ -1,12 +1,14 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
-	"github.com/te6lim/go-chat/database"
-	"github.com/te6lim/go-chat/models"
-	"github.com/te6lim/go-chat/utils"
+	"github.com/te6lim/go-chat/auth-service/util"
+	"github.com/te6lim/go-chat/auth-service/models"
+
+	pb "github.com/xymian/go-chat-protos/userpb"
 )
 
 type registerRequest struct {
@@ -24,7 +26,9 @@ type loginResponse struct {
 	ExpiryTime  string `json:"expiryTime"`
 }
 
-func RegisterFE(templateHandler *utils.TemplateHandler) http.HandlerFunc {
+var UserService pb.UserServiceClient
+
+func RegisterFE(templateHandler *util.TemplateHandler) http.HandlerFunc {
 	templateHandler.ParseFileOnce()
 	return func(w http.ResponseWriter, r *http.Request) {
 		data := map[string]interface{}{
@@ -35,7 +39,7 @@ func RegisterFE(templateHandler *utils.TemplateHandler) http.HandlerFunc {
 	}
 }
 
-func LoginFE(templateHandler *utils.TemplateHandler) http.HandlerFunc {
+func LoginFE(templateHandler *util.TemplateHandler) http.HandlerFunc {
 	templateHandler.ParseFileOnce()
 	return func(w http.ResponseWriter, r *http.Request) {
 		data := map[string]interface{}{
@@ -50,7 +54,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var response interface{}
 	var regRequest registerRequest
-	err := utils.ParseBody(r, &regRequest)
+	err := util.ParseBody(r, &regRequest)
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -70,7 +74,10 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	existingUser, _ := database.GetUser(regRequest.Username)
+	existingUser, _ := UserService.GetUser(
+		context.Background(),
+		&pb.UserRequest{UserId: regRequest.Username},
+	)
 	if existingUser != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -85,12 +92,13 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	passwordHash, err := utils.HashPassword(regRequest.Password)
+	passwordHash, err := util.HashPassword(regRequest.Password)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
-		user, uErr := database.InsertUser(
-			database.User{
+		_, uErr := UserService.Insertuser(
+			context.Background(),
+			&pb.UserResponse{
 				Username:     regRequest.Username,
 				PasswordHash: passwordHash,
 			},
@@ -99,7 +107,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			response = models.Response[string]{
-				Data:         &user.Username,
+				Data:         &regRequest.Username,
 				Message:      "user registered",
 				Error:        "",
 				StatusCode:   http.StatusOK,
@@ -117,7 +125,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var request loginRequest
 	var response interface{}
-	err := utils.ParseBody(r, &request)
+	err := util.ParseBody(r, &request)
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -132,15 +140,18 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user, _ = database.GetUser(request.Username)
-	if user == nil || !utils.CheckPasswordHash(request.Password, user.PasswordHash) {
+	var user, _ = UserService.GetUser(
+		context.Background(),
+		&pb.UserRequest{UserId: request.Username},
+	)
+	if user == nil || !util.CheckPasswordHash(request.Password, user.PasswordHash) {
 		w.WriteHeader(http.StatusUnauthorized)
 		res, _ := json.Marshal(response)
 		w.Write(res)
 		return
 	}
 
-	data, err := utils.GenerateJWT(user.Username)
+	data, err := util.GenerateJWT(user.Username)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-
 	"github.com/gorilla/mux"
 
-	"github.com/te6lim/go-chat/models"
+	"github.com/te6lim/go-chat/user-service/models"
+	"github.com/te6lim/go-chat/user-service/util"
+
 	userService "github.com/te6lim/go-chat/user-service"
 
-	"github.com/te6lim/go-chat/utils"
 	pb "github.com/xymian/go-chat-protos/userpb"
 )
 
@@ -162,7 +162,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var response interface{}
 	user := &pb.UserResponse{}
-	err := utils.ParseBody(r, &user)
+	err := util.ParseBody(r, &user)
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,

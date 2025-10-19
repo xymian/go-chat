@@ -9,7 +9,6 @@ import (
 	"github.com/te6lim/go-chat/chat"
 	"github.com/te6lim/go-chat/config"
 	"github.com/te6lim/go-chat/database"
-	"github.com/te6lim/go-chat/routes"
 )
 
 func main() {
@@ -26,9 +25,9 @@ func main() {
 		database.Instance = nil
 	}()
 
-	routes.RegisterUserRoutes()
-	routes.RegisterChatRoutes()
-	routes.RegisterAuthRoutes()
+	//routes.RegisterUserRoutes()
+	//routes.RegisterChatRoutes()
+	//routes.RegisterAuthRoutes()
 
 	go chat.ListenForActiveUsers()
 	go chat.ListenForNewChatRoom()
