@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
-	"github.com/te6lim/go-chat/chat-service"
+	"github.com/te6lim/go-chat/chat-service/service"
 	"github.com/te6lim/go-chat/chat-service/database"
 	"github.com/te6lim/go-chat/chat-service/models"
 
@@ -24,18 +24,18 @@ type Conversations struct {
 
 func SetUpPublicSocket(username string) {
 	endpoint := fmt.Sprintf("/conversations/%s", username)
-	chatservice.Router.HandleFunc(endpoint, HandleConversations)
+	service.Router.HandleFunc(endpoint, HandleConversations)
 }
 
 func HandleConversations(w http.ResponseWriter, r *http.Request) {
-	conn, err := chatservice.Upgrader.Upgrade(w, r, nil)
+	conn, err := service.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	urlSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	username := urlSegments[1]
-	user, errUser := chatservice.UserService.GetUser(
+	user, errUser := service.UserService.GetUser(
 		context.Background(),
 		&pb.UserRequest{UserId: username},
 	)

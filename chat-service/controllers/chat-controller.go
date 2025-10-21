@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/te6lim/go-chat/chat-service"
 	"github.com/te6lim/go-chat/chat-service/chat"
 	"github.com/te6lim/go-chat/chat-service/database"
 	"github.com/te6lim/go-chat/chat-service/models"
+	"github.com/te6lim/go-chat/chat-service/service"
 	"github.com/te6lim/go-chat/chat-service/util"
 	pb "github.com/xymian/go-chat-protos/userpb"
 )
@@ -519,8 +519,8 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	otheruser, oErr := chatservice.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: request.Other})
-	user, uErr := chatservice.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: request.User})
+	otheruser, oErr := service.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: request.Other})
+	user, uErr := service.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: request.User})
 
 	if uErr != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -635,7 +635,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			_, err := chatservice.UserService.AddConversation(context.Background(), &pb.AddConversationRequest{
+			_, err := service.UserService.AddConversation(context.Background(), &pb.AddConversationRequest{
 				User: &pb.UserResponse{
 					Id:           uint64(user.Id),
 					Username:     user.Username,
@@ -680,7 +680,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			w.Write(res)
 			return
 		} else {
-			_, err := chatservice.UserService.AddConversation(context.Background(), &pb.AddConversationRequest{
+			_, err := service.UserService.AddConversation(context.Background(), &pb.AddConversationRequest{
 				User: &pb.UserResponse{
 					Id:           uint64(user.Id),
 					Username:     user.Username,

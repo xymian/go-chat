@@ -9,7 +9,7 @@ import (
 	"github.com/te6lim/go-chat/user-service/models"
 	"github.com/te6lim/go-chat/user-service/util"
 
-	userService "github.com/te6lim/go-chat/user-service"
+	service "github.com/te6lim/go-chat/user-service/service"
 
 	pb "github.com/xymian/go-chat-protos/userpb"
 )
@@ -18,7 +18,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var response interface{}
 	username := mux.Vars(r)["username"]
-	_, err := userService.UserServer.GetUser(context.Background(), &pb.UserRequest{
+	_, err := service.UserServer.GetUser(context.Background(), &pb.UserRequest{
 		UserId: username,
 	})
 
@@ -54,7 +54,7 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
 	var response interface{}
-	user, err := userService.UserServer.GetUser(context.Background(), &pb.UserRequest{
+	user, err := service.UserServer.GetUser(context.Background(), &pb.UserRequest{
 		UserId: username,
 	})
 	if err != nil {
@@ -92,7 +92,7 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 	for k := range conversationMap {
 		userIds = append(userIds, k)
 	}
-	userList, err := userService.UserServer.GetUsers(context.Background(), nil)
+	userList, err := service.UserServer.GetUsers(context.Background(), nil)
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -131,7 +131,7 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var response interface{}
-	_, err := userService.UserServer.GetUsers(context.Background(), nil)
+	_, err := service.UserServer.GetUsers(context.Background(), nil)
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -177,7 +177,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, uErr := userService.UserServer.InsertUser(context.Background(), user)
+	_, uErr := service.UserServer.InsertUser(context.Background(), user)
 	if uErr != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -207,7 +207,7 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 func Delete(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
 	var response interface{}
-	user, err := userService.UserServer.DeleteUser(context.Background(), &pb.UserRequest{UserId: username})
+	user, err := service.UserServer.DeleteUser(context.Background(), &pb.UserRequest{UserId: username})
 	if err != nil {
 		response = models.Response[string]{
 			Data:         nil,

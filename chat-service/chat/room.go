@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	chatservice "github.com/te6lim/go-chat/chat-service"
 	"github.com/te6lim/go-chat/chat-service/database"
 	"github.com/te6lim/go-chat/chat-service/models"
+	"github.com/te6lim/go-chat/chat-service/service"
 
 	pb "github.com/xymian/go-chat-protos/userpb"
 )
@@ -40,7 +40,7 @@ func CreateRoom(roomId string) *Room {
 
 func SetupRoomSocket(username string, otherUsername string, chatReference string) {
 	endpoint := fmt.Sprintf("/room/%s", chatReference)
-	chatservice.Router.HandleFunc(endpoint, HandleRoom)
+	service.Router.HandleFunc(endpoint, HandleRoom)
 }
 
 func (room *Room) Run() {
@@ -148,7 +148,7 @@ func (room *Room) JoinRoom(user *Socketuser) error {
 }
 
 func HandleRoom(w http.ResponseWriter, r *http.Request) {
-	conn, err := chatservice.Upgrader.Upgrade(w, r, nil)
+	conn, err := service.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func HandleRoom(w http.ResponseWriter, r *http.Request) {
 
 	username := r.URL.Query().Get("me")
 
-	user, errUser := chatservice.UserService.GetUser(
+	user, errUser := service.UserService.GetUser(
 		context.Background(),
 		&pb.UserRequest{UserId: username},
 	)
