@@ -2,12 +2,22 @@ package main
 
 import (
 	"log"
+	"net/http"
 
 	controllers "github.com/te6lim/go-chat/auth-service/controllers"
+	"github.com/te6lim/go-chat/auth-service/routes"
 	"github.com/te6lim/go-chat/auth-service/service"
 )
 
 func main() {
+	routes.RegisterAuthRoutes()
+
+	http.Handle("/", service.Router)
+	log.Println("Server started on localhost:6006")
+	if err := http.ListenAndServe(":6060", nil); err != nil {
+		log.Fatal(err)
+	}
+
 	var userService, err = service.ConnectToUserService()
 	if err != nil {
 		log.Fatal("unable to connect to user-service")

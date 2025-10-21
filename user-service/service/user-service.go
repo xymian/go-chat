@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/gorilla/mux"
 	pb "github.com/xymian/go-chat-protos/userpb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -19,8 +20,10 @@ type server struct {
 	pb.UnimplementedUserServiceServer
 }
 
+var Router *mux.Router = mux.NewRouter()
+
 func ConnectToUserService() {
-	l, err := net.Listen("tcp", ":6006")
+	l, err := net.Listen("tcp", ":5005")
 	if err != nil {
 		log.Fatalf("failed to listen : %v", err)
 	}
@@ -28,7 +31,7 @@ func ConnectToUserService() {
 	UserServer = &server{}
 	pb.RegisterUserServiceServer(newServer, UserServer)
 
-	fmt.Println("user-service is running on 6006")
+	fmt.Println("user-service is running on 5005")
 	if err := newServer.Serve(l); err != nil {
 		log.Fatalf("failed to listen : %v", err)
 	}
