@@ -36,7 +36,7 @@ func ConnectToDB() {
 
 		Instance = newdb
 
-		mig, migErr := migrate.New("file://user-service/database/migrations", connURL)
+		mig, migErr := migrate.New("file://database/migrations", connURL)
 		if migErr != nil {
 			log.Fatal("error creating migration instance: ", migErr)
 		}

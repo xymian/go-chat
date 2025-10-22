@@ -11,7 +11,7 @@ type User struct {
 	Id           int64   `json:"id"`
 	Username     string  `json:"username"`
 	PasswordHash string  `json:"passwordHash"`
-	Interactions *string `json:"interactions"`
+	ChatReferences *string `json:"chatReferences"`
 	CreatedAt    string  `json:"createdAt"`
 	UpdatedAt    string  `json:"updatedAt"`
 }
@@ -81,7 +81,7 @@ func InsertUser(user User) (*User, error) {
 func GetUser(username string) (*User, error) {
 	user := &User{}
 	rows, err := Instance.Query(
-		`SELECT id, username, passwordHash, interactions, createdAt, updatedAt FROM users WHERE username = $1`, username,
+		`SELECT id, username, passwordHash, ChatReferences, createdAt, updatedAt FROM users WHERE username = $1`, username,
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -91,7 +91,7 @@ func GetUser(username string) (*User, error) {
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.CreatedAt, &user.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -103,7 +103,7 @@ func GetUser(username string) (*User, error) {
 func DeleteUser(username string) (*User, error) {
 	user := &User{}
 	rows, err := Instance.Query(
-		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, passwordHash, interactions createdAt, updatedAt`, username,
+		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, passwordHash, ChatReferences createdAt, updatedAt`, username,
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -113,7 +113,7 @@ func DeleteUser(username string) (*User, error) {
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.CreatedAt, &user.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -125,7 +125,7 @@ func DeleteUser(username string) (*User, error) {
 func GetAllUsers() ([]User, error) {
 	users := []User{}
 	rows, err := Instance.Query(
-		`SELECT id, username, passwordHash, interactions, createdAt, updatedAt FROM users`,
+		`SELECT id, username, passwordHash, ChatReferences, createdAt, updatedAt FROM users`,
 	)
 	if err != nil {
 		return []User{}, nil
@@ -133,7 +133,7 @@ func GetAllUsers() ([]User, error) {
 
 	for rows.Next() {
 		user := User{}
-		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
 			return nil, scanErr
 		}
@@ -148,7 +148,7 @@ func GetAllUsers() ([]User, error) {
 func DeleteAllUsers() ([]User, error) {
 	users := []User{}
 	rows, err := Instance.Query(
-		`DELETE FROM users RETURNING id, username, passwordHash, interactions, createdAt, updatedAt`,
+		`DELETE FROM users RETURNING id, username, passwordHash, ChatReferences, createdAt, updatedAt`,
 	)
 	if err != nil {
 		return []User{}, nil
@@ -158,7 +158,7 @@ func DeleteAllUsers() ([]User, error) {
 
 	for rows.Next() {
 		user := User{}
-		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.Interactions, &user.CreatedAt, &user.UpdatedAt)
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.CreatedAt, &user.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -170,17 +170,17 @@ func DeleteAllUsers() ([]User, error) {
 func AddConversation(user *User, otherUserId int64, chatReference string) (*User, error) {
 	newUser := &User{}
 	conversationMap := map[int64]string{}
-	if user.Interactions != nil {
-		json.Unmarshal([]byte(*user.Interactions), &conversationMap)
+	if user.ChatReferences != nil {
+		json.Unmarshal([]byte(*user.ChatReferences), &conversationMap)
 	}
 	conversationMap[otherUserId] = chatReference
-	interactionsJsonString, err := json.Marshal(conversationMap)
+	ChatReferencesJsonString, err := json.Marshal(conversationMap)
 	if err != nil {
 		return nil, err
 	}
 	rows, queryErr := Instance.Query(
-		`UPDATE users SET interactions = $1 WHERE id = $2 RETURNING id, username, passwordHash, interactions, createdAt, updatedAt`,
-		interactionsJsonString, user.Id,
+		`UPDATE users SET ChatReferences = $1 WHERE id = $2 RETURNING id, username, passwordHash, ChatReferences, createdAt, updatedAt`,
+		ChatReferencesJsonString, user.Id,
 	)
 
 	if queryErr != nil {
@@ -191,7 +191,7 @@ func AddConversation(user *User, otherUserId int64, chatReference string) (*User
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.Interactions, &newUser.CreatedAt, &newUser.UpdatedAt)
+		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.ChatReferences, &newUser.CreatedAt, &newUser.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}

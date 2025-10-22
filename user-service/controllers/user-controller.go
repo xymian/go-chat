@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+
 	"github.com/gorilla/mux"
 
 	"github.com/xymian/go-chat/user-service/models"
@@ -71,8 +72,8 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conversationMap := map[int64]string{}
-	if len(user.Interactions) != 0 {
-		err := json.Unmarshal([]byte(user.Interactions), &conversationMap)
+	if len(user.ChatReferences) != 0 {
+		err := json.Unmarshal([]byte(user.ChatReferences), &conversationMap)
 		if err != nil {
 			response = models.Response[string]{
 				Data:         nil,

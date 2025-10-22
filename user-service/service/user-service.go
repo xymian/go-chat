@@ -37,22 +37,22 @@ func ConnectToUserService() {
 	}
 }
 
-func (server *server) AddConversation(ctx context.Context, req *pb.AddConversationRequest) (*emptypb.Empty, error) {
-	otherUser, err := database.GetUser(req.Conversation.Username)
+func (server *server) AddConversation(ctx context.Context, req *pb.AddChatRequest) (*emptypb.Empty, error) {
+	otherUser, err := database.GetUser(req.Chat.Username)
 	if err != nil {
 		return nil, err
 	}
 	_, err = database.AddConversation(
 		&database.User{
-			Id:           int64(req.User.Id),
-			Username:     req.User.Username,
-			PasswordHash: req.User.PasswordHash,
-			Interactions: &req.User.Interactions,
-			CreatedAt:    req.User.CreatedAt,
-			UpdatedAt:    req.User.UpdatedAt,
+			Id:             int64(req.User.Id),
+			Username:       req.User.Username,
+			PasswordHash:   req.User.PasswordHash,
+			ChatReferences: &req.User.ChatReferences,
+			CreatedAt:      req.User.CreatedAt,
+			UpdatedAt:      req.User.UpdatedAt,
 		},
 		otherUser.Id,
-		req.Conversation.ChatRef,
+		req.Chat.ChatRef,
 	)
 
 	if err != nil {
@@ -67,24 +67,24 @@ func (server *server) DeleteUser(ctx context.Context, req *pb.UserRequest) (*pb.
 		return nil, err
 	}
 	return &pb.UserResponse{
-		Id:           uint64(user.Id),
-		Username:     user.Username,
-		PasswordHash: user.PasswordHash,
-		Interactions: *user.Interactions,
-		CreatedAt:    user.CreatedAt,
-		UpdatedAt:    user.UpdatedAt,
+		Id:             uint64(user.Id),
+		Username:       user.Username,
+		PasswordHash:   user.PasswordHash,
+		ChatReferences: *user.ChatReferences,
+		CreatedAt:      user.CreatedAt,
+		UpdatedAt:      user.UpdatedAt,
 	}, nil
 }
 
 func (server *server) InsertUser(ctx context.Context, user *pb.UserResponse) (*pb.UserResponse, error) {
 	_, err := database.InsertUser(
 		database.User{
-			Id:           int64(user.Id),
-			Username:     user.Username,
-			PasswordHash: user.PasswordHash,
-			Interactions: &user.Interactions,
-			CreatedAt:    user.CreatedAt,
-			UpdatedAt:    user.UpdatedAt,
+			Id:             int64(user.Id),
+			Username:       user.Username,
+			PasswordHash:   user.PasswordHash,
+			ChatReferences: &user.ChatReferences,
+			CreatedAt:      user.CreatedAt,
+			UpdatedAt:      user.UpdatedAt,
 		},
 	)
 	if err != nil {
@@ -103,12 +103,12 @@ func (server *server) GetUsers(ctx context.Context, empty *emptypb.Empty) (*pb.U
 		userList = append(
 			userList,
 			&pb.UserResponse{
-				Id:           uint64(user.Id),
-				Username:     user.Username,
-				PasswordHash: user.PasswordHash,
-				Interactions: *user.Interactions,
-				CreatedAt:    user.CreatedAt,
-				UpdatedAt:    user.UpdatedAt,
+				Id:             uint64(user.Id),
+				Username:       user.Username,
+				PasswordHash:   user.PasswordHash,
+				ChatReferences: *user.ChatReferences,
+				CreatedAt:      user.CreatedAt,
+				UpdatedAt:      user.UpdatedAt,
 			},
 		)
 	}
@@ -123,11 +123,11 @@ func (server *server) GetUser(ctx context.Context, req *pb.UserRequest) (*pb.Use
 		return nil, err
 	}
 	return &pb.UserResponse{
-		Id:           uint64(user.Id),
-		Username:     user.Username,
-		PasswordHash: user.PasswordHash,
-		Interactions: *user.Interactions,
-		CreatedAt:    user.CreatedAt,
-		UpdatedAt:    user.UpdatedAt,
+		Id:             uint64(user.Id),
+		Username:       user.Username,
+		PasswordHash:   user.PasswordHash,
+		ChatReferences: *user.ChatReferences,
+		CreatedAt:      user.CreatedAt,
+		UpdatedAt:      user.UpdatedAt,
 	}, nil
 }
