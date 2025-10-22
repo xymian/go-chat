@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"github.com/gorilla/mux"
 
-	"github.com/te6lim/go-chat/user-service/models"
-	"github.com/te6lim/go-chat/user-service/util"
+	"github.com/xymian/go-chat/user-service/models"
+	"github.com/xymian/go-chat/user-service/util"
 
-	service "github.com/te6lim/go-chat/user-service/service"
+	service "github.com/xymian/go-chat/user-service/service"
 
 	pb "github.com/xymian/go-chat-protos/userpb"
 )

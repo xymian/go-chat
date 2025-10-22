@@ -1,4 +1,4 @@
-module github.com/te6lim/go-chat/auth-service
+module github.com/xymian/go-chat/auth-service
 
 go 1.24.9
 

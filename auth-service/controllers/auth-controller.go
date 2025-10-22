@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/te6lim/go-chat/auth-service/util"
-	"github.com/te6lim/go-chat/auth-service/models"
+	"github.com/xymian/go-chat/auth-service/util"
+	"github.com/xymian/go-chat/auth-service/models"
 
 	pb "github.com/xymian/go-chat-protos/userpb"
 )

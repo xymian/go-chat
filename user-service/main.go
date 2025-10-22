@@ -4,9 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/te6lim/go-chat/user-service/database"
-	"github.com/te6lim/go-chat/user-service/routes"
-	"github.com/te6lim/go-chat/user-service/service"
+	"github.com/xymian/go-chat/user-service/database"
+	"github.com/xymian/go-chat/user-service/routes"
+	"github.com/xymian/go-chat/user-service/service"
 )
 
 func main() {

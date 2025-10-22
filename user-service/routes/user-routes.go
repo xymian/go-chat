@@ -2,8 +2,8 @@ package routes
 
 import (
 	"github.com/gorilla/mux"
-	controllers "github.com/te6lim/go-chat/user-service/controllers"
-	"github.com/te6lim/go-chat/user-service/middleware"
+	controllers "github.com/xymian/go-chat/user-service/controllers"
+	"github.com/xymian/go-chat/user-service/middleware"
 )
 
 var router *mux.Router = mux.NewRouter()

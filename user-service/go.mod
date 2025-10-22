@@ -1,4 +1,4 @@
-module github.com/te6lim/go-chat/user-service
+module github.com/xymian/go-chat/user-service
 
 go 1.24.0
 

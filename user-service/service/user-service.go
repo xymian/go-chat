@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	database "github.com/te6lim/go-chat/user-service/database"
+	database "github.com/xymian/go-chat/user-service/database"
 )
 
 var UserServer *server

@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"github.com/te6lim/go-chat/auth-service/controllers"
-	"github.com/te6lim/go-chat/auth-service/util"
+	"github.com/xymian/go-chat/auth-service/controllers"
+	"github.com/xymian/go-chat/auth-service/util"
 
 	"github.com/gorilla/mux"
 )
