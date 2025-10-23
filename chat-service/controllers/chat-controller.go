@@ -102,121 +102,6 @@ func SetupRoomSocket(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
-func HandleChat(templateHandler *util.TemplateHandler) http.HandlerFunc {
-	templateHandler.ParseFileOnce()
-	return func(w http.ResponseWriter, r *http.Request) {
-		me := mux.Vars(r)["username"]
-		chatId := mux.Vars(r)["chatId"]
-		var response interface{}
-		userChat, err := database.GetChat(chatId)
-		if err != nil {
-			response = models.Response[string]{
-				Data:         nil,
-				Message:      "this chat does not exist",
-				Error:        "",
-				StatusCode:   http.StatusNotFound,
-				IsSuccessful: false,
-			}
-			w.WriteHeader(http.StatusNotFound)
-			res, _ := json.Marshal(response)
-			w.Write(res)
-			return
-		}
-
-		var participants, pErr = database.GetParticipantsInChat(userChat.ChatReference)
-		if pErr != nil {
-			response = models.Response[string]{
-				Data:         nil,
-				Message:      "",
-				Error:        pErr.Error(),
-				StatusCode:   http.StatusNotFound,
-				IsSuccessful: false,
-			}
-			w.WriteHeader(http.StatusNotFound)
-			res, _ := json.Marshal(response)
-			w.Write(res)
-			return
-		}
-		if len(participants) > 2 {
-			response = models.Response[string]{
-				Data:         nil,
-				Message:      "too many participants",
-				Error:        "too many participants",
-				StatusCode:   http.StatusForbidden,
-				IsSuccessful: false,
-			}
-			w.WriteHeader(http.StatusForbidden)
-			res, _ := json.Marshal(response)
-			w.Write(res)
-			return
-		}
-		var other *database.Participant
-		var user *database.Participant
-		for _, value := range participants {
-			if value.Username != me {
-				other = &value
-				break
-			}
-		}
-		if other == nil {
-			response = models.Response[string]{
-				Data:         nil,
-				Message:      "the other participant in this chat dooes not exist!",
-				Error:        "the other participant in this chat dooes not exist!",
-				StatusCode:   http.StatusNotFound,
-				IsSuccessful: false,
-			}
-			w.WriteHeader(http.StatusNotFound)
-			res, _ := json.Marshal(response)
-			w.Write(res)
-			return
-		}
-
-		for _, value := range participants {
-			if value.Username == me {
-				user = &value
-				break
-			}
-		}
-		if user == nil {
-
-			response = models.Response[string]{
-				Data:         nil,
-				Message:      "you are not a participant in this chat!",
-				Error:        "you are not a participant in this chat!",
-				StatusCode:   http.StatusNotFound,
-				IsSuccessful: false,
-			}
-			w.WriteHeader(http.StatusNotFound)
-			res, _ := json.Marshal(response)
-			w.Write(res)
-			return
-		}
-
-		data := map[string]interface{}{
-			"Host":   r.Host,
-			"ChatId": userChat.ChatReference,
-			"Me":     user.Username,
-			"Other":  other.Username,
-		}
-		chat.SetupRoomSocket(me, other.Username, userChat.ChatReference)
-
-		templateHandler.Template.Execute(w, data)
-	}
-}
-
-func HandleNewChat(templatehandler *util.TemplateHandler) http.HandlerFunc {
-	templatehandler.ParseFileOnce()
-	return func(w http.ResponseWriter, r *http.Request) {
-		me := mux.Vars(r)["username"]
-		data := map[string]interface{}{
-			"Host": r.Host,
-			"Me":   me,
-		}
-		templatehandler.Template.Execute(w, data)
-	}
-}
-
 func GetUnacknowledgedMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	chatRef := mux.Vars(r)["chatId"]
@@ -635,16 +520,16 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			_, err := service.UserService.AddConversation(context.Background(), &pb.AddConversationRequest{
+			_, err := service.UserService.AddConversation(context.Background(), &pb.AddChatRequest{
 				User: &pb.UserResponse{
 					Id:           uint64(user.Id),
 					Username:     user.Username,
 					PasswordHash: user.PasswordHash,
-					Interactions: user.Interactions,
+					ChatReferences: user.ChatReferences,
 					CreatedAt:    user.CreatedAt,
 					UpdatedAt:    user.UpdatedAt,
 				},
-				Conversation: &pb.Conversation{
+				Chat: &pb.Chat{
 					Username: otheruser.Username,
 					ChatRef:  chat.ChatReference,
 				},
@@ -680,16 +565,16 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			w.Write(res)
 			return
 		} else {
-			_, err := service.UserService.AddConversation(context.Background(), &pb.AddConversationRequest{
+			_, err := service.UserService.AddConversation(context.Background(), &pb.AddChatRequest{
 				User: &pb.UserResponse{
 					Id:           uint64(user.Id),
 					Username:     user.Username,
 					PasswordHash: user.PasswordHash,
-					Interactions: user.Interactions,
+					ChatReferences: user.ChatReferences,
 					CreatedAt:    user.CreatedAt,
 					UpdatedAt:    user.UpdatedAt,
 				},
-				Conversation: &pb.Conversation{
+				Chat: &pb.Chat{
 					Username: otheruser.Username,
 					ChatRef:  *chatRef,
 				},

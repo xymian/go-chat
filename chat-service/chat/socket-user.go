@@ -33,7 +33,7 @@ func CreateSocketUser(user *pb.UserResponse, activity PresenceStatus) (*Socketus
 		Chats: map[string]bool{},
 	}
 	conversationMap := map[int64]string{}
-	err := json.Unmarshal([]byte(user.Interactions), &conversationMap)
+	err := json.Unmarshal([]byte(user.ChatReferences), &conversationMap)
 	if err != nil {
 		return nil, err
 	}

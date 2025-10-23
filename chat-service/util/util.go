@@ -3,11 +3,8 @@ package util
 import (
 	"encoding/json"
 	"errors"
-	"html/template"
 	"io"
 	"net/http"
-	"path/filepath"
-	"sync"
 )
 
 func ParseBody(r *http.Request, o interface{}) error {
@@ -19,16 +16,4 @@ func ParseBody(r *http.Request, o interface{}) error {
 		}
 	}
 	return nil
-}
-
-type TemplateHandler struct {
-	Once     sync.Once
-	FileName string
-	Template *template.Template
-}
-
-func (handler *TemplateHandler) ParseFileOnce() {
-	handler.Once.Do(func() {
-		handler.Template = template.Must(template.ParseFiles(filepath.Join("templates", handler.FileName)))
-	})
 }

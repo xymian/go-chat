@@ -10,6 +10,7 @@ type Participant struct {
 	Username      string `json:"username"`
 	ChatReference string `json:"chatReference"`
 	CreatedAt     string `json:"createdAt"`
+	UpdatedAt     string `json:"updatedAt"`
 }
 
 func InsertParticipant(participant Participant) (*Participant, error) {
@@ -18,7 +19,7 @@ func InsertParticipant(participant Participant) (*Participant, error) {
 		return nil, errors.New("invalid participant")
 	}
 	rows, err := Instance.Query(
-		`INSERT INTO participants (username, chatReference) VALUES ($1, $2) RETURNING id, username, chatReference, createdAt`,
+		`INSERT INTO participants (username, chatReference) VALUES ($1, $2) RETURNING id, username, chatReference, createdAt, updatedAt`,
 		participant.Username, participant.ChatReference,
 	)
 
@@ -30,7 +31,10 @@ func InsertParticipant(participant Participant) (*Participant, error) {
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&newParticipant.Id, &newParticipant.Username, &newParticipant.ChatReference, &newParticipant.CreatedAt)
+		scanErr := rows.Scan(
+			&newParticipant.Id, &newParticipant.Username, &newParticipant.ChatReference,
+			&newParticipant.CreatedAt, &newParticipant.UpdatedAt,
+		)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -53,7 +57,10 @@ func GetParticipantsInChat(chatReference string) ([]Participant, error) {
 
 	for rows.Next() {
 		participant := &Participant{}
-		scanErr := rows.Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
+		scanErr := rows.Scan(
+			&participant.Id, &participant.Username, &participant.ChatReference,
+			&participant.CreatedAt, &participant.UpdatedAt,
+		)
 		if scanErr != nil {
 			return []Participant{}, scanErr
 		}
@@ -77,7 +84,10 @@ func GetParticipant(username string, chatReference string) (*Participant, error)
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&participant.Id, &participant.Username, &participant.ChatReference, &participant.CreatedAt)
+		scanErr := rows.Scan(
+			&participant.Id, &participant.Username, &participant.ChatReference,
+			&participant.CreatedAt, &participant.UpdatedAt,
+		)
 		if scanErr != nil {
 			return nil, scanErr
 		}

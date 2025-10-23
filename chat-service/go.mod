@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
-	github.com/xymian/go-chat-protos v0.0.0-20251020025434-d89ed755c0c0
+	github.com/xymian/go-chat-protos v0.0.0-20251022143829-d4f21d8c1067
 	google.golang.org/grpc v1.76.0
 )
 

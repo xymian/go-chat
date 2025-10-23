@@ -4,19 +4,9 @@ import (
 	"github.com/te6lim/go-chat/chat-service/service"
 	"github.com/te6lim/go-chat/chat-service/controllers"
 	"github.com/te6lim/go-chat/chat-service/middleware"
-	"github.com/te6lim/go-chat/chat-service/util"
 )
 
 func RegisterChatRoutes() {
-	service.Router.HandleFunc(
-		"/chat/{username}",
-		controllers.HandleNewChat(&util.TemplateHandler{FileName: "start-new-chat.html"}),
-	).Methods("GET")
-	service.Router.HandleFunc(
-		"/chat/{username}/{chatId}",
-		controllers.HandleChat(&util.TemplateHandler{FileName: "chat.html"}),
-	).Methods("GET")
-
 	service.Router.HandleFunc("/chat", middleware.WithJWTMiddleware(controllers.SetupRoomSocket)).Methods("POST")
 	service.Router.HandleFunc("/interactions/{username}", middleware.WithJWTMiddleware(controllers.SetupPublicSocket)).Methods("POST")
 

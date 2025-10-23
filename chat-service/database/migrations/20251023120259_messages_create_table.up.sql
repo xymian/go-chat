@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS messages(
+    id SERIAL PRIMARY KEY,
+    messageReference UUID UNIQUE NOT NULL,
+    textMessage TEXT NOT NULL,
+    senderUsername TEXT NOT NULL,
+    receiverUsername TEXT NOT NULL,
+    sentTimestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+    chatReference UUID NOT NULL,
+    deliveredTimestamp TIMESTAMP WITH TIME ZONE,
+    seenTimestamp TIMESTAMP WITH TIME ZONE,
+    createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
