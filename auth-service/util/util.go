@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -65,8 +64,4 @@ type TemplateHandler struct {
 	Template *template.Template
 }
 
-func (handler *TemplateHandler) ParseFileOnce() {
-	handler.Once.Do(func() {
-		handler.Template = template.Must(template.ParseFiles(filepath.Join("templates", handler.FileName)))
-	})
-}
+

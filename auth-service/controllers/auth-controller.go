@@ -28,28 +28,6 @@ type loginResponse struct {
 
 var UserService pb.UserServiceClient
 
-func RegisterFE(templateHandler *util.TemplateHandler) http.HandlerFunc {
-	templateHandler.ParseFileOnce()
-	return func(w http.ResponseWriter, r *http.Request) {
-		data := map[string]interface{}{
-			"Host":    r.Host,
-			"IsLogin": false,
-		}
-		templateHandler.Template.Execute(w, data)
-	}
-}
-
-func LoginFE(templateHandler *util.TemplateHandler) http.HandlerFunc {
-	templateHandler.ParseFileOnce()
-	return func(w http.ResponseWriter, r *http.Request) {
-		data := map[string]interface{}{
-			"Host":    r.Host,
-			"IsLogin": true,
-		}
-		templateHandler.Template.Execute(w, data)
-	}
-}
-
 func Register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var response interface{}
