@@ -25,12 +25,11 @@ var Upgrader = websocket.Upgrader{
 
 func ConnectToUserService() (*pb.UserServiceClient, error) {
 	conn, err := grpc.NewClient(
-		"localhost:6006", grpc.WithTransportCredentials(insecure.NewCredentials()),
+		"localhost:50052", grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
 
 	client := pb.NewUserServiceClient(conn)
 

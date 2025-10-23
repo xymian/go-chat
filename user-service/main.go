@@ -23,8 +23,6 @@ func main() {
 	routes.RegisterUserRoutes()
 
 	http.Handle("/", service.Router)
-	log.Println("Server started on localhost:5005")
-	if err := http.ListenAndServe(":5005", nil); err != nil {
-		log.Fatal(err)
-	}
+	log.Println("Server started on localhost:50052")
+	service.ConnectToUserService()
 }

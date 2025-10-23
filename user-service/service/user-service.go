@@ -23,7 +23,7 @@ type server struct {
 var Router *mux.Router = mux.NewRouter()
 
 func ConnectToUserService() {
-	l, err := net.Listen("tcp", ":5005")
+	l, err := net.Listen("tcp", ":50052")
 	if err != nil {
 		log.Fatalf("failed to listen : %v", err)
 	}
@@ -31,7 +31,7 @@ func ConnectToUserService() {
 	UserServer = &server{}
 	pb.RegisterUserServiceServer(newServer, UserServer)
 
-	fmt.Println("user-service is running on 5005")
+	fmt.Println("user-service is running on 50052")
 	if err := newServer.Serve(l); err != nil {
 		log.Fatalf("failed to listen : %v", err)
 	}

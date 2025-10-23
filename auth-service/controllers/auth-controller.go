@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/xymian/go-chat/auth-service/util"
 	"github.com/xymian/go-chat/auth-service/models"
+	"github.com/xymian/go-chat/auth-service/util"
 
 	pb "github.com/xymian/go-chat-protos/userpb"
 )
@@ -52,10 +52,23 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	existingUser, _ := UserService.GetUser(
+	existingUser, e := UserService.GetUser(
 		context.Background(),
 		&pb.UserRequest{UserId: regRequest.Username},
 	)
+	if e != nil {
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "error in gRPC call to fetch user",
+			Error:        e.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
 	if existingUser != nil {
 		response = models.Response[string]{
 			Data:         nil,
@@ -118,10 +131,23 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user, _ = UserService.GetUser(
+	var user, e = UserService.GetUser(
 		context.Background(),
 		&pb.UserRequest{UserId: request.Username},
 	)
+	if e != nil {
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "error in gRPC call to fetch user",
+			Error:        e.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
 	if user == nil || !util.CheckPasswordHash(request.Password, user.PasswordHash) {
 		w.WriteHeader(http.StatusUnauthorized)
 		res, _ := json.Marshal(response)
