@@ -21,6 +21,13 @@ func main() {
 		database.Instance = nil
 	}()
 
+	userService, err := service.ConnectToUserService()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	service.UserService = *userService
+
 	routes.RegisterChatRoutes()
 
 	go chat.ListenForActiveUsers()
@@ -28,7 +35,7 @@ func main() {
 
 	http.Handle("/", service.Router)
 	log.Println("Server started on localhost:50053")
-	if err := http.ListenAndServe(":50053", service.Router); err != nil {
+	if err := http.ListenAndServe(":50053", nil); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -138,7 +138,7 @@ func InsertMessage(msg Message) (*Message, error) {
 		deliveredTimestamp = EXCLUDED.deliveredTimestamp,
 		seenTimestamp = EXCLUDED.seenTimestamp
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername,
-		sentTimestamp, chatReference, ack, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, createdAt, updatedAt`,
+		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, createdAt, updatedAt`,
 		msg.MessageReference, msg.TextMessage, msg.SenderUsername, msg.ReceiverUsername,
 		msg.SentTimestamp, chat.ChatReference, msg.DeliveredTimestamp, msg.SeenTimestamp, msg.IsReadReceiptEnabled,
 	)
@@ -202,12 +202,12 @@ func AcknowledgeMessages(
 	chatReference string, username string, from string, to string) ([]Message, error) {
 	messages := []Message{}
 
-	rows, err := Instance.Query(
-		`UPDATE messages SET ack = $1 WHERE senderUsername <> $2 AND chatReference = $3
+	/*rows, err := Instance.Query(
+		`UPDATE messages SET deliveredTimestamp = $1 WHERE senderUsername <> $2 AND chatReference = $3
 		AND sentTimestamp BETWEEN $4 AND $5
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername,
 		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, createdAt, updatedAt`,
-		username, chatReference, "false", from, to,
+		"", username, chatReference, from, to,
 	)
 	if err != nil {
 		return []Message{}, nil
@@ -227,7 +227,7 @@ func AcknowledgeMessages(
 		}
 
 		messages = append(messages, message)
-	}
+	}*/
 
 	return messages, nil
 }

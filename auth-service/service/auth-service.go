@@ -8,6 +8,8 @@ import (
 	pb "github.com/xymian/go-chat-protos/userpb"
 )
 
+var UserService pb.UserServiceClient
+
 var Router *mux.Router = mux.NewRouter()
 
 func ConnectToUserService() (*pb.UserServiceClient, error) {

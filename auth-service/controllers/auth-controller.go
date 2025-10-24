@@ -3,10 +3,10 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/xymian/go-chat/auth-service/models"
+	"github.com/xymian/go-chat/auth-service/service"
 	"github.com/xymian/go-chat/auth-service/util"
 
 	pb "github.com/xymian/go-chat-protos/userpb"
@@ -26,8 +26,6 @@ type loginResponse struct {
 	AccessToken string `json:"accessToken"`
 	ExpiryTime  string `json:"expiryTime"`
 }
-
-var UserService pb.UserServiceClient
 
 func Register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -53,7 +51,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	existingUser, e := UserService.GetUser(
+	existingUser, e := service.UserService.GetUser(
 		context.Background(),
 		&pb.UserRequest{UserId: regRequest.Username},
 	)
@@ -88,7 +86,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
-		user, uErr := UserService.InsertUser(
+		user, uErr := service.UserService.InsertUser(
 			context.Background(),
 			&pb.UserResponse{
 				Username:     regRequest.Username,
@@ -96,8 +94,17 @@ func Register(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 		if uErr != nil {
-			fmt.Println("you are the cause!")
+			response = models.Response[string]{
+				Data:         nil,
+				Message:      uErr.Error(),
+				Error:        uErr.Error(),
+				StatusCode:   http.StatusInternalServerError,
+				IsSuccessful: false,
+			}
 			w.WriteHeader(http.StatusInternalServerError)
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
 		} else {
 			response = models.Response[string]{
 				Data:         &user.Username,
@@ -133,7 +140,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user, e = UserService.GetUser(
+	var user, e = service.UserService.GetUser(
 		context.Background(),
 		&pb.UserRequest{UserId: request.Username},
 	)

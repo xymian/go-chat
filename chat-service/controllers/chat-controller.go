@@ -421,7 +421,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user == nil {
+	if user == nil || len(user.Username) == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
 			Data:         nil,
@@ -449,7 +449,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if otheruser == nil {
+	if otheruser == nil || len(otheruser.Username) == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
 			Data:         nil,
@@ -522,12 +522,12 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 
 			_, err := service.UserService.AddConversation(context.Background(), &pb.AddChatRequest{
 				User: &pb.UserResponse{
-					Id:           uint64(user.Id),
-					Username:     user.Username,
-					PasswordHash: user.PasswordHash,
+					Id:             uint64(user.Id),
+					Username:       user.Username,
+					PasswordHash:   user.PasswordHash,
 					ChatReferences: user.ChatReferences,
-					CreatedAt:    user.CreatedAt,
-					UpdatedAt:    user.UpdatedAt,
+					CreatedAt:      user.CreatedAt,
+					UpdatedAt:      user.UpdatedAt,
 				},
 				Chat: &pb.Chat{
 					Username: otheruser.Username,
@@ -567,12 +567,12 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		} else {
 			_, err := service.UserService.AddConversation(context.Background(), &pb.AddChatRequest{
 				User: &pb.UserResponse{
-					Id:           uint64(user.Id),
-					Username:     user.Username,
-					PasswordHash: user.PasswordHash,
+					Id:             uint64(user.Id),
+					Username:       user.Username,
+					PasswordHash:   user.PasswordHash,
 					ChatReferences: user.ChatReferences,
-					CreatedAt:    user.CreatedAt,
-					UpdatedAt:    user.UpdatedAt,
+					CreatedAt:      user.CreatedAt,
+					UpdatedAt:      user.UpdatedAt,
 				},
 				Chat: &pb.Chat{
 					Username: otheruser.Username,
