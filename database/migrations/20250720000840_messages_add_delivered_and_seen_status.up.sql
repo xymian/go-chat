@@ -1,2 +1,0 @@
-ALTER TABLE messages ADD COLUMN delivered BOOLEAN;
-ALTER TABLE messages ADD COLUMN seen BOOLEAN;

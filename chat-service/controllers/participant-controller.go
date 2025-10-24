@@ -1,0 +1,79 @@
+package controllers
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/te6lim/go-chat/chat-service/database"
+	"github.com/te6lim/go-chat/chat-service/models"
+	"github.com/te6lim/go-chat/chat-service/util"
+)
+
+func InsertParticipant(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	participant := &database.Participant{}
+	err := util.ParseBody(r, participant)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var response interface{}
+	participant, err = database.InsertParticipant(*participant)
+	if err != nil {
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "could not add participant",
+			Error:        err.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	response = models.Response[database.Participant]{
+		Data:         participant,
+		Message:      "",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}
+
+func GetParticipant(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	username := r.URL.Query().Get("username")
+	chatRef := r.URL.Query().Get("chatReference")
+	var response interface{}
+	participant, err := database.GetParticipant(username, chatRef)
+	if err != nil {
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "",
+			Error:        err.Error(),
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+	response = models.Response[database.Participant]{
+		Data:         participant,
+		Message:      "",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}

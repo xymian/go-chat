@@ -1,1 +1,0 @@
-ALTER TABLE RENAME COLUMN ack TO seenByReceiver;

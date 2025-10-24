@@ -1,0 +1,56 @@
+services:
+
+  postgres_chat:
+    image: postgres:17
+    container_name: postgres_chat
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: plantainchips
+      POSTGRES_DB: go_chat
+    ports:
+      - 5433:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  postgres_user:
+    image: postgres:17
+    container_name: postgres_user
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: plantainchips
+      POSTGRES_DB: go_chat_user
+    ports:
+      - 5434:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    env_file:
+      - ./auth-service/.env
+    ports:
+      - "50051:50051"
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    env_file: 
+      - ./user-service/.env
+    depends_on: 
+      - postgres_user
+    ports:
+      - "50052:50052"
+
+  chat-service:
+    build: ./chat-service
+    container_name: chat-service
+    env_file:
+      - ./chat-service/.env
+    depends_on:
+      - postgres_chat
+    ports:
+      - "50053:50053"
+
+volumes:
+  postgres_data:
