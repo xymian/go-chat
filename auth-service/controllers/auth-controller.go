@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/xymian/go-chat/auth-service/models"
@@ -69,9 +70,9 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	if existingUser != nil {
+	if existingUser != nil && len(existingUser.Username) != 0 {
 		response = models.Response[string]{
-			Data:         nil,
+			Data:         &existingUser.Username,
 			Message:      "User already exists",
 			Error:        "",
 			StatusCode:   http.StatusConflict,
@@ -87,7 +88,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
-		_, uErr := UserService.Insertuser(
+		user, uErr := UserService.InsertUser(
 			context.Background(),
 			&pb.UserResponse{
 				Username:     regRequest.Username,
@@ -95,10 +96,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 		if uErr != nil {
+			fmt.Println("you are the cause!")
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			response = models.Response[string]{
-				Data:         &regRequest.Username,
+				Data:         &user.Username,
 				Message:      "user registered",
 				Error:        "",
 				StatusCode:   http.StatusOK,
@@ -150,6 +152,13 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if user == nil || !util.CheckPasswordHash(request.Password, user.PasswordHash) {
 		w.WriteHeader(http.StatusUnauthorized)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "user is not authorized",
+			Error:        "",
+			StatusCode:   http.StatusUnauthorized,
+			IsSuccessful: false,
+		}
 		res, _ := json.Marshal(response)
 		w.Write(res)
 		return

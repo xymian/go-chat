@@ -66,20 +66,24 @@ func (server *server) DeleteUser(ctx context.Context, req *pb.UserRequest) (*pb.
 	if err != nil {
 		return nil, err
 	}
-	return &pb.UserResponse{
-		Id:             uint64(user.Id),
-		Username:       user.Username,
-		PasswordHash:   user.PasswordHash,
-		ChatReferences: *user.ChatReferences,
-		CreatedAt:      user.CreatedAt,
-		UpdatedAt:      user.UpdatedAt,
-	}, nil
+	if user != nil {
+		return &pb.UserResponse{
+			Id:             uint64(user.Id),
+			Username:       user.Username,
+			PasswordHash:   user.PasswordHash,
+			ChatReferences: *user.ChatReferences,
+			CreatedAt:      user.CreatedAt,
+			UpdatedAt:      user.UpdatedAt,
+		}, nil
+	}
+
+	return nil, nil
 }
 
 func (server *server) InsertUser(ctx context.Context, user *pb.UserResponse) (*pb.UserResponse, error) {
-	_, err := database.InsertUser(
+	fmt.Println("has rows: ?")
+	insertUser, err := database.InsertUser(
 		database.User{
-			Id:             int64(user.Id),
 			Username:       user.Username,
 			PasswordHash:   user.PasswordHash,
 			ChatReferences: &user.ChatReferences,
@@ -90,6 +94,18 @@ func (server *server) InsertUser(ctx context.Context, user *pb.UserResponse) (*p
 	if err != nil {
 		return nil, err
 	}
+
+	if insertUser != nil {
+		return &pb.UserResponse{
+			Id:             user.Id,
+			Username:       user.Username,
+			PasswordHash:   user.PasswordHash,
+			ChatReferences: user.ChatReferences,
+			CreatedAt:      user.CreatedAt,
+			UpdatedAt:      user.UpdatedAt,
+		}, nil
+	}
+
 	return nil, nil
 }
 
@@ -122,12 +138,16 @@ func (server *server) GetUser(ctx context.Context, req *pb.UserRequest) (*pb.Use
 	if err != nil {
 		return nil, err
 	}
-	return &pb.UserResponse{
-		Id:             uint64(user.Id),
-		Username:       user.Username,
-		PasswordHash:   user.PasswordHash,
-		ChatReferences: *user.ChatReferences,
-		CreatedAt:      user.CreatedAt,
-		UpdatedAt:      user.UpdatedAt,
-	}, nil
+	if user != nil {
+		return &pb.UserResponse{
+			Id:             uint64(user.Id),
+			Username:       user.Username,
+			PasswordHash:   user.PasswordHash,
+			ChatReferences: *user.ChatReferences,
+			CreatedAt:      user.CreatedAt,
+			UpdatedAt:      user.UpdatedAt,
+		}, nil
+	}
+
+	return nil, nil
 }

@@ -53,12 +53,12 @@ func GetUsers(ids ...int64) ([]User, error) {
 
 func InsertUser(user User) (*User, error) {
 	newUser := &User{}
-	if len(user.Username) <= 0 {
+	if len(user.Username) == 0 {
 		return nil, errors.New("invalid username")
 	}
 	rows, err := Instance.Query(
-		`INSERT INTO users(username, passwordHash) VALUES($1, $2) RETURNING id, username, passwordHash, createdAt, updatedAt`,
-		user.Username, user.PasswordHash,
+		`INSERT INTO users(username, chatReferences, passwordHash) VALUES($1, $2, $3) RETURNING id, username, chatReferences, passwordHash, createdAt, updatedAt`,
+		user.Username, user.ChatReferences, user.PasswordHash,
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -68,11 +68,10 @@ func InsertUser(user User) (*User, error) {
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
+		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &user.ChatReferences, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
-
 		return newUser, nil
 	}
 	return nil, nil

@@ -12,7 +12,7 @@ var Router *mux.Router = mux.NewRouter()
 
 func ConnectToUserService() (*pb.UserServiceClient, error) {
 	conn, err := grpc.NewClient(
-		"localhost:50052", grpc.WithTransportCredentials(insecure.NewCredentials()),
+		"user-service:50052", grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
 		return nil, err

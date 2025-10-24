@@ -2,14 +2,11 @@ package routes
 
 import (
 	"github.com/xymian/go-chat/auth-service/controllers"
-
-	"github.com/gorilla/mux"
+	"github.com/xymian/go-chat/auth-service/service"
 )
 
-var router *mux.Router = mux.NewRouter()
-
 func RegisterAuthRoutes() {
-	router.HandleFunc("/register", controllers.Register).Methods("POST")
-	router.HandleFunc("/login", controllers.Login).Methods("POST")
-	router.HandleFunc("/logout", controllers.Logout).Methods("POST")
+	service.Router.HandleFunc("/register", controllers.Register).Methods("POST")
+	service.Router.HandleFunc("/login", controllers.Login).Methods("POST")
+	service.Router.HandleFunc("/logout", controllers.Logout).Methods("POST")
 }

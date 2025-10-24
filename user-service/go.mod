@@ -10,7 +10,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
-	github.com/xymian/go-chat-protos v0.0.0-20251022143829-d4f21d8c1067
+	github.com/xymian/go-chat-protos v0.0.0-20251024002734-41a30f9b6362
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 )
