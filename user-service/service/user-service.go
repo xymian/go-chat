@@ -7,20 +7,47 @@ import (
 	"net"
 
 	"github.com/gorilla/mux"
-	pb "github.com/xymian/go-chat-protos/userpb"
+	"github.com/te6lim/go-chat-protos/storage_pb"
+	storagepb "github.com/te6lim/go-chat-protos/storage_pb"
+	pb "github.com/te6lim/go-chat-protos/userpb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	database "github.com/xymian/go-chat/user-service/database"
+	database "github.com/te6lim/go-chat/user-service/database"
 )
 
-var UserServer *server
+var StorageService storagepb.StorageServiceClient
 
-type server struct {
+var UserServer *Server
+var ImageServer *StorageServer
+
+type Server struct {
 	pb.UnimplementedUserServiceServer
+}
+type StorageServer struct {
+	storage_pb.UnimplementedStorageServiceServer
 }
 
 var Router *mux.Router = mux.NewRouter()
+
+func ConnectToStorageService() error {
+	conn, err := grpc.NewClient(
+		"storage-service:50054", grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return err
+	}
+	StorageService = storagepb.NewStorageServiceClient(conn)
+
+	return nil
+}
+
+func (server *StorageServer) UpdateUserAvatar(
+	grpc.ClientStreamingServer[storage_pb.UpdateUserAvatarRequest, storage_pb.UpdateUserAvatarResponse],
+) error {
+	return nil
+}
 
 func ConnectToUserService() {
 	l, err := net.Listen("tcp", ":50052")
@@ -28,7 +55,7 @@ func ConnectToUserService() {
 		log.Fatalf("failed to listen : %v", err)
 	}
 	newServer := grpc.NewServer()
-	UserServer = &server{}
+	UserServer = &Server{}
 	pb.RegisterUserServiceServer(newServer, UserServer)
 
 	fmt.Println("user-service is running on 50052")
@@ -37,7 +64,9 @@ func ConnectToUserService() {
 	}
 }
 
-func (server *server) AddConversation(ctx context.Context, req *pb.AddChatRequest) (*emptypb.Empty, error) {
+
+
+func (server *Server) AddConversation(ctx context.Context, req *pb.AddChatRequest) (*emptypb.Empty, error) {
 	otherUser, err := database.GetUser(req.Chat.Username)
 	if err != nil {
 		return nil, err
@@ -61,7 +90,7 @@ func (server *server) AddConversation(ctx context.Context, req *pb.AddChatReques
 	return &emptypb.Empty{}, nil
 }
 
-func (server *server) DeleteUser(ctx context.Context, req *pb.UserRequest) (*pb.UserResponse, error) {
+func (server *Server) DeleteUser(ctx context.Context, req *pb.UserRequest) (*pb.UserResponse, error) {
 	user, err := database.DeleteUser(req.UserId)
 	if err != nil {
 		return nil, err
@@ -80,7 +109,7 @@ func (server *server) DeleteUser(ctx context.Context, req *pb.UserRequest) (*pb.
 	return nil, nil
 }
 
-func (server *server) InsertUser(ctx context.Context, user *pb.UserResponse) (*pb.UserResponse, error) {
+func (server *Server) InsertUser(ctx context.Context, user *pb.UserResponse) (*pb.UserResponse, error) {
 	fmt.Println("has rows: ?")
 	insertUser, err := database.InsertUser(
 		database.User{
@@ -109,7 +138,7 @@ func (server *server) InsertUser(ctx context.Context, user *pb.UserResponse) (*p
 	return nil, nil
 }
 
-func (server *server) GetUsers(ctx context.Context, empty *emptypb.Empty) (*pb.UserListResponse, error) {
+func (server *Server) GetUsers(ctx context.Context, empty *emptypb.Empty) (*pb.UserListResponse, error) {
 	users, err := database.GetAllUsers()
 	if err != nil {
 		return nil, err
@@ -133,7 +162,7 @@ func (server *server) GetUsers(ctx context.Context, empty *emptypb.Empty) (*pb.U
 	}, nil
 }
 
-func (server *server) GetUser(ctx context.Context, req *pb.UserRequest) (*pb.UserResponse, error) {
+func (server *Server) GetUser(ctx context.Context, req *pb.UserRequest) (*pb.UserResponse, error) {
 	user, err := database.GetUser(req.UserId)
 	if err != nil {
 		return nil, err

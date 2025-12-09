@@ -5,22 +5,22 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/gorilla/mux"
-	pb "github.com/xymian/go-chat-protos/userpb"
+	pb "github.com/te6lim/go-chat-protos/userpb"
 )
 
 var UserService pb.UserServiceClient
 
 var Router *mux.Router = mux.NewRouter()
 
-func ConnectToUserService() (*pb.UserServiceClient, error) {
+func ConnectToUserService() error {
 	conn, err := grpc.NewClient(
 		"user-service:50052", grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	client := pb.NewUserServiceClient(conn)
+	UserService = pb.NewUserServiceClient(conn)
 
-	return &client, nil
+	return nil
 }

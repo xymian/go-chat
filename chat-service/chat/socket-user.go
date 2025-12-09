@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/te6lim/go-chat/chat-service/database"
 
-	pb "github.com/xymian/go-chat-protos/userpb"
+	pb "github.com/te6lim/go-chat-protos/userpb"
 )
 
 var ActiveSocketUsers = make(map[string]*Socketuser)

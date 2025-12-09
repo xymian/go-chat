@@ -12,10 +12,12 @@
 - **Chat history**: The server stores chat history for each user, allowing them to view past messages.✅
 
 ## Tools:
+
 - Websocket
 - GRPC
 - Microservices
 - Docker
 
 ## Usage:
-For a demonstration of how it works, you can run this server locally, and check out my [Android project](https://github.com/xymian/go-chat.mobile.android) repo that uses this server.
+
+For a demonstration of how it works, you can run this server locally, and check out my [Android project](https://github.com/te6lim/go-chat.mobile.android) repo that uses this server.

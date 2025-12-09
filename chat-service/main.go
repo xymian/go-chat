@@ -21,12 +21,10 @@ func main() {
 		database.Instance = nil
 	}()
 
-	userService, err := service.ConnectToUserService()
+	err := service.ConnectToUserService()
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	service.UserService = *userService
 
 	routes.RegisterChatRoutes()
 

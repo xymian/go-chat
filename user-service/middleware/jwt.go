@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/xymian/go-chat/user-service/models"
+	"github.com/te6lim/go-chat/user-service/models"
 )
 
 type contextKey string

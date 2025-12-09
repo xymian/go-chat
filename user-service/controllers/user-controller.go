@@ -2,124 +2,18 @@ package controllers
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
 
-	"github.com/xymian/go-chat/user-service/models"
-	"github.com/xymian/go-chat/user-service/util"
+	"github.com/te6lim/go-chat/user-service/models"
+	"github.com/te6lim/go-chat/user-service/util"
 
-	service "github.com/xymian/go-chat/user-service/service"
+	service "github.com/te6lim/go-chat/user-service/service"
 
-	pb "github.com/xymian/go-chat-protos/userpb"
+	pb "github.com/te6lim/go-chat-protos/userpb"
 )
-
-const MaxUploadSize = 5 * 1024 * 1024
-
-func UpdateAvatar(w http.ResponseWriter, r *http.Request) {
-	var response interface{}
-	r.Body = http.MaxBytesReader(w, r.Body, MaxUploadSize)
-	if err := r.ParseMultipartForm(MaxUploadSize); err != nil {
-		response = models.Response[string]{
-			Data:         nil,
-			Message:      "file too big or malformed request",
-			Error:        err.Error(),
-			StatusCode:   http.StatusBadRequest,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-
-	file, _, err := r.FormFile("avatar")
-	if err != nil {
-		response = models.Response[string]{
-			Data:         nil,
-			Message:      "invalid file key",
-			Error:        err.Error(),
-			StatusCode:   http.StatusBadRequest,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-	defer file.Close()
-
-	fileTypeBuff := make([]byte, 512)
-	if _, err := file.Read(fileTypeBuff); err != nil {
-		response = models.Response[string]{
-			Data:         nil,
-			Message:      "error reading file",
-			Error:        err.Error(),
-			StatusCode:   http.StatusInternalServerError,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-	filetype := http.DetectContentType(fileTypeBuff)
-
-	var extention string
-	switch filetype {
-	case "image/jpeg":
-		extention = ".jpg"
-	case "image/png":
-		extention = ".png"
-	default:
-		response = models.Response[string]{
-			Data:         nil,
-			Message:      "only JPEG and PNG allowed",
-			Error:        err.Error(),
-			StatusCode:   http.StatusUnsupportedMediaType,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-
-	if _, err := file.Seek(0, 0); err != nil {
-		response = models.Response[string]{
-			Data:         nil,
-			Message:      "server error processing file",
-			Error:        err.Error(),
-			StatusCode:   http.StatusUnsupportedMediaType,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-
-	randomBytesForFileNaming := make([]byte, 16)
-	rand.Read(randomBytesForFileNaming)
-	fileName := fmt.Sprintf("u_%s_%s%s", "CURRENT_USER_ID", hex.EncodeToString(randomBytesForFileNaming), extention)
-
-	// make call to save file
-
-	response = models.Response[string]{
-		Data:         nil,
-		Message:      "avatar uploaded successfully",
-		StatusCode:   http.StatusOK,
-		IsSuccessful: false,
-	}
-	w.WriteHeader(http.StatusOK)
-	res, _ := json.Marshal(response)
-	w.Write(res)
-	return
-}
 
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

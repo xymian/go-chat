@@ -13,7 +13,7 @@ import (
 	"github.com/te6lim/go-chat/chat-service/database"
 	"github.com/te6lim/go-chat/chat-service/models"
 
-	pb "github.com/xymian/go-chat-protos/userpb"
+	pb "github.com/te6lim/go-chat-protos/userpb"
 )
 
 type Conversations struct {

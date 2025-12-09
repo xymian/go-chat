@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/xymian/go-chat/auth-service/models"
-	"github.com/xymian/go-chat/auth-service/service"
-	"github.com/xymian/go-chat/auth-service/util"
+	"github.com/te6lim/go-chat/auth-service/models"
+	"github.com/te6lim/go-chat/auth-service/service"
+	"github.com/te6lim/go-chat/auth-service/util"
 
-	pb "github.com/xymian/go-chat-protos/userpb"
+	pb "github.com/te6lim/go-chat-protos/userpb"
 )
 
 type registerRequest struct {

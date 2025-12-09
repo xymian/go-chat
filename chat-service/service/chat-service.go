@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	pb "github.com/xymian/go-chat-protos/userpb"
+	pb "github.com/te6lim/go-chat-protos/userpb"
 )
 
 var UserService pb.UserServiceClient
@@ -23,15 +23,14 @@ var Upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func ConnectToUserService() (*pb.UserServiceClient, error) {
+func ConnectToUserService() error {
 	conn, err := grpc.NewClient(
 		"user-service:50052", grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	UserService = pb.NewUserServiceClient(conn)
 
-	client := pb.NewUserServiceClient(conn)
-
-	return &client, nil
+	return nil
 }

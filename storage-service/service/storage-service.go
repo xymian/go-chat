@@ -1,4 +1,4 @@
-package storageservice
+package service
 
 import (
 	"fmt"
