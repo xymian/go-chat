@@ -103,16 +103,20 @@ func (user *Socketuser) ReadMessages(room *Room) {
 		switch {
 		case newMessage.PresenceStatus == nil && newMessage.MessageStatus == nil:
 			upToDateMessage, insertErr = database.MaybeInsertAndReturnMostUpToDateMessage(&newMessage)
-			fmt.Println("message: ", upToDateMessage.TextMessage, " from ", upToDateMessage.SenderUsername, " inserted")
 		}
 
-		room := Rooms[upToDateMessage.ChatReference]
 		if insertErr != nil {
 			fmt.Println(err)
-			delete(Rooms, room.Id)
+			if (upToDateMessage != nil) {
+				room := Rooms[upToDateMessage.ChatReference]
+				delete(Rooms, room.Id)
+			}
 			return
 		}
-		room.ForwardedMessage <- *upToDateMessage
+
+		if upToDateMessage != nil {
+			room.ForwardedMessage <- *upToDateMessage
+		}
 	}
 }
 

@@ -35,7 +35,7 @@ func (localStore *LocalMediaStore) Save(key string, r io.Reader) error {
 
 	dir := filepath.Dir(fullPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("storage: failed to create directory: %w", dir, err)
+		return fmt.Errorf("storage: failed to create directory: %v", dir)
 	}
 
 	dst, err := os.Create(fullPath)

@@ -21,53 +21,6 @@ type addChatReferenceRequest struct {
 	Other string `json:"other"`
 }
 
-func MarkMessagesAsDelivered(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	deliverMessage := &models.DeliverMessages{}
-	var response models.Response[[]database.Message]
-	err := util.ParseBody(r, deliverMessage)
-
-	if err != nil {
-		response = models.Response[[]database.Message]{
-			Data:         nil,
-			Message:      "bad request",
-			Error:        "request parse error",
-			StatusCode:   http.StatusBadRequest,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-
-	messages, err := database.MarkMessagesAsDelivered(*deliverMessage)
-	if err != nil {
-		response = models.Response[[]database.Message]{
-			Data:         &messages,
-			Message:      "",
-			Error:        err.Error(),
-			StatusCode:   http.StatusNotFound,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusNotFound)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-
-	response = models.Response[[]database.Message]{
-		Data:         &messages,
-		Message:      "messages marked as delivered",
-		Error:        "",
-		StatusCode:   http.StatusOK,
-		IsSuccessful: true,
-	}
-	w.WriteHeader(http.StatusOK)
-	res, _ := json.Marshal(response)
-	w.Write(res)
-}
-
 func SetupPublicSocket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]

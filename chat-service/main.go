@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/te6lim/go-chat/chat-service/chat"
 	"github.com/te6lim/go-chat/chat-service/database"
@@ -30,6 +31,18 @@ func main() {
 
 	go chat.ListenForActiveUsers()
 	go chat.ListenForNewChatRoom()
+
+	// periodically purge fully acknowledged messages that are not backed up
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			err := database.CleanupAllFullyAcknowledgedMessages()
+			if err != nil {
+				log.Println("cleanup error:", err)
+			}
+		}
+	}()
 
 	http.Handle("/", service.Router)
 	log.Println("Server started on localhost:50053")

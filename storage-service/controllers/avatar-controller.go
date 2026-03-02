@@ -9,18 +9,15 @@ import (
 
 	"github.com/te6lim/go-chat/storage-service/models"
 	"github.com/te6lim/go-chat/storage-service/service"
-
-	storage_pb "github.com/te6lim/go-chat-protos/storage_pb"
 )
 
 const MaxUploadSize = 5 * 1024 * 1024
 
-type StorageServer struct {
+type MediaServer struct {
 	service.LocalMediaStore
-	storage_pb.UnimplementedStorageServiceServer
 }
 
-func (imageServer StorageServer) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
+func (imageServer MediaServer) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
 	var response interface{}
 	r.Body = http.MaxBytesReader(w, r.Body, MaxUploadSize)
 	if err := r.ParseMultipartForm(MaxUploadSize); err != nil {
@@ -79,7 +76,7 @@ func (imageServer StorageServer) UpdateAvatar(w http.ResponseWriter, r *http.Req
 		response = models.Response[string]{
 			Data:         nil,
 			Message:      "only JPEG and PNG allowed",
-			Error:        err.Error(),
+			Error:        "",
 			StatusCode:   http.StatusUnsupportedMediaType,
 			IsSuccessful: false,
 		}
