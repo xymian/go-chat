@@ -1,0 +1,4 @@
+ALTER TABLE chats
+    DROP COLUMN IF EXISTS is_group,
+    DROP COLUMN IF EXISTS name,
+    DROP COLUMN IF EXISTS created_by;

@@ -12,7 +12,7 @@ type Message struct {
 	MessageReference     string  `json:"messageReference"`
 	TextMessage          string  `json:"textMessage"`
 	SenderUsername       string  `json:"senderUsername"`
-	ReceiverUsername     string  `json:"receiverUsername"`
+	ReceiverUsername     *string `json:"receiverUsername"`
 	SentTimestamp        string  `json:"sentTimestamp"`
 	ChatReference        string  `json:"chatReference"`
 	DeliveredTimestamp   *string `json:"deliveredTimestamp"`
@@ -94,7 +94,7 @@ func InsertMessage(msg Message) (*Message, error) {
 		msgErr = errors.New("message text cannot be empty")
 	case msg.SenderUsername == "":
 		msgErr = errors.New("message sender cannot be empty")
-	case msg.ReceiverUsername == "":
+	case !chat.IsGroup && (msg.ReceiverUsername == nil || *msg.ReceiverUsername == ""):
 		msgErr = errors.New("message receiver cannot be empty")
 	case msg.SentTimestamp == "":
 		msgErr = errors.New("message timestamp cannot be empty")
@@ -176,16 +176,25 @@ func GetMessage(chatReference string, messageReference string) (*Message, error)
 
 func AcknowledgeMessages(
 	chatReference string, username string, from string, to string) ([]Message, error) {
-	messages := []Message{}
 
-	ctx := context.Background()
-	txn, err := Instance.BeginTx(ctx, nil)
+	isGroup, err := IsGroupChat(chatReference)
 	if err != nil {
 		return nil, err
 	}
+	if isGroup {
+		return AcknowledgeGroupMessages(chatReference, username, from, to)
+	}
+
+	messages := []Message{}
+
+	ctx := context.Background()
+	txn, txnErr := Instance.BeginTx(ctx, nil)
+	if txnErr != nil {
+		return nil, txnErr
+	}
 	defer txn.Rollback()
 
-	rows, err := txn.Query(
+	rows, queryErr := txn.Query(
 		`UPDATE messages SET seenTimestamp = NOW()
 		WHERE chatReference = $1
 		AND senderUsername <> $2
@@ -194,8 +203,8 @@ func AcknowledgeMessages(
 		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, is_backed_up, createdAt, updatedAt`,
 		chatReference, username, from, to,
 	)
-	if err != nil {
-		return []Message{}, err
+	if queryErr != nil {
+		return []Message{}, queryErr
 	}
 	defer rows.Close()
 
@@ -212,8 +221,7 @@ func AcknowledgeMessages(
 		messages = append(messages, message)
 	}
 
-	e := txn.Commit()
-	if e != nil {
+	if e := txn.Commit(); e != nil {
 		return []Message{}, e
 	}
 
@@ -224,17 +232,24 @@ func AcknowledgeMessages(
 }
 
 func GetAllUnacknowledgedMessages(chatReference string, username string) ([]Message, error) {
+	isGroup, err := IsGroupChat(chatReference)
+	if err != nil {
+		return []Message{}, nil
+	}
+	if isGroup {
+		return getUnacknowledgedGroupMessages(chatReference, username)
+	}
+
 	messages := []Message{}
-	rows, err := Instance.Query(
+	rows, queryErr := Instance.Query(
 		`SELECT id, messageReference, textMessage, senderUsername, receiverUsername,
 		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, is_backed_up, createdAt, updatedAt
 		FROM messages WHERE chatReference = $1 AND (deliveredTimestamp IS NULL OR seenTimestamp IS NULL) AND senderUsername <> $2`,
 		chatReference, username,
 	)
-	if err != nil {
+	if queryErr != nil {
 		return []Message{}, nil
 	}
-
 	defer rows.Close()
 
 	for rows.Next() {
@@ -359,15 +374,36 @@ func cleanupFullyAcknowledgedMessages(chatReference string) error {
 	return err
 }
 
-// CleanupAllFullyAcknowledgedMessages removes every message in every chat that
-// has been fully acknowledged and is not backed up.  This can be run periodically
-// as a safety net.
+// CleanupAllFullyAcknowledgedMessages removes every DM message in every chat
+// that has been fully acknowledged and is not backed up, and removes group
+// messages where all participants have seen them.
 func CleanupAllFullyAcknowledgedMessages() error {
 	_, err := Instance.Exec(
 		`DELETE FROM messages
-		 WHERE deliveredTimestamp IS NOT NULL
+		 WHERE receiverUsername IS NOT NULL
+		   AND deliveredTimestamp IS NOT NULL
 		   AND seenTimestamp IS NOT NULL
 		   AND is_backed_up = FALSE`,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Group messages: delete where all non-sender participants have a seenAt receipt.
+	_, err = Instance.Exec(
+		`DELETE FROM messages
+		 WHERE receiverUsername IS NULL
+		   AND is_backed_up = FALSE
+		   AND NOT EXISTS (
+		       SELECT 1
+		       FROM participants p
+		       LEFT JOIN message_receipts mr
+		           ON messages.messageReference = mr.messageReference
+		           AND mr.username = p.username
+		       WHERE p.chatReference = messages.chatReference
+		         AND p.username <> messages.senderUsername
+		         AND mr.seenAt IS NULL
+		   )`,
 	)
 	return err
 }

@@ -20,7 +20,9 @@ type Room struct {
 	Id               string
 	leave            chan *Socketuser
 	join             chan *Socketuser
-	participants     map[string]bool
+	participants     map[string]bool // users currently connected to this room
+	members          map[string]bool // all chat members (for AWAY delivery in groups)
+	isGroup          bool
 	ForwardedMessage chan database.Message
 }
 
@@ -33,8 +35,22 @@ func CreateRoom(roomId string) *Room {
 		leave:            make(chan *Socketuser),
 		join:             make(chan *Socketuser),
 		participants:     make(map[string]bool),
+		members:          make(map[string]bool),
 		ForwardedMessage: make(chan database.Message),
 	}
+
+	// Load group metadata once at room creation.
+	chat, err := database.GetChat(roomId)
+	if err == nil && chat != nil && chat.IsGroup {
+		room.isGroup = true
+		participants, pErr := database.GetParticipantsInChat(roomId)
+		if pErr == nil {
+			for _, p := range participants {
+				room.members[p.Username] = true
+			}
+		}
+	}
+
 	return room
 }
 
@@ -67,17 +83,28 @@ func (room *Room) Run() {
 			fmt.Println("User", user.Username, " left the room")
 
 		case message := <-room.ForwardedMessage:
-			receiver := ActiveSocketUsers[message.ReceiverUsername]
-			//room.Tracer.Trace("receiver on conversations: ", receiver)
-			if receiver != nil {
-				if receiver.Activity == AWAY {
-					receiver.IReceiveMessage <- message
-					//room.Tracer.Trace("Message sent through conversation socket: ", message.TextMessage, " to User", receiver.Username)
+			if room.isGroup {
+				// Deliver to all group members who are AWAY (not in room right now).
+				for username := range room.members {
+					if !room.participants[username] {
+						awayUser := ActiveSocketUsers[username]
+						if awayUser != nil && awayUser.Activity == AWAY {
+							awayUser.IReceiveMessage <- message
+						}
+					}
+				}
+			} else {
+				// DM: deliver to the named receiver if they are AWAY.
+				if message.ReceiverUsername != nil {
+					receiver := ActiveSocketUsers[*message.ReceiverUsername]
+					if receiver != nil && receiver.Activity == AWAY {
+						receiver.IReceiveMessage <- message
+					}
 				}
 			}
+			// Broadcast to everyone currently in the room.
 			for username := range room.participants {
 				ActiveSocketUsers[username].ReceiveMessage <- message
-				//room.Tracer.Trace("Forwarded message: ", message.TextMessage, " to User", username)
 			}
 		}
 	}
@@ -107,9 +134,9 @@ func (user *Socketuser) ReadMessages(room *Room) {
 
 		if insertErr != nil {
 			fmt.Println(err)
-			if (upToDateMessage != nil) {
-				room := Rooms[upToDateMessage.ChatReference]
-				delete(Rooms, room.Id)
+			if upToDateMessage != nil {
+				r := Rooms[upToDateMessage.ChatReference]
+				delete(Rooms, r.Id)
 			}
 			return
 		}
@@ -128,6 +155,10 @@ func (user *Socketuser) WriteMessages(room *Room) {
 	for message := range user.ReceiveMessage {
 		if room.participants[user.Username] {
 			user.PrivateConn.WriteJSON(message)
+			// Track group message delivery per-user server-side.
+			if room.isGroup {
+				_ = database.MarkGroupMessageDelivered(message.MessageReference, user.Username)
+			}
 		} else {
 			fmt.Println("You are not in this room")
 		}
@@ -139,16 +170,30 @@ func (user *Socketuser) LeaveRoom(room *Room) {
 }
 
 func (room *Room) JoinRoom(user *Socketuser) error {
-	if !room.participants[user.Username] {
-		if len(room.participants) < 2 {
-			room.join <- user
-			return nil
-		} else {
-			return errors.New("room is full. please create another room with this user")
-		}
-	} else {
+	if room.participants[user.Username] {
 		return errors.New("user is already in the room")
 	}
+	if !room.isGroup && len(room.participants) >= 2 {
+		return errors.New("room is full. please create another room with this user")
+	}
+	room.join <- user
+	return nil
+}
+
+// RefreshMembers reloads group member list from DB (call after add/remove member).
+func (room *Room) RefreshMembers() {
+	if !room.isGroup {
+		return
+	}
+	participants, err := database.GetParticipantsInChat(room.Id)
+	if err != nil {
+		return
+	}
+	newMembers := make(map[string]bool, len(participants))
+	for _, p := range participants {
+		newMembers[p.Username] = true
+	}
+	room.members = newMembers
 }
 
 func HandleRoom(w http.ResponseWriter, r *http.Request) {

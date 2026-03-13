@@ -32,14 +32,20 @@ func CreateSocketUser(user *pb.UserResponse, activity PresenceStatus) (*Socketus
 	conversations := &Conversations{
 		Chats: map[string]bool{},
 	}
+
+	// DM chats are tracked in user.ChatReferences as a JSON map.
 	conversationMap := map[int64]string{}
-	err := json.Unmarshal([]byte(user.ChatReferences), &conversationMap)
-	if err != nil {
-		return nil, err
-	}
+	_ = json.Unmarshal([]byte(user.ChatReferences), &conversationMap)
 	for _, chatRef := range conversationMap {
 		conversations.Chats[chatRef] = true
 	}
+
+	// Group chats are tracked in the participants table; merge them in.
+	groupRefs, _ := database.GetChatRefsForUser(user.Username)
+	for _, chatRef := range groupRefs {
+		conversations.Chats[chatRef] = true
+	}
+
 	return &Socketuser{
 		Username: user.Username,
 		Activity: activity,
