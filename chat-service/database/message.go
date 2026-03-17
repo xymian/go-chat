@@ -18,7 +18,6 @@ type Message struct {
 	DeliveredTimestamp   *string `json:"deliveredTimestamp"`
 	SeenTimestamp        *string `json:"seenTimestamp"`
 	IsReadReceiptEnabled bool    `json:"isReadReceiptEnabled"`
-	IsBackedUp           bool    `json:"isBackedUp"`
 	ShouldDelete         bool    `json:"shouldDelete"`
 	MessageStatus        *string `json:"messageStatus"`
 	PresenceStatus       *string `json:"presenceStatus"`
@@ -51,31 +50,17 @@ func MaybeInsertAndReturnMostUpToDateMessage(message *Message) (*Message, error)
 	}
 
 	if message.ShouldDelete {
-		if !existingMessage.IsBackedUp {
-			_, deleteErr := DeleteMessage(message.MessageReference)
-			fmt.Println("message deleted")
-			return nil, deleteErr
-		}
-		return nil, nil
+		_, deleteErr := DeleteMessage(message.MessageReference)
+		fmt.Println("message deleted")
+		return nil, deleteErr
 	}
 
 	if existingMessage.DeliveredTimestamp == nil {
-		if existingMessage.IsBackedUp == true {
-			message.IsBackedUp = true
-		}
 		return InsertMessage(*message)
 	}
 	if existingMessage.SeenTimestamp == nil {
 		message.DeliveredTimestamp = existingMessage.DeliveredTimestamp
-		if existingMessage.IsBackedUp == true {
-			message.IsBackedUp = true
-		}
 		return InsertMessage(*message)
-	}
-
-	if message.IsBackedUp == true {
-		existingMessage.IsBackedUp = true
-		return InsertMessage(*existingMessage)
 	}
 
 	return existingMessage, err
@@ -107,16 +92,15 @@ func InsertMessage(msg Message) (*Message, error) {
 	message := Message{}
 	rows, queryErr := Instance.Query(
 		`INSERT INTO messages (messageReference, textMessage, senderUsername, receiverUsername,
-		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, is_backed_up)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (messageReference) DO UPDATE SET
 		deliveredTimestamp = EXCLUDED.deliveredTimestamp,
-		seenTimestamp = EXCLUDED.seenTimestamp,
-		is_backed_up = EXCLUDED.is_backed_up
+		seenTimestamp = EXCLUDED.seenTimestamp
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername,
-		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, is_backed_up, createdAt, updatedAt`,
+		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, createdAt, updatedAt`,
 		msg.MessageReference, msg.TextMessage, msg.SenderUsername, msg.ReceiverUsername,
-		msg.SentTimestamp, chat.ChatReference, msg.DeliveredTimestamp, msg.SeenTimestamp, msg.IsReadReceiptEnabled, msg.IsBackedUp,
+		msg.SentTimestamp, chat.ChatReference, msg.DeliveredTimestamp, msg.SeenTimestamp, msg.IsReadReceiptEnabled,
 	)
 
 	if queryErr != nil {
@@ -131,7 +115,7 @@ func InsertMessage(msg Message) (*Message, error) {
 			&message.Id, &message.MessageReference, &message.TextMessage,
 			&message.SenderUsername, &message.ReceiverUsername, &message.SentTimestamp,
 			&message.ChatReference, &message.DeliveredTimestamp, &message.SeenTimestamp,
-			&message.IsReadReceiptEnabled, &message.IsBackedUp, &message.CreatedAt, &message.UpdatedAt,
+			&message.IsReadReceiptEnabled, &message.CreatedAt, &message.UpdatedAt,
 		)
 		if scanErr != nil {
 			return nil, scanErr
@@ -146,7 +130,7 @@ func GetMessage(chatReference string, messageReference string) (*Message, error)
 	message := Message{}
 	rows, err := Instance.Query(
 		`SELECT id, messageReference, textMessage, senderUsername, receiverUsername, sentTimestamp,
-		chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, is_backed_up, createdAt, UpdatedAt FROM messages
+		chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, createdAt, UpdatedAt FROM messages
 		WHERE chatReference = $1 AND messageReference = $2`,
 		chatReference, messageReference,
 	)
@@ -162,7 +146,7 @@ func GetMessage(chatReference string, messageReference string) (*Message, error)
 		scanErr := rows.Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername,
 			&message.ReceiverUsername, &message.SentTimestamp, &message.ChatReference,
-			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.IsReadReceiptEnabled, &message.IsBackedUp, &message.CreatedAt, &message.UpdatedAt,
+			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.IsReadReceiptEnabled, &message.CreatedAt, &message.UpdatedAt,
 		)
 
 		if scanErr != nil {
@@ -191,7 +175,7 @@ func AcknowledgeMessages(
 		AND senderUsername <> $2
 		AND sentTimestamp BETWEEN $3 AND $4
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername,
-		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, is_backed_up, createdAt, updatedAt`,
+		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, createdAt, updatedAt`,
 		chatReference, username, from, to,
 	)
 	if err != nil {
@@ -204,7 +188,7 @@ func AcknowledgeMessages(
 		scanErr := rows.Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername,
 			&message.ReceiverUsername, &message.SentTimestamp, &message.ChatReference,
-			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.IsReadReceiptEnabled, &message.IsBackedUp, &message.CreatedAt, &message.UpdatedAt,
+			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.IsReadReceiptEnabled, &message.CreatedAt, &message.UpdatedAt,
 		)
 		if scanErr != nil {
 			return []Message{}, scanErr
@@ -217,7 +201,7 @@ func AcknowledgeMessages(
 		return []Message{}, e
 	}
 
-	// cleanup fully‐acknowledged, unbacked messages
+	// cleanup fully acknowledged messages
 	_ = cleanupFullyAcknowledgedMessages(chatReference)
 
 	return messages, nil
@@ -227,7 +211,7 @@ func GetAllUnacknowledgedMessages(chatReference string, username string) ([]Mess
 	messages := []Message{}
 	rows, err := Instance.Query(
 		`SELECT id, messageReference, textMessage, senderUsername, receiverUsername,
-		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, is_backed_up, createdAt, updatedAt
+		sentTimestamp, chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, createdAt, updatedAt
 		FROM messages WHERE chatReference = $1 AND (deliveredTimestamp IS NULL OR seenTimestamp IS NULL) AND senderUsername <> $2`,
 		chatReference, username,
 	)
@@ -242,7 +226,7 @@ func GetAllUnacknowledgedMessages(chatReference string, username string) ([]Mess
 		scanErr := rows.Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername,
 			&message.ReceiverUsername, &message.SentTimestamp, &message.ChatReference,
-			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.IsReadReceiptEnabled, &message.IsBackedUp, &message.CreatedAt, &message.UpdatedAt,
+			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.IsReadReceiptEnabled, &message.CreatedAt, &message.UpdatedAt,
 		)
 		if scanErr != nil {
 			return nil, scanErr
@@ -286,7 +270,7 @@ func DeleteMessage(messageReference string) (*Message, error) {
 	rows, err := Instance.Query(
 		`DELETE FROM messages WHERE messageReference = $1
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername, sentTimestamp,
-		chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, is_backed_up, createdAt, updatedAt`,
+		chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, createdAt, updatedAt`,
 		messageReference,
 	)
 
@@ -301,7 +285,7 @@ func DeleteMessage(messageReference string) (*Message, error) {
 		scanErr := rows.Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername,
 			&message.ReceiverUsername, &message.SentTimestamp, &message.ChatReference,
-			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.IsReadReceiptEnabled, &message.IsBackedUp,
+			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.IsReadReceiptEnabled,
 			&message.CreatedAt, &message.UpdatedAt,
 		)
 
@@ -320,7 +304,7 @@ func DeleteAllMessages(chatReference string) ([]Message, error) {
 	rows, err := Instance.Query(
 		`DELETE FROM messages WHERE chatReference = $1
 		RETURNING id, messageReference, textMessage, senderUsername, receiverUsername, sentTimestamp,
-		chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, is_backed_up, createdAt, updatedAt`,
+		chatReference, deliveredTimestamp, seenTimestamp, isReadReceiptEnabled, createdAt, updatedAt`,
 		chatReference,
 	)
 	if err != nil {
@@ -334,7 +318,7 @@ func DeleteAllMessages(chatReference string) ([]Message, error) {
 		scanErr := rows.Scan(
 			&message.Id, &message.MessageReference, &message.TextMessage, &message.SenderUsername,
 			&message.ReceiverUsername, &message.SentTimestamp, &message.ChatReference,
-			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.IsReadReceiptEnabled, &message.IsBackedUp,
+			&message.DeliveredTimestamp, &message.SeenTimestamp, &message.IsReadReceiptEnabled,
 			&message.CreatedAt, &message.UpdatedAt,
 		)
 		if scanErr != nil {
@@ -346,28 +330,25 @@ func DeleteAllMessages(chatReference string) ([]Message, error) {
 }
 
 // cleanupFullyAcknowledgedMessages deletes all messages inside a chat that have
-// both delivery and seen timestamps and are not marked for backup.
+// both delivery and seen timestamps.
 func cleanupFullyAcknowledgedMessages(chatReference string) error {
 	_, err := Instance.Exec(
 		`DELETE FROM messages
 		 WHERE chatReference = $1
 		   AND deliveredTimestamp IS NOT NULL
-		   AND seenTimestamp IS NOT NULL
-		   AND is_backed_up = FALSE`,
+		   AND seenTimestamp IS NOT NULL`,
 		chatReference,
 	)
 	return err
 }
 
 // CleanupAllFullyAcknowledgedMessages removes every message in every chat that
-// has been fully acknowledged and is not backed up.  This can be run periodically
-// as a safety net.
+// has been fully acknowledged. This can be run periodically as a safety net.
 func CleanupAllFullyAcknowledgedMessages() error {
 	_, err := Instance.Exec(
 		`DELETE FROM messages
 		 WHERE deliveredTimestamp IS NOT NULL
-		   AND seenTimestamp IS NOT NULL
-		   AND is_backed_up = FALSE`,
+		   AND seenTimestamp IS NOT NULL`,
 	)
 	return err
 }
