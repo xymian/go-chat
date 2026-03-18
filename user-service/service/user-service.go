@@ -31,6 +31,13 @@ type StorageServer struct {
 
 var Router *mux.Router = mux.NewRouter()
 
+func derefOrEmpty(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
+}
+
 func ConnectToStorageService() error {
 	conn, err := grpc.NewClient(
 		"storage-service:50054", grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -90,6 +97,46 @@ func (server *Server) AddConversation(ctx context.Context, req *pb.AddChatReques
 	return &emptypb.Empty{}, nil
 }
 
+func (server *Server) AddGroupConversation(ctx context.Context, req *pb.AddGroupChatRequest) (*emptypb.Empty, error) {
+	_, err := database.AddGroupConversation(
+		&database.User{
+			Id:                  int64(req.User.Id),
+			Username:            req.User.Username,
+			PasswordHash:        req.User.PasswordHash,
+			ChatReferences:      &req.User.ChatReferences,
+			GroupChatReferences: &req.User.GroupChatReferences,
+			CreatedAt:           req.User.CreatedAt,
+			UpdatedAt:           req.User.UpdatedAt,
+		},
+		req.ChatRef,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (server *Server) RemoveGroupConversation(ctx context.Context, req *pb.AddGroupChatRequest) (*emptypb.Empty, error) {
+	_, err := database.RemoveGroupConversation(
+		&database.User{
+			Id:                  int64(req.User.Id),
+			Username:            req.User.Username,
+			PasswordHash:        req.User.PasswordHash,
+			ChatReferences:      &req.User.ChatReferences,
+			GroupChatReferences: &req.User.GroupChatReferences,
+			CreatedAt:           req.User.CreatedAt,
+			UpdatedAt:           req.User.UpdatedAt,
+		},
+		req.ChatRef,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
 func (server *Server) DeleteUser(ctx context.Context, req *pb.UserRequest) (*pb.UserResponse, error) {
 	user, err := database.DeleteUser(req.UserId)
 	if err != nil {
@@ -97,12 +144,13 @@ func (server *Server) DeleteUser(ctx context.Context, req *pb.UserRequest) (*pb.
 	}
 	if user != nil {
 		return &pb.UserResponse{
-			Id:             uint64(user.Id),
-			Username:       user.Username,
-			PasswordHash:   user.PasswordHash,
-			ChatReferences: *user.ChatReferences,
-			CreatedAt:      user.CreatedAt,
-			UpdatedAt:      user.UpdatedAt,
+			Id:                  uint64(user.Id),
+			Username:            user.Username,
+			PasswordHash:        user.PasswordHash,
+			ChatReferences:      derefOrEmpty(user.ChatReferences),
+			GroupChatReferences: derefOrEmpty(user.GroupChatReferences),
+			CreatedAt:           user.CreatedAt,
+			UpdatedAt:           user.UpdatedAt,
 		}, nil
 	}
 
@@ -113,11 +161,12 @@ func (server *Server) InsertUser(ctx context.Context, user *pb.UserResponse) (*p
 	fmt.Println("has rows: ?")
 	insertUser, err := database.InsertUser(
 		database.User{
-			Username:       user.Username,
-			PasswordHash:   user.PasswordHash,
-			ChatReferences: &user.ChatReferences,
-			CreatedAt:      user.CreatedAt,
-			UpdatedAt:      user.UpdatedAt,
+			Username:            user.Username,
+			PasswordHash:        user.PasswordHash,
+			ChatReferences:      &user.ChatReferences,
+			GroupChatReferences: &user.GroupChatReferences,
+			CreatedAt:           user.CreatedAt,
+			UpdatedAt:           user.UpdatedAt,
 		},
 	)
 	if err != nil {
@@ -126,12 +175,13 @@ func (server *Server) InsertUser(ctx context.Context, user *pb.UserResponse) (*p
 
 	if insertUser != nil {
 		return &pb.UserResponse{
-			Id:             user.Id,
-			Username:       user.Username,
-			PasswordHash:   user.PasswordHash,
-			ChatReferences: user.ChatReferences,
-			CreatedAt:      user.CreatedAt,
-			UpdatedAt:      user.UpdatedAt,
+			Id:                  user.Id,
+			Username:            user.Username,
+			PasswordHash:        user.PasswordHash,
+			ChatReferences:      user.ChatReferences,
+			GroupChatReferences: user.GroupChatReferences,
+			CreatedAt:           user.CreatedAt,
+			UpdatedAt:           user.UpdatedAt,
 		}, nil
 	}
 
@@ -148,12 +198,13 @@ func (server *Server) GetUsers(ctx context.Context, empty *emptypb.Empty) (*pb.U
 		userList = append(
 			userList,
 			&pb.UserResponse{
-				Id:             uint64(user.Id),
-				Username:       user.Username,
-				PasswordHash:   user.PasswordHash,
-				ChatReferences: *user.ChatReferences,
-				CreatedAt:      user.CreatedAt,
-				UpdatedAt:      user.UpdatedAt,
+				Id:                  uint64(user.Id),
+				Username:            user.Username,
+				PasswordHash:        user.PasswordHash,
+				ChatReferences:      derefOrEmpty(user.ChatReferences),
+				GroupChatReferences: derefOrEmpty(user.GroupChatReferences),
+				CreatedAt:           user.CreatedAt,
+				UpdatedAt:           user.UpdatedAt,
 			},
 		)
 	}
@@ -169,12 +220,13 @@ func (server *Server) GetUser(ctx context.Context, req *pb.UserRequest) (*pb.Use
 	}
 	if user != nil {
 		return &pb.UserResponse{
-			Id:             uint64(user.Id),
-			Username:       user.Username,
-			PasswordHash:   user.PasswordHash,
-			ChatReferences: *user.ChatReferences,
-			CreatedAt:      user.CreatedAt,
-			UpdatedAt:      user.UpdatedAt,
+			Id:                  uint64(user.Id),
+			Username:            user.Username,
+			PasswordHash:        user.PasswordHash,
+			ChatReferences:      derefOrEmpty(user.ChatReferences),
+			GroupChatReferences: derefOrEmpty(user.GroupChatReferences),
+			CreatedAt:           user.CreatedAt,
+			UpdatedAt:           user.UpdatedAt,
 		}, nil
 	}
 

@@ -15,6 +15,12 @@ type NewChat struct {
 	ChatReference string `json:"chatReference"`
 }
 
+type NewGroupChat struct {
+	ChatReference string   `json:"chatReference"`
+	Name          *string  `json:"name"`
+	Participants  []string `json:"participants"`
+}
+
 type UserChatInfo struct {
 	Username        string `json:"username"`
 	DisplayImageUrl string `json:"displayImageUrl"`
@@ -33,11 +39,4 @@ type MessageDetails struct {
 	DeliveredTimestamp   string `json:"deliveredTimestamp"`
 	ReadTimestamp        string `json:"readTimestamp"`
 	IsReadReceiptEnabled string `json:"isReadReceiptEnabled"`
-}
-
-type AckRequest struct {
-	From          string `json:"from"`
-	To            string `json:"to"`
-	ChatReference string `json:"chatReference"`
-	Username      string `json:"username"`
 }

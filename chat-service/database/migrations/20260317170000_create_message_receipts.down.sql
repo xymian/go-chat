@@ -1,0 +1,4 @@
+ALTER TABLE messages ADD COLUMN deliveredTimestamp TIMESTAMP WITH TIME ZONE;
+ALTER TABLE messages ADD COLUMN seenTimestamp TIMESTAMP WITH TIME ZONE;
+
+DROP TABLE IF EXISTS message_receipts;

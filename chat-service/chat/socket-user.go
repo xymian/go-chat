@@ -32,13 +32,29 @@ func CreateSocketUser(user *pb.UserResponse, activity PresenceStatus) (*Socketus
 	conversations := &Conversations{
 		Chats: map[string]bool{},
 	}
-	conversationMap := map[int64]string{}
-	err := json.Unmarshal([]byte(user.ChatReferences), &conversationMap)
-	if err != nil {
-		return nil, err
+
+	if len(user.ChatReferences) > 0 {
+		conversationMap := map[int64]string{}
+		err := json.Unmarshal([]byte(user.ChatReferences), &conversationMap)
+		if err != nil {
+			return nil, err
+		}
+		for _, chatRef := range conversationMap {
+			conversations.Chats[chatRef] = true
+		}
 	}
-	for _, chatRef := range conversationMap {
-		conversations.Chats[chatRef] = true
+
+	if len(user.GroupChatReferences) > 0 {
+		groupChatMap := map[string]bool{}
+		err := json.Unmarshal([]byte(user.GroupChatReferences), &groupChatMap)
+		if err != nil {
+			return nil, err
+		}
+		for chatRef, active := range groupChatMap {
+			if active {
+				conversations.Chats[chatRef] = true
+			}
+		}
 	}
 	return &Socketuser{
 		Username: user.Username,

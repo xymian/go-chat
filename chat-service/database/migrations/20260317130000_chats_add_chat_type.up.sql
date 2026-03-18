@@ -1,0 +1,1 @@
+ALTER TABLE chats ADD COLUMN chatType VARCHAR(10) NOT NULL DEFAULT 'private';

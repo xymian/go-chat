@@ -140,7 +140,7 @@ func (user *Socketuser) WriteToPublicSocket() {
 }
 
 func (conversations *Conversations) sendUnacknowledgedMessages(chatRef string, user string) error {
-	messages, err := database.GetAllUnacknowledgedMessages(chatRef, user)
+	messages, err := database.GetMessagesWithIncompleteReceipts(chatRef, user)
 	if err != nil {
 		return err
 	}

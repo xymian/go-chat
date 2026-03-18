@@ -96,6 +96,34 @@ func GetParticipant(username string, chatReference string) (*Participant, error)
 	return nil, nil
 }
 
+func DeleteParticipant(username string, chatReference string) (*Participant, error) {
+	participant := &Participant{}
+	rows, err := Instance.Query(
+		`DELETE FROM participants WHERE username = $1 AND chatReference = $2
+		RETURNING id, username, chatReference, createdAt, updatedAt`,
+		username, chatReference,
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer rows.Close()
+
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(
+			&participant.Id, &participant.Username, &participant.ChatReference,
+			&participant.CreatedAt, &participant.UpdatedAt,
+		)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		return participant, nil
+	}
+	return nil, nil
+}
+
 func GetChatRefFor(user string, other string) (*string, error) {
 	var ref string
 	rows, err := Instance.Query(

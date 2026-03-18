@@ -8,12 +8,13 @@ import (
 )
 
 type User struct {
-	Id           int64   `json:"id"`
-	Username     string  `json:"username"`
-	PasswordHash string  `json:"passwordHash"`
-	ChatReferences *string `json:"chatReferences"`
-	CreatedAt    string  `json:"createdAt"`
-	UpdatedAt    string  `json:"updatedAt"`
+	Id                  int64   `json:"id"`
+	Username            string  `json:"username"`
+	PasswordHash        string  `json:"passwordHash"`
+	ChatReferences      *string `json:"chatReferences"`
+	GroupChatReferences *string `json:"groupChatReferences"`
+	CreatedAt           string  `json:"createdAt"`
+	UpdatedAt           string  `json:"updatedAt"`
 }
 
 func GetUsers(ids ...int64) ([]User, error) {
@@ -57,8 +58,9 @@ func InsertUser(user User) (*User, error) {
 		return nil, errors.New("invalid username")
 	}
 	rows, err := Instance.Query(
-		`INSERT INTO users(username, chatReferences, passwordHash) VALUES($1, $2, $3) RETURNING id, username, chatReferences, passwordHash, createdAt, updatedAt`,
-		user.Username, user.ChatReferences, user.PasswordHash,
+		`INSERT INTO users(username, chatReferences, groupChatReferences, passwordHash) VALUES($1, $2, $3, $4)
+		RETURNING id, username, chatReferences, groupChatReferences, passwordHash, createdAt, updatedAt`,
+		user.Username, user.ChatReferences, user.GroupChatReferences, user.PasswordHash,
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -68,7 +70,7 @@ func InsertUser(user User) (*User, error) {
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &user.ChatReferences, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
+		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.ChatReferences, &newUser.GroupChatReferences, &newUser.PasswordHash, &newUser.CreatedAt, &newUser.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -80,7 +82,7 @@ func InsertUser(user User) (*User, error) {
 func GetUser(username string) (*User, error) {
 	user := &User{}
 	rows, err := Instance.Query(
-		`SELECT id, username, passwordHash, ChatReferences, createdAt, updatedAt FROM users WHERE username = $1`, username,
+		`SELECT id, username, passwordHash, chatReferences, groupChatReferences, createdAt, updatedAt FROM users WHERE username = $1`, username,
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -90,7 +92,7 @@ func GetUser(username string) (*User, error) {
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.CreatedAt, &user.UpdatedAt)
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.GroupChatReferences, &user.CreatedAt, &user.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -102,7 +104,7 @@ func GetUser(username string) (*User, error) {
 func DeleteUser(username string) (*User, error) {
 	user := &User{}
 	rows, err := Instance.Query(
-		`DELETE FROM users WHERE username = $1 LIMIT 1 RETURNING id, username, passwordHash, ChatReferences createdAt, updatedAt`, username,
+		`DELETE FROM users WHERE username = $1 RETURNING id, username, passwordHash, chatReferences, groupChatReferences, createdAt, updatedAt`, username,
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -112,7 +114,7 @@ func DeleteUser(username string) (*User, error) {
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.CreatedAt, &user.UpdatedAt)
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.GroupChatReferences, &user.CreatedAt, &user.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -124,7 +126,7 @@ func DeleteUser(username string) (*User, error) {
 func GetAllUsers() ([]User, error) {
 	users := []User{}
 	rows, err := Instance.Query(
-		`SELECT id, username, passwordHash, ChatReferences, createdAt, updatedAt FROM users`,
+		`SELECT id, username, passwordHash, chatReferences, groupChatReferences, createdAt, updatedAt FROM users`,
 	)
 	if err != nil {
 		return []User{}, nil
@@ -132,7 +134,7 @@ func GetAllUsers() ([]User, error) {
 
 	for rows.Next() {
 		user := User{}
-		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.CreatedAt, &user.UpdatedAt)
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.GroupChatReferences, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
 			return nil, scanErr
 		}
@@ -147,7 +149,7 @@ func GetAllUsers() ([]User, error) {
 func DeleteAllUsers() ([]User, error) {
 	users := []User{}
 	rows, err := Instance.Query(
-		`DELETE FROM users RETURNING id, username, passwordHash, ChatReferences, createdAt, updatedAt`,
+		`DELETE FROM users RETURNING id, username, passwordHash, chatReferences, groupChatReferences, createdAt, updatedAt`,
 	)
 	if err != nil {
 		return []User{}, nil
@@ -157,7 +159,7 @@ func DeleteAllUsers() ([]User, error) {
 
 	for rows.Next() {
 		user := User{}
-		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.CreatedAt, &user.UpdatedAt)
+		scanErr := rows.Scan(&user.Id, &user.Username, &user.PasswordHash, &user.ChatReferences, &user.GroupChatReferences, &user.CreatedAt, &user.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -178,7 +180,7 @@ func AddConversation(user *User, otherUserId int64, chatReference string) (*User
 		return nil, err
 	}
 	rows, queryErr := Instance.Query(
-		`UPDATE users SET ChatReferences = $1 WHERE id = $2 RETURNING id, username, passwordHash, ChatReferences, createdAt, updatedAt`,
+		`UPDATE users SET chatReferences = $1 WHERE id = $2 RETURNING id, username, passwordHash, chatReferences, groupChatReferences, createdAt, updatedAt`,
 		ChatReferencesJsonString, user.Id,
 	)
 
@@ -190,7 +192,77 @@ func AddConversation(user *User, otherUserId int64, chatReference string) (*User
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.ChatReferences, &newUser.CreatedAt, &newUser.UpdatedAt)
+		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.ChatReferences, &newUser.GroupChatReferences, &newUser.CreatedAt, &newUser.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+
+		return newUser, nil
+	}
+	return nil, nil
+}
+
+func AddGroupConversation(user *User, chatReference string) (*User, error) {
+	newUser := &User{}
+	groupMap := map[string]bool{}
+	if user.GroupChatReferences != nil {
+		json.Unmarshal([]byte(*user.GroupChatReferences), &groupMap)
+	}
+	groupMap[chatReference] = true
+	groupChatRefsJson, err := json.Marshal(groupMap)
+	if err != nil {
+		return nil, err
+	}
+	rows, queryErr := Instance.Query(
+		`UPDATE users SET groupChatReferences = $1 WHERE id = $2
+		RETURNING id, username, passwordHash, chatReferences, groupChatReferences, createdAt, updatedAt`,
+		groupChatRefsJson, user.Id,
+	)
+
+	if queryErr != nil {
+		log.Fatal(queryErr)
+	}
+
+	defer rows.Close()
+
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.ChatReferences, &newUser.GroupChatReferences, &newUser.CreatedAt, &newUser.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+
+		return newUser, nil
+	}
+	return nil, nil
+}
+
+func RemoveGroupConversation(user *User, chatReference string) (*User, error) {
+	newUser := &User{}
+	groupMap := map[string]bool{}
+	if user.GroupChatReferences != nil {
+		json.Unmarshal([]byte(*user.GroupChatReferences), &groupMap)
+	}
+	groupMap[chatReference] = false
+	groupChatRefsJson, err := json.Marshal(groupMap)
+	if err != nil {
+		return nil, err
+	}
+	rows, queryErr := Instance.Query(
+		`UPDATE users SET groupChatReferences = $1 WHERE id = $2
+		RETURNING id, username, passwordHash, chatReferences, groupChatReferences, createdAt, updatedAt`,
+		groupChatRefsJson, user.Id,
+	)
+
+	if queryErr != nil {
+		log.Fatal(queryErr)
+	}
+
+	defer rows.Close()
+
+	hasRows := rows.Next()
+	if hasRows {
+		scanErr := rows.Scan(&newUser.Id, &newUser.Username, &newUser.PasswordHash, &newUser.ChatReferences, &newUser.GroupChatReferences, &newUser.CreatedAt, &newUser.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}

@@ -5,11 +5,20 @@ import (
 	"log"
 )
 
+type ChatType string
+
+const (
+	ChatTypePrivate ChatType = "private"
+	ChatTypeGroup   ChatType = "group"
+)
+
 type Chat struct {
-	Id            string `json:"id"`
-	ChatReference string `json:"chatReference"`
-	CreatedAt     string `json:"createdAt"`
-	UpdatedAt     string `json:"updatedAt"`
+	Id            string   `json:"id"`
+	ChatReference string   `json:"chatReference"`
+	ChatType      ChatType `json:"chatType"`
+	Name          *string  `json:"name"`
+	CreatedAt     string   `json:"createdAt"`
+	UpdatedAt     string   `json:"updatedAt"`
 }
 
 func InsertChat(chat Chat) (*Chat, error) {
@@ -17,9 +26,12 @@ func InsertChat(chat Chat) (*Chat, error) {
 	if len(chat.ChatReference) == 0 {
 		return nil, errors.New("invalid chat")
 	}
+	if chat.ChatType == "" {
+		chat.ChatType = ChatTypePrivate
+	}
 	rows, err := Instance.Query(
-		`INSERT INTO chats (chatReference) VALUES ($1) RETURNING id, chatReference, createdAt, updatedAt`,
-		chat.ChatReference,
+		`INSERT INTO chats (chatReference, chatType, name) VALUES ($1, $2, $3) RETURNING id, chatReference, chatType, name, createdAt, updatedAt`,
+		chat.ChatReference, chat.ChatType, chat.Name,
 	)
 
 	if err != nil {
@@ -30,7 +42,7 @@ func InsertChat(chat Chat) (*Chat, error) {
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&chat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+		scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.ChatType, &newChat.Name, &newChat.CreatedAt, &newChat.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -43,7 +55,7 @@ func InsertChat(chat Chat) (*Chat, error) {
 func GetChat(reference string) (*Chat, error) {
 	newChat := &Chat{}
 	rows, err := Instance.Query(
-		`SELECT id, chatReference, createdAt, updatedAt FROM chats WHERE chatReference = $1`,
+		`SELECT id, chatReference, chatType, name, createdAt, updatedAt FROM chats WHERE chatReference = $1`,
 		reference,
 	)
 	if err != nil {
@@ -54,7 +66,7 @@ func GetChat(reference string) (*Chat, error) {
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+		scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.ChatType, &newChat.Name, &newChat.CreatedAt, &newChat.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -66,7 +78,7 @@ func GetChat(reference string) (*Chat, error) {
 func DeleteChat(reference string) (*Chat, error) {
 	newChat := &Chat{}
 	rows, err := Instance.Query(
-		`DELETE FROM chats WHERE chatReference = $1 RETURNING id, chatReference, createdAt, updatedAt`,
+		`DELETE FROM chats WHERE chatReference = $1 RETURNING id, chatReference, chatType, name, createdAt, updatedAt`,
 		reference,
 	)
 
@@ -78,7 +90,7 @@ func DeleteChat(reference string) (*Chat, error) {
 
 	hasRows := rows.Next()
 	if hasRows {
-		scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.CreatedAt, &newChat.UpdatedAt)
+		scanErr := rows.Scan(&newChat.Id, &newChat.ChatReference, &newChat.ChatType, &newChat.Name, &newChat.CreatedAt, &newChat.UpdatedAt)
 		if scanErr != nil {
 			return nil, scanErr
 		}
