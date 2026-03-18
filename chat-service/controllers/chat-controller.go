@@ -881,6 +881,86 @@ func AddGroupMember(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
+func DeleteConversation(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	username, ok := r.Context().Value(middleware.ContextKeyUsername).(string)
+	if !ok || username == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "could not identify the requesting user",
+			Error:        "unauthorized",
+			StatusCode:   http.StatusUnauthorized,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	chatRef := mux.Vars(r)["chatReference"]
+
+	user, uErr := service.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: username})
+	if uErr != nil || user == nil {
+		w.WriteHeader(http.StatusNotFound)
+		errMsg := ""
+		if uErr != nil {
+			errMsg = uErr.Error()
+		}
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "user not found",
+			Error:        errMsg,
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	_, grpcErr := service.UserService.RemoveUserConversation(
+		context.Background(),
+		&pb.RemoveUserConversationRequest{
+			UserId:        user.Id,
+			ChatReference: chatRef,
+		},
+	)
+	if grpcErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "could not delete conversation",
+			Error:        grpcErr.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// If the user is currently connected via the conversations socket (AWAY),
+	// remove the chat from their in-memory map so messages don't trigger
+	// a restore until a new message actually arrives.
+	activeUser := chat.ActiveSocketUsers[username]
+	if activeUser != nil && activeUser.Chats != nil {
+		delete(activeUser.Chats, chatRef)
+	}
+
+	response := models.Response[string]{
+		Data:         nil,
+		Message:      "conversation deleted",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}
+
 func RemoveGroupMember(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var request addGroupMemberRequest

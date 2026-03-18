@@ -23,6 +23,7 @@ type PrivateChat struct {
 type Socketuser struct {
 	PrivateChat
 	*Conversations
+	UserId   uint64
 	Username string
 	Activity PresenceStatus
 }
@@ -39,6 +40,7 @@ func CreateSocketUser(user *pb.UserResponse, convs []*pb.UserConversation, activ
 	}
 
 	return &Socketuser{
+		UserId:   user.Id,
 		Username: user.Username,
 		Activity: activity,
 

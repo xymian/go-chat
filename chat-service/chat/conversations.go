@@ -79,6 +79,23 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 	socketUser.Conversations.Notify = make(chan database.Message)
 	socketUser.Conversations.Conn = conn
 
+	// Restore any hidden conversations that have unread messages so they
+	// reappear in the user's conversation list on reconnect.
+	chatsWithUnread, _ := database.GetChatsWithUnreadForUser(username)
+	for _, c := range chatsWithUnread {
+		if !socketUser.Chats[c.ChatReference] {
+			_, _ = service.UserService.AddUserConversation(
+				context.Background(),
+				&pb.AddUserConversationRequest{
+					UserId:        socketUser.UserId,
+					ChatReference: c.ChatReference,
+					ChatType:      string(c.ChatType),
+				},
+			)
+			socketUser.Chats[c.ChatReference] = true
+		}
+	}
+
 	defer func() {
 		socketUser.Conn.Close()
 		fmt.Println("conversations socket closed")

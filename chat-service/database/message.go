@@ -301,6 +301,41 @@ func DeleteAllMessages(chatReference string) ([]Message, error) {
 	return messages, nil
 }
 
+// GetChatsWithUnreadForUser returns all chats where the given user is a
+// participant and has at least one message with an incomplete receipt
+// (i.e. sent by someone else and not yet fully delivered/seen).
+func GetChatsWithUnreadForUser(username string) ([]Chat, error) {
+	chats := []Chat{}
+	rows, err := Instance.Query(
+		`SELECT DISTINCT c.id, c.chatReference, c.chatType, c.name, c.createdAt, c.updatedAt
+		FROM participants p
+		JOIN chats c ON c.chatReference = p.chatReference
+		WHERE p.username = $1
+		AND EXISTS (
+			SELECT 1 FROM messages m
+			LEFT JOIN message_receipts r ON m.messageReference = r.messageReference AND r.username = $1
+			WHERE m.chatReference = p.chatReference
+			AND m.senderUsername <> $1
+			AND (r.deliveredTimestamp IS NULL OR r.seenTimestamp IS NULL OR r.id IS NULL)
+		)`,
+		username,
+	)
+	if err != nil {
+		return chats, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		c := Chat{}
+		scanErr := rows.Scan(&c.Id, &c.ChatReference, &c.ChatType, &c.Name, &c.CreatedAt, &c.UpdatedAt)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		chats = append(chats, c)
+	}
+	return chats, nil
+}
+
 // CleanupAllFullyAcknowledgedMessages removes every message across all chats
 // that has a fully acknowledged receipt. Group messages have no receipts so
 // they are never affected.

@@ -19,6 +19,8 @@ func RegisterChatRoutes() {
 	service.Router.HandleFunc("/chatReference", middleware.WithJWTMiddleware(controllers.GetChatRefForUsers)).Methods("GET")
 	service.Router.HandleFunc("/chatReference", middleware.WithJWTMiddleware(controllers.AddChatReference)).Methods("POST")
 
+	service.Router.HandleFunc("/conversations/{chatReference}", middleware.WithJWTMiddleware(controllers.DeleteConversation)).Methods("DELETE")
+
 	service.Router.HandleFunc("/create-groupchat", middleware.WithJWTMiddleware(controllers.CreateGroupChat)).Methods("POST")
 	service.Router.HandleFunc("/group-chat/add-member", middleware.WithJWTMiddleware(controllers.AddGroupMember)).Methods("POST")
 	service.Router.HandleFunc("/group-chat/remove-member", middleware.WithJWTMiddleware(controllers.RemoveGroupMember)).Methods("POST")

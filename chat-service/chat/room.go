@@ -73,6 +73,20 @@ func (room *Room) Run() {
 				receiver := ActiveSocketUsers[username]
 				if receiver != nil {
 					if receiver.Activity == AWAY {
+						// If the conversation was hidden by this user, restore it
+						// before delivering the new message so it reappears in
+						// their conversation list.
+						if !receiver.Chats[message.ChatReference] {
+							_, _ = service.UserService.AddUserConversation(
+								context.Background(),
+								&pb.AddUserConversationRequest{
+									UserId:        receiver.UserId,
+									ChatReference: message.ChatReference,
+									ChatType:      string(room.ChatType),
+								},
+							)
+							receiver.Chats[message.ChatReference] = true
+						}
 						receiver.Notify <- message
 					} else {
 						ActiveSocketUsers[username].IncomingMessage <- message
