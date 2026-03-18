@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/te6lim/go-chat/user-service/database"
 	"github.com/te6lim/go-chat/user-service/models"
 	"github.com/te6lim/go-chat/user-service/util"
 
@@ -51,10 +52,11 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
-func GetInteractions(w http.ResponseWriter, r *http.Request) {
+func GetConversations(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
 	var response interface{}
+
 	user, err := service.UserServer.GetUser(context.Background(), &pb.UserRequest{
 		UserId: username,
 	})
@@ -71,28 +73,30 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
+
+	convs, err := database.GetUserConversations(int64(user.Id))
+	if err != nil {
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "",
+			Error:        err.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Build a map of otherUserId -> chatReference for private conversations
 	conversationMap := map[int64]string{}
-	if len(user.ChatReferences) != 0 {
-		err := json.Unmarshal([]byte(user.ChatReferences), &conversationMap)
-		if err != nil {
-			response = models.Response[string]{
-				Data:         nil,
-				Message:      "",
-				Error:        err.Error(),
-				StatusCode:   http.StatusInternalServerError,
-				IsSuccessful: false,
-			}
-			w.WriteHeader(http.StatusInternalServerError)
-			res, _ := json.Marshal(response)
-			w.Write(res)
-			return
+	for _, c := range convs {
+		if c.ChatType == "private" {
+			conversationMap[c.OtherUserId] = c.ChatReference
 		}
 	}
 
-	userIds := []int64{}
-	for k := range conversationMap {
-		userIds = append(userIds, k)
-	}
 	userList, err := service.UserServer.GetUsers(context.Background(), nil)
 	if err != nil {
 		response = models.Response[string]{
@@ -107,13 +111,17 @@ func GetInteractions(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
+
 	userChatInfo := []*models.UserChatInfo{}
 	for _, u := range userList.Users {
-		userChatInfo = append(userChatInfo, &models.UserChatInfo{
-			Username:        u.Username,
-			DisplayImageUrl: "",
-			ChatReference:   conversationMap[int64(u.Id)],
-		})
+		chatRef := conversationMap[int64(u.Id)]
+		if chatRef != "" {
+			userChatInfo = append(userChatInfo, &models.UserChatInfo{
+				Username:        u.Username,
+				DisplayImageUrl: "",
+				ChatReference:   chatRef,
+			})
+		}
 	}
 
 	response = models.Response[[]*models.UserChatInfo]{

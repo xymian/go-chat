@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/gorilla/websocket"
@@ -17,8 +16,8 @@ var LoggedOutUser chan *Socketuser = make(chan *Socketuser)
 var AwayUser chan *Socketuser = make(chan *Socketuser)
 
 type PrivateChat struct {
-	PrivateConn    *websocket.Conn
-	ReceiveMessage chan database.Message
+	PrivateConn     *websocket.Conn
+	IncomingMessage chan database.Message
 }
 
 type Socketuser struct {
@@ -28,40 +27,23 @@ type Socketuser struct {
 	Activity PresenceStatus
 }
 
-func CreateSocketUser(user *pb.UserResponse, activity PresenceStatus) (*Socketuser, error) {
+func CreateSocketUser(user *pb.UserResponse, convs []*pb.UserConversation, activity PresenceStatus) (*Socketuser, error) {
 	conversations := &Conversations{
 		Chats: map[string]bool{},
 	}
 
-	if len(user.ChatReferences) > 0 {
-		conversationMap := map[int64]string{}
-		err := json.Unmarshal([]byte(user.ChatReferences), &conversationMap)
-		if err != nil {
-			return nil, err
-		}
-		for _, chatRef := range conversationMap {
-			conversations.Chats[chatRef] = true
+	for _, c := range convs {
+		if c.Visible {
+			conversations.Chats[c.ChatReference] = true
 		}
 	}
 
-	if len(user.GroupChatReferences) > 0 {
-		groupChatMap := map[string]bool{}
-		err := json.Unmarshal([]byte(user.GroupChatReferences), &groupChatMap)
-		if err != nil {
-			return nil, err
-		}
-		for chatRef, active := range groupChatMap {
-			if active {
-				conversations.Chats[chatRef] = true
-			}
-		}
-	}
 	return &Socketuser{
 		Username: user.Username,
 		Activity: activity,
 
 		PrivateChat: PrivateChat{
-			ReceiveMessage: make(chan database.Message),
+			IncomingMessage: make(chan database.Message),
 		},
 
 		Conversations: conversations,

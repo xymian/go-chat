@@ -33,10 +33,10 @@ type addGroupMemberRequest struct {
 	Username      string `json:"username"`
 }
 
-func SetupPublicSocket(w http.ResponseWriter, r *http.Request) {
+func SetupConversationsSocket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
-	chat.SetUpPublicSocket(username)
+	chat.SetupConversationsSocket(username)
 	response := models.Response[string]{
 		Data:         nil,
 		Message:      "",
@@ -417,19 +417,11 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			_, err := service.UserService.AddConversation(context.Background(), &pb.AddChatRequest{
-				User: &pb.UserResponse{
-					Id:             uint64(user.Id),
-					Username:       user.Username,
-					PasswordHash:   user.PasswordHash,
-					ChatReferences: user.ChatReferences,
-					CreatedAt:      user.CreatedAt,
-					UpdatedAt:      user.UpdatedAt,
-				},
-				Chat: &pb.Chat{
-					Username: otheruser.Username,
-					ChatRef:  chat.ChatReference,
-				},
+			_, err := service.UserService.AddUserConversation(context.Background(), &pb.AddUserConversationRequest{
+				UserId:        uint64(user.Id),
+				ChatReference: chat.ChatReference,
+				ChatType:      "private",
+				OtherUserId:   otheruser.Id,
 			})
 
 			if err != nil {
@@ -462,19 +454,11 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			w.Write(res)
 			return
 		} else {
-			_, err := service.UserService.AddConversation(context.Background(), &pb.AddChatRequest{
-				User: &pb.UserResponse{
-					Id:             uint64(user.Id),
-					Username:       user.Username,
-					PasswordHash:   user.PasswordHash,
-					ChatReferences: user.ChatReferences,
-					CreatedAt:      user.CreatedAt,
-					UpdatedAt:      user.UpdatedAt,
-				},
-				Chat: &pb.Chat{
-					Username: otheruser.Username,
-					ChatRef:  *chatRef,
-				},
+			_, err := service.UserService.AddUserConversation(context.Background(), &pb.AddUserConversationRequest{
+				UserId:        uint64(user.Id),
+				ChatReference: *chatRef,
+				ChatType:      "private",
+				OtherUserId:   otheruser.Id,
 			})
 
 			if err != nil {
@@ -658,11 +642,12 @@ func CreateGroupChat(w http.ResponseWriter, r *http.Request) {
 	// Register the group chat reference on each participant via gRPC
 	for _, username := range allParticipants {
 		user := validatedUsers[username]
-		_, grpcErr := service.UserService.AddGroupConversation(
+		_, grpcErr := service.UserService.AddUserConversation(
 			context.Background(),
-			&pb.AddGroupChatRequest{
-				User:    user,
-				ChatRef: newChat.ChatReference,
+			&pb.AddUserConversationRequest{
+				UserId:        user.Id,
+				ChatReference: newChat.ChatReference,
+				ChatType:      "group",
 			},
 		)
 		if grpcErr != nil {
@@ -677,8 +662,8 @@ func CreateGroupChat(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		activeUser := chat.ActiveSocketUsers[username]
-		if activeUser != nil && activeUser.IReceiveMessage != nil {
-			activeUser.IReceiveMessage <- database.Message{
+		if activeUser != nil && activeUser.Notify != nil {
+			activeUser.Notify <- database.Message{
 				MessageReference: uuid.NewString(),
 				SenderUsername:   creator,
 				ChatReference:    newChat.ChatReference,
@@ -848,11 +833,12 @@ func AddGroupMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Register the group chat reference on the user via gRPC
-	_, grpcErr := service.UserService.AddGroupConversation(
+	_, grpcErr := service.UserService.AddUserConversation(
 		context.Background(),
-		&pb.AddGroupChatRequest{
-			User:    newUser,
-			ChatRef: request.ChatReference,
+		&pb.AddUserConversationRequest{
+			UserId:        newUser.Id,
+			ChatReference: request.ChatReference,
+			ChatType:      "group",
 		},
 	)
 	if grpcErr != nil {
@@ -862,8 +848,8 @@ func AddGroupMember(w http.ResponseWriter, r *http.Request) {
 	// Notify the new member via their public socket
 	groupInviteStatus := "GROUP_INVITE"
 	activeUser := chat.ActiveSocketUsers[request.Username]
-	if activeUser != nil && activeUser.IReceiveMessage != nil {
-		activeUser.IReceiveMessage <- database.Message{
+	if activeUser != nil && activeUser.Notify != nil {
+		activeUser.Notify <- database.Message{
 			MessageReference: uuid.NewString(),
 			SenderUsername:   requester,
 			ChatReference:    request.ChatReference,
@@ -1014,11 +1000,11 @@ func RemoveGroupMember(w http.ResponseWriter, r *http.Request) {
 		context.Background(), &pb.UserRequest{UserId: request.Username},
 	)
 	if uErr == nil && targetUser != nil {
-		_, grpcErr := service.UserService.RemoveGroupConversation(
+		_, grpcErr := service.UserService.RemoveUserConversation(
 			context.Background(),
-			&pb.AddGroupChatRequest{
-				User:    targetUser,
-				ChatRef: request.ChatReference,
+			&pb.RemoveUserConversationRequest{
+				UserId:        targetUser.Id,
+				ChatReference: request.ChatReference,
 			},
 		)
 		if grpcErr != nil {
@@ -1029,8 +1015,8 @@ func RemoveGroupMember(w http.ResponseWriter, r *http.Request) {
 	// Notify the removed user via their public socket
 	groupRemoveStatus := "GROUP_REMOVED"
 	activeUser := chat.ActiveSocketUsers[request.Username]
-	if activeUser != nil && activeUser.IReceiveMessage != nil {
-		activeUser.IReceiveMessage <- database.Message{
+	if activeUser != nil && activeUser.Notify != nil {
+		activeUser.Notify <- database.Message{
 			MessageReference: uuid.NewString(),
 			SenderUsername:   requester,
 			ChatReference:    request.ChatReference,

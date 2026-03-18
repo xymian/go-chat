@@ -54,7 +54,7 @@ func (room *Room) Run() {
 
 		case user := <-room.leave:
 			if ActiveSocketUsers[user.Username] != nil {
-				if ActiveSocketUsers[user.Username].PublicConn != nil {
+				if ActiveSocketUsers[user.Username].Conn != nil {
 					ActiveSocketUsers[user.Username].Activity = AWAY
 				} else {
 					LoggedOutUser <- user
@@ -73,10 +73,9 @@ func (room *Room) Run() {
 				receiver := ActiveSocketUsers[username]
 				if receiver != nil {
 					if receiver.Activity == AWAY {
-						receiver.IReceiveMessage <- message
-						//room.Tracer.Trace("Message sent through conversation socket: ", message.TextMessage, " to User", receiver.Username)
+						receiver.Notify <- message
 					} else {
-						ActiveSocketUsers[username].ReceiveMessage <- message
+						ActiveSocketUsers[username].IncomingMessage <- message
 					}
 				}
 			}
@@ -126,7 +125,7 @@ func (user *Socketuser) WriteMessages(room *Room) {
 		fmt.Println("done receiving")
 		room.leave <- user
 	}()
-	for message := range user.ReceiveMessage {
+	for message := range user.IncomingMessage {
 		if room.participants[user.Username] {
 			user.PrivateConn.WriteJSON(message)
 		} else {
@@ -179,7 +178,15 @@ func HandleRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newUser, createErr := CreateSocketUser(user, ONLINE)
+	convsResp, convsErr := service.UserService.GetUserConversations(
+		context.Background(),
+		&pb.UserRequest{UserId: username},
+	)
+	if convsErr != nil {
+		convsResp = &pb.UserConversationsResponse{}
+	}
+
+	newUser, createErr := CreateSocketUser(user, convsResp.Conversations, ONLINE)
 	if createErr != nil {
 		w.WriteHeader(http.StatusNotFound)
 		log.Fatal("error creating socket user")

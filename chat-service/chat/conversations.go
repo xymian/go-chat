@@ -9,20 +9,20 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
-	"github.com/te6lim/go-chat/chat-service/service"
 	"github.com/te6lim/go-chat/chat-service/database"
 	"github.com/te6lim/go-chat/chat-service/models"
+	"github.com/te6lim/go-chat/chat-service/service"
 
 	pb "github.com/te6lim/go-chat-protos/userpb"
 )
 
 type Conversations struct {
-	PublicConn      *websocket.Conn
-	Chats           map[string]bool
-	IReceiveMessage chan database.Message
+	Conn   *websocket.Conn
+	Chats  map[string]bool
+	Notify chan database.Message
 }
 
-func SetUpPublicSocket(username string) {
+func SetupConversationsSocket(username string) {
 	endpoint := fmt.Sprintf("/conversations/%s", username)
 	service.Router.HandleFunc(endpoint, HandleConversations)
 }
@@ -53,7 +53,15 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	socketUser, createErr := CreateSocketUser(user, AWAY)
+	convsResp, convsErr := service.UserService.GetUserConversations(
+		context.Background(),
+		&pb.UserRequest{UserId: username},
+	)
+	if convsErr != nil {
+		convsResp = &pb.UserConversationsResponse{}
+	}
+
+	socketUser, createErr := CreateSocketUser(user, convsResp.Conversations, AWAY)
 	if createErr != nil {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
@@ -68,32 +76,32 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	socketUser.Conversations.IReceiveMessage = make(chan database.Message)
-	socketUser.Conversations.PublicConn = conn
+	socketUser.Conversations.Notify = make(chan database.Message)
+	socketUser.Conversations.Conn = conn
 
 	defer func() {
-		socketUser.PublicConn.Close()
+		socketUser.Conn.Close()
 		fmt.Println("conversations socket closed")
 		LoggedOutUser <- socketUser
 	}()
 
 	socketUser.Activity = AWAY
 	NewUserFromConversationsSetup <- socketUser
-	go socketUser.ReadFromPublicSocket()
-	go sendUnacknowledgedMessagesForAllUserCoversations(socketUser)
-	socketUser.WriteToPublicSocket()
+	go socketUser.ReadConversations()
+	go sendUnacknowledgedMessagesForAllConversations(socketUser)
+	socketUser.WriteConversations()
 }
 
-func (user *Socketuser) ReadFromPublicSocket() {
+func (user *Socketuser) ReadConversations() {
 	defer func() {
-		user.PublicConn.Close()
+		user.Conn.Close()
 		fmt.Println("conversations socket closed")
 		LoggedOutUser <- user
 	}()
 
 	for {
 		message := database.Message{}
-		err := user.PublicConn.ReadJSON(&message)
+		err := user.Conn.ReadJSON(&message)
 		if err != nil {
 			return
 		}
@@ -122,16 +130,16 @@ func (user *Socketuser) ReadFromPublicSocket() {
 	}
 }
 
-func (user *Socketuser) WriteToPublicSocket() {
+func (user *Socketuser) WriteConversations() {
 	defer func() {
-		user.PublicConn.Close()
+		user.Conn.Close()
 		fmt.Println("conversations socket closed")
 		LoggedOutUser <- user
 	}()
 
 	for {
-		msg := <- user.IReceiveMessage
-		err := user.PublicConn.WriteJSON(msg)
+		msg := <-user.Notify
+		err := user.Conn.WriteJSON(msg)
 		if err != nil {
 			fmt.Println("Connection error: ", err)
 			return
@@ -146,12 +154,12 @@ func (conversations *Conversations) sendUnacknowledgedMessages(chatRef string, u
 	}
 
 	for _, message := range messages {
-		conversations.IReceiveMessage <- message
+		conversations.Notify <- message
 	}
 	return nil
 }
 
-func sendUnacknowledgedMessagesForAllUserCoversations(socketUser *Socketuser) {
+func sendUnacknowledgedMessagesForAllConversations(socketUser *Socketuser) {
 	for chatRef := range socketUser.Chats {
 		go func() {
 			socketUser.Conversations.sendUnacknowledgedMessages(chatRef, socketUser.Username)

@@ -8,7 +8,7 @@ import (
 
 func RegisterChatRoutes() {
 	service.Router.HandleFunc("/chat", middleware.WithJWTMiddleware(controllers.SetupRoomSocket)).Methods("POST")
-	service.Router.HandleFunc("/interactions/{username}", middleware.WithJWTMiddleware(controllers.SetupPublicSocket)).Methods("POST")
+	service.Router.HandleFunc("/conversations/{username}", middleware.WithJWTMiddleware(controllers.SetupConversationsSocket)).Methods("POST")
 
 	service.Router.HandleFunc("/messages", middleware.WithJWTMiddleware(controllers.InsertMessage)).Methods("POST")
 	service.Router.HandleFunc("/messages", middleware.WithJWTMiddleware(controllers.DeleteMessage)).Methods("DELETE")

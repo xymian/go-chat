@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS chatReferences TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS groupChatReferences TEXT;
