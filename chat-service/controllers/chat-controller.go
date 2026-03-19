@@ -447,7 +447,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 
 			// Notify the invited user via their conversations socket if they are online.
 			chatInviteStatus := "CHAT_INVITE"
-			activeOther := chat.ActiveSocketUsers[request.Other]
+			activeOther := chat.GetActiveUser(request.Other)
 			if activeOther != nil && activeOther.Notify != nil {
 				activeOther.Notify <- database.Message{
 					MessageReference: uuid.NewString(),

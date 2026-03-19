@@ -202,7 +202,7 @@ func acceptInvite(user *Socketuser, message database.Message) {
 
 	// Notify the initiator.
 	acceptedStatus := "INVITE_ACCEPTED"
-	activeInitiator := ActiveSocketUsers[initiatorUsername]
+	activeInitiator := GetActiveUser(initiatorUsername)
 	if activeInitiator != nil && activeInitiator.Notify != nil {
 		activeInitiator.Notify <- database.Message{
 			MessageReference: uuid.NewString(),
@@ -254,7 +254,7 @@ func declineInvite(user *Socketuser, message database.Message) {
 		ChatReference: chatRef,
 	})
 
-	activeInitiator := ActiveSocketUsers[initiatorUsername]
+	activeInitiator := GetActiveUser(initiatorUsername)
 	if activeInitiator == nil {
 		return
 	}
