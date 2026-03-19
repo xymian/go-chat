@@ -364,9 +364,12 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 	if cErr == nil {
 		if chatRef == nil {
 			ref := uuid.NewString()
+
+			// Initiator is immediately accepted.
 			_, pErr := database.InsertParticipant(database.Participant{
 				Username:      request.User,
 				ChatReference: ref,
+				Status:        database.ParticipantStatusAccepted,
 			})
 			if pErr != nil {
 				response = models.Response[string]{
@@ -382,9 +385,11 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// Invited user starts as PENDING — must accept before messaging.
 			_, otherErr := database.InsertParticipant(database.Participant{
 				Username:      request.Other,
 				ChatReference: ref,
+				Status:        database.ParticipantStatusPending,
 			})
 			if otherErr != nil {
 				response = models.Response[string]{
@@ -400,7 +405,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			chat, chatErr := database.InsertChat(database.Chat{
+			newChat, chatErr := database.InsertChat(database.Chat{
 				ChatReference: ref,
 			})
 			if chatErr != nil {
@@ -417,9 +422,11 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// Only register the conversation for the initiator.
+			// The invited user's conversation is registered upon acceptance.
 			_, err := service.UserService.AddUserConversation(context.Background(), &pb.AddUserConversationRequest{
 				UserId:        uint64(user.Id),
-				ChatReference: chat.ChatReference,
+				ChatReference: newChat.ChatReference,
 				ChatType:      "private",
 				OtherUserId:   otheruser.Id,
 			})
@@ -438,13 +445,26 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// Notify the invited user via their conversations socket if they are online.
+			chatInviteStatus := "CHAT_INVITE"
+			activeOther := chat.ActiveSocketUsers[request.Other]
+			if activeOther != nil && activeOther.Notify != nil {
+				activeOther.Notify <- database.Message{
+					MessageReference: uuid.NewString(),
+					SenderUsername:   request.User,
+					ChatReference:    newChat.ChatReference,
+					MessageStatus:    &chatInviteStatus,
+					SentTimestamp:    time.Now().Format(time.RFC3339),
+				}
+			}
+
 			response = models.Response[models.NewChat]{
 				Data: &models.NewChat{
 					User:          request.User,
 					Other:         request.Other,
-					ChatReference: chat.ChatReference,
+					ChatReference: newChat.ChatReference,
 				},
-				Message:      "",
+				Message:      "invitation sent — waiting for " + request.Other + " to accept",
 				Error:        "",
 				StatusCode:   http.StatusOK,
 				IsSuccessful: true,
@@ -1127,3 +1147,4 @@ func RemoveGroupMember(w http.ResponseWriter, r *http.Request) {
 	res, _ := json.Marshal(response)
 	w.Write(res)
 }
+

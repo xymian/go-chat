@@ -7,7 +7,9 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/te6lim/go-chat/chat-service/database"
 	"github.com/te6lim/go-chat/chat-service/models"
@@ -123,6 +125,18 @@ func (user *Socketuser) ReadConversations() {
 			return
 		}
 
+		// Handle invite responses before any room forwarding.
+		if message.MessageStatus != nil {
+			switch *message.MessageStatus {
+			case "ACCEPT_INVITE":
+				acceptInvite(user, message)
+				continue
+			case "DECLINE_INVITE":
+				declineInvite(user, message)
+				continue
+			}
+		}
+
 		var upToDateMessage *database.Message = &message
 		var insertErr error = nil
 
@@ -143,6 +157,120 @@ func (user *Socketuser) ReadConversations() {
 			if insertErr != nil {
 				return
 			}
+		}
+	}
+}
+
+func acceptInvite(user *Socketuser, message database.Message) {
+	chatRef := message.ChatReference
+	invitee := user.Username
+
+	myParticipant, _ := database.GetParticipant(invitee, chatRef)
+	if myParticipant == nil || myParticipant.Status != database.ParticipantStatusPending {
+		return
+	}
+
+	allParticipants, _ := database.GetParticipantsInChat(chatRef)
+	initiatorUsername := ""
+	for _, p := range allParticipants {
+		if p.Username != invitee {
+			initiatorUsername = p.Username
+			break
+		}
+	}
+
+	if _, err := database.UpdateParticipantStatus(invitee, chatRef, database.ParticipantStatusAccepted); err != nil {
+		return
+	}
+
+	// Register the conversation in user-service for the invitee now that they accepted.
+	inviteeUser, uErr := service.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: invitee})
+	if uErr == nil && inviteeUser != nil {
+		initiatorUser, iErr := service.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: initiatorUsername})
+		if iErr == nil && initiatorUser != nil {
+			_, _ = service.UserService.AddUserConversation(context.Background(), &pb.AddUserConversationRequest{
+				UserId:        inviteeUser.Id,
+				ChatReference: chatRef,
+				ChatType:      "private",
+				OtherUserId:   initiatorUser.Id,
+			})
+		}
+	}
+
+	// Track the chat in the invitee's in-memory map.
+	user.Chats[chatRef] = true
+
+	// Notify the initiator.
+	acceptedStatus := "INVITE_ACCEPTED"
+	activeInitiator := ActiveSocketUsers[initiatorUsername]
+	if activeInitiator != nil && activeInitiator.Notify != nil {
+		activeInitiator.Notify <- database.Message{
+			MessageReference: uuid.NewString(),
+			SenderUsername:   invitee,
+			ChatReference:    chatRef,
+			MessageStatus:    &acceptedStatus,
+			SentTimestamp:    time.Now().Format(time.RFC3339),
+		}
+	}
+
+	// Ensure the room socket endpoint is registered so both users can now connect.
+	SetupRoomSocket(invitee, initiatorUsername, chatRef)
+}
+
+func declineInvite(user *Socketuser, message database.Message) {
+	chatRef := message.ChatReference
+	invitee := user.Username
+
+	myParticipant, _ := database.GetParticipant(invitee, chatRef)
+	if myParticipant == nil || myParticipant.Status != database.ParticipantStatusPending {
+		return
+	}
+
+	allParticipants, _ := database.GetParticipantsInChat(chatRef)
+	initiatorUsername := ""
+	for _, p := range allParticipants {
+		if p.Username != invitee {
+			initiatorUsername = p.Username
+			break
+		}
+	}
+
+	for _, p := range allParticipants {
+		database.DeleteParticipant(p.Username, chatRef)
+	}
+	database.DeleteChat(chatRef)
+
+	if initiatorUsername == "" {
+		return
+	}
+
+	initiatorUser, iErr := service.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: initiatorUsername})
+	if iErr != nil || initiatorUser == nil {
+		return
+	}
+
+	_, _ = service.UserService.RemoveUserConversation(context.Background(), &pb.RemoveUserConversationRequest{
+		UserId:        initiatorUser.Id,
+		ChatReference: chatRef,
+	})
+
+	activeInitiator := ActiveSocketUsers[initiatorUsername]
+	if activeInitiator == nil {
+		return
+	}
+
+	if activeInitiator.Chats != nil {
+		delete(activeInitiator.Chats, chatRef)
+	}
+
+	declinedStatus := "INVITE_DECLINED"
+	if activeInitiator.Notify != nil {
+		activeInitiator.Notify <- database.Message{
+			MessageReference: uuid.NewString(),
+			SenderUsername:   invitee,
+			ChatReference:    chatRef,
+			MessageStatus:    &declinedStatus,
+			SentTimestamp:    time.Now().Format(time.RFC3339),
 		}
 	}
 }

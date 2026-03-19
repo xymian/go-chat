@@ -116,6 +116,19 @@ func (user *Socketuser) ReadMessages(room *Room) {
 
 		switch {
 		case newMessage.PresenceStatus == nil && newMessage.MessageStatus == nil:
+			// Block real messages until all participants have accepted the invite.
+			hasPending, pendingErr := database.HasPendingParticipant(newMessage.ChatReference)
+			if pendingErr == nil && hasPending {
+				pendingStatus := "INVITE_PENDING"
+				user.PrivateConn.WriteJSON(database.Message{
+					MessageReference: newMessage.MessageReference,
+					ChatReference:    newMessage.ChatReference,
+					SenderUsername:   newMessage.SenderUsername,
+					MessageStatus:    &pendingStatus,
+					SentTimestamp:    newMessage.SentTimestamp,
+				})
+				continue
+			}
 			upToDateMessage, insertErr = database.MaybeInsertAndReturnMostUpToDateMessage(&newMessage)
 		}
 
@@ -204,6 +217,22 @@ func HandleRoom(w http.ResponseWriter, r *http.Request) {
 	if createErr != nil {
 		w.WriteHeader(http.StatusNotFound)
 		log.Fatal("error creating socket user")
+	}
+
+	// Verify the user is an accepted participant in this chat.
+	participant, participantErr := database.GetParticipant(username, chatRef)
+	if participantErr != nil || participant == nil || participant.Status != database.ParticipantStatusAccepted {
+		w.WriteHeader(http.StatusForbidden)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "you are not a participant in this chat",
+			Error:        "forbidden",
+			StatusCode:   http.StatusForbidden,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
 	}
 
 	room := Rooms[chatRef]
