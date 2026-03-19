@@ -53,15 +53,9 @@ func (room *Room) Run() {
 			fmt.Println("User", user.Username, " joined the room")
 
 		case user := <-room.leave:
-			if ActiveSocketUsers[user.Username] != nil {
-				if ActiveSocketUsers[user.Username].Conn != nil {
-					ActiveSocketUsers[user.Username].Activity = AWAY
-				} else {
-					LoggedOutUser <- user
-				}
-			}
 			room.participants[user.Username] = false
 			delete(room.participants, user.Username)
+			LoggedOutFromRoom <- user
 			if len(room.participants) == 0 {
 				fmt.Println("User", user.Username, " left the room")
 				delete(Rooms, room.Id)
@@ -70,7 +64,7 @@ func (room *Room) Run() {
 
 		case message := <-room.ForwardedMessage:
 			for username := range room.participants {
-				receiver := ActiveSocketUsers[username]
+				receiver := GetActiveUser(username)
 				if receiver != nil {
 					if receiver.Activity == AWAY {
 						// If the conversation was hidden by this user, restore it
@@ -89,7 +83,7 @@ func (room *Room) Run() {
 						}
 						receiver.Notify <- message
 					} else {
-						ActiveSocketUsers[username].IncomingMessage <- message
+						receiver.IncomingMessage <- message
 					}
 				}
 			}

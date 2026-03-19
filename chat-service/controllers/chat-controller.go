@@ -681,7 +681,7 @@ func CreateGroupChat(w http.ResponseWriter, r *http.Request) {
 		if username == creator {
 			continue
 		}
-		activeUser := chat.ActiveSocketUsers[username]
+		activeUser := chat.GetActiveUser(username)
 		if activeUser != nil && activeUser.Notify != nil {
 			activeUser.Notify <- database.Message{
 				MessageReference: uuid.NewString(),
@@ -867,7 +867,7 @@ func AddGroupMember(w http.ResponseWriter, r *http.Request) {
 
 	// Notify the new member via their public socket
 	groupInviteStatus := "GROUP_INVITE"
-	activeUser := chat.ActiveSocketUsers[request.Username]
+	activeUser := chat.GetActiveUser(request.Username)
 	if activeUser != nil && activeUser.Notify != nil {
 		activeUser.Notify <- database.Message{
 			MessageReference: uuid.NewString(),
@@ -964,7 +964,7 @@ func DeleteConversation(w http.ResponseWriter, r *http.Request) {
 	// If the user is currently connected via the conversations socket (AWAY),
 	// remove the chat from their in-memory map so messages don't trigger
 	// a restore until a new message actually arrives.
-	activeUser := chat.ActiveSocketUsers[username]
+	activeUser := chat.GetActiveUser(username)
 	if activeUser != nil && activeUser.Chats != nil {
 		delete(activeUser.Chats, chatRef)
 	}
@@ -1114,7 +1114,7 @@ func RemoveGroupMember(w http.ResponseWriter, r *http.Request) {
 
 	// Notify the removed user via their public socket
 	groupRemoveStatus := "GROUP_REMOVED"
-	activeUser := chat.ActiveSocketUsers[request.Username]
+	activeUser := chat.GetActiveUser(request.Username)
 	if activeUser != nil && activeUser.Notify != nil {
 		activeUser.Notify <- database.Message{
 			MessageReference: uuid.NewString(),

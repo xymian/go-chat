@@ -101,7 +101,7 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		socketUser.Conn.Close()
 		fmt.Println("conversations socket closed")
-		LoggedOutUser <- socketUser
+		LoggedOutFromConversations <- socketUser
 	}()
 
 	socketUser.Activity = AWAY
@@ -115,7 +115,7 @@ func (user *Socketuser) ReadConversations() {
 	defer func() {
 		user.Conn.Close()
 		fmt.Println("conversations socket closed")
-		LoggedOutUser <- user
+		LoggedOutFromConversations <- user
 	}()
 
 	for {
@@ -279,7 +279,7 @@ func (user *Socketuser) WriteConversations() {
 	defer func() {
 		user.Conn.Close()
 		fmt.Println("conversations socket closed")
-		LoggedOutUser <- user
+		LoggedOutFromConversations <- user
 	}()
 
 	for {
