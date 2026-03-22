@@ -63,6 +63,23 @@ func (room *Room) Run() {
 			fmt.Println("User", user.Username, " left the room")
 
 		case message := <-room.ForwardedMessage:
+			// For presence messages, also notify participants who are active
+			// but connected only via the conversations socket (AWAY). Without
+			// this, the initial ONLINE ping from the entering user is never
+			// delivered to the other side, so the handshake never starts.
+			if message.PresenceStatus != nil {
+				allParticipants, _ := database.GetParticipantsInChat(message.ChatReference)
+				for _, p := range allParticipants {
+					if room.participants[p.Username] {
+						continue // already handled below via IncomingMessage
+					}
+					receiver := GetActiveUser(p.Username)
+					if receiver != nil && receiver.Activity == AWAY && receiver.Notify != nil {
+						receiver.Notify <- message
+					}
+				}
+			}
+
 			for username := range room.participants {
 				receiver := GetActiveUser(username)
 				if receiver != nil {
