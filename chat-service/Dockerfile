@@ -5,13 +5,13 @@ WORKDIR /chat-service
 COPY go-chat-protos /go-chat-protos
 COPY go-chat/chat-service/go.sum go-chat/chat-service/go.mod ./
 
-RUN go mod download
+RUN sed -i 's|=> .*go-chat-protos|=> /go-chat-protos|' go.mod && go mod download
 
 COPY go-chat/chat-service .
 COPY go-chat/chat-service/.env .env
 COPY go-chat/chat-service/database ./database
 
-RUN go build -o chat-service
+RUN sed -i 's|=> .*go-chat-protos|=> /go-chat-protos|' go.mod && go build -o chat-service
 
 FROM alpine:latest
 
