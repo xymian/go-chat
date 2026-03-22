@@ -449,9 +449,11 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			chatInviteStatus := "CHAT_INVITE"
 			activeOther := chat.GetActiveUser(request.Other)
 			if activeOther != nil && activeOther.Notify != nil {
+				other := request.Other
 				activeOther.Notify <- database.Message{
 					MessageReference: uuid.NewString(),
 					SenderUsername:   request.User,
+					ReceiverUsername: &other,
 					ChatReference:    newChat.ChatReference,
 					MessageStatus:    &chatInviteStatus,
 					SentTimestamp:    time.Now().Format(time.RFC3339),

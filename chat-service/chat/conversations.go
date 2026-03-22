@@ -205,9 +205,11 @@ func acceptInvite(user *Socketuser, message database.Message) {
 	acceptedStatus := "INVITE_ACCEPTED"
 	activeInitiator := GetActiveUser(initiatorUsername)
 	if activeInitiator != nil && activeInitiator.Notify != nil {
+		initiator := initiatorUsername
 		activeInitiator.Notify <- database.Message{
 			MessageReference: uuid.NewString(),
 			SenderUsername:   invitee,
+			ReceiverUsername: &initiator,
 			ChatReference:    chatRef,
 			MessageStatus:    &acceptedStatus,
 			SentTimestamp:    time.Now().Format(time.RFC3339),
@@ -266,9 +268,11 @@ func declineInvite(user *Socketuser, message database.Message) {
 
 	declinedStatus := "INVITE_DECLINED"
 	if activeInitiator.Notify != nil {
+		initiator := initiatorUsername
 		activeInitiator.Notify <- database.Message{
 			MessageReference: uuid.NewString(),
 			SenderUsername:   invitee,
+			ReceiverUsername: &initiator,
 			ChatReference:    chatRef,
 			MessageStatus:    &declinedStatus,
 			SentTimestamp:    time.Now().Format(time.RFC3339),
@@ -340,9 +344,11 @@ func replayPendingInvites(socketUser *Socketuser) {
 			continue
 		}
 
+		inviteeUsername := socketUser.Username
 		socketUser.Notify <- database.Message{
 			MessageReference: uuid.NewString(),
 			SenderUsername:   initiator,
+			ReceiverUsername: &inviteeUsername,
 			ChatReference:    invite.ChatReference,
 			MessageStatus:    &chatInviteStatus,
 			SentTimestamp:    invite.CreatedAt,
