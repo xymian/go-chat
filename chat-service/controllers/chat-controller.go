@@ -942,6 +942,72 @@ func DeleteConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check whether this is a pending invite the caller initiated — if so, revoke it.
+	myParticipant, _ := database.GetParticipant(username, chatRef)
+	if myParticipant != nil && myParticipant.Status == database.ParticipantStatusAccepted {
+		hasPending, _ := database.HasPendingParticipant(chatRef)
+		if hasPending {
+			allParticipants, _ := database.GetParticipantsInChat(chatRef)
+			inviteeUsername := ""
+			for _, p := range allParticipants {
+				if p.Username != username && p.Status == database.ParticipantStatusPending {
+					inviteeUsername = p.Username
+					break
+				}
+			}
+
+			// Delete participants and chat record.
+			for _, p := range allParticipants {
+				database.DeleteParticipant(p.Username, chatRef)
+			}
+			database.DeleteChat(chatRef)
+
+			// Remove from initiator's user-service conversations.
+			service.UserService.RemoveUserConversation(context.Background(), &pb.RemoveUserConversationRequest{
+				UserId:        user.Id,
+				ChatReference: chatRef,
+			})
+
+			// Remove from initiator's in-memory map.
+			if activeInitiator := chat.GetActiveUser(username); activeInitiator != nil && activeInitiator.Chats != nil {
+				delete(activeInitiator.Chats, chatRef)
+			}
+
+			// Notify the invitee (or store for offline replay).
+			if inviteeUsername != "" {
+				revokedStatus := "INVITE_REVOKED"
+				invitee := inviteeUsername
+				activeInvitee := chat.GetActiveUser(inviteeUsername)
+				if activeInvitee != nil && activeInvitee.Notify != nil {
+					activeInvitee.Notify <- database.Message{
+						MessageReference: uuid.NewString(),
+						SenderUsername:   username,
+						ReceiverUsername: &invitee,
+						ChatReference:    chatRef,
+						MessageStatus:    &revokedStatus,
+						SentTimestamp:    time.Now().Format(time.RFC3339),
+					}
+					// Delivered live — no need to persist.
+				} else {
+					// Invitee is offline — store for replay on reconnect.
+					database.StoreRevokedInvite(inviteeUsername, username, chatRef)
+				}
+			}
+
+			response := models.Response[string]{
+				Data:         nil,
+				Message:      "invitation revoked",
+				Error:        "",
+				StatusCode:   http.StatusOK,
+				IsSuccessful: true,
+			}
+			w.WriteHeader(http.StatusOK)
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
+		}
+	}
+
 	_, grpcErr := service.UserService.RemoveUserConversation(
 		context.Background(),
 		&pb.RemoveUserConversationRequest{

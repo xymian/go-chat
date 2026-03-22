@@ -109,6 +109,7 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 	go socketUser.ReadConversations()
 	go sendUnacknowledgedMessagesForAllConversations(socketUser)
 	go replayPendingInvites(socketUser)
+	go replayRevokedInvites(socketUser)
 	socketUser.WriteConversations()
 }
 
@@ -353,5 +354,28 @@ func replayPendingInvites(socketUser *Socketuser) {
 			MessageStatus:    &chatInviteStatus,
 			SentTimestamp:    invite.CreatedAt,
 		}
+	}
+}
+
+// replayRevokedInvites delivers INVITE_REVOKED for any invites that were
+// revoked while the user was offline, then cleans up the stored records.
+func replayRevokedInvites(socketUser *Socketuser) {
+	revoked, err := database.GetRevokedInvitesForUser(socketUser.Username)
+	if err != nil || len(revoked) == 0 {
+		return
+	}
+
+	revokedStatus := "INVITE_REVOKED"
+	for _, r := range revoked {
+		invitee := socketUser.Username
+		socketUser.Notify <- database.Message{
+			MessageReference: uuid.NewString(),
+			SenderUsername:   r.InitiatorUsername,
+			ReceiverUsername: &invitee,
+			ChatReference:    r.ChatReference,
+			MessageStatus:    &revokedStatus,
+			SentTimestamp:    r.RevokedAt,
+		}
+		database.DeleteRevokedInvite(socketUser.Username, r.ChatReference)
 	}
 }
