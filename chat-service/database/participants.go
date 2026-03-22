@@ -198,6 +198,43 @@ func DeleteParticipant(username string, chatReference string) (*Participant, err
 	return nil, nil
 }
 
+// ConversationSummary holds the data the Android client needs to seed its local DB.
+type ConversationSummary struct {
+	ChatReference string `json:"chatReference"`
+	OtherUsername string `json:"otherUsername"`
+	ChatType      string `json:"chatType"`
+}
+
+// GetConversationsForUser returns one summary per accepted private chat the user
+// belongs to. For group chats it returns the chat name as OtherUsername.
+func GetConversationsForUser(username string) ([]ConversationSummary, error) {
+	rows, err := Instance.Query(
+		`SELECT p2.chatReference, COALESCE(p2.username, c.name, ''), c.chatType
+		 FROM participants p1
+		 JOIN participants p2
+		   ON p1.chatReference = p2.chatReference AND p2.username != p1.username
+		 JOIN chats c ON c.chatReference = p1.chatReference
+		 WHERE p1.username = $1
+		   AND p1.status = $2
+		   AND p2.status = $2`,
+		username, ParticipantStatusAccepted,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []ConversationSummary
+	for rows.Next() {
+		s := ConversationSummary{}
+		if scanErr := rows.Scan(&s.ChatReference, &s.OtherUsername, &s.ChatType); scanErr != nil {
+			return nil, scanErr
+		}
+		results = append(results, s)
+	}
+	return results, nil
+}
+
 func GetChatRefFor(user string, other string) (*string, error) {
 	var ref string
 	rows, err := Instance.Query(

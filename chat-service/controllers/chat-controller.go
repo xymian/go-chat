@@ -903,6 +903,42 @@ func AddGroupMember(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
+func GetUserConversations(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	username := mux.Vars(r)["username"]
+	if username == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	summaries, err := database.GetConversationsForUser(username)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "could not fetch conversations",
+			Error:        err.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	response := models.Response[[]database.ConversationSummary]{
+		Data:         &summaries,
+		Message:      "conversations fetched",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}
+
 func DeleteConversation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
