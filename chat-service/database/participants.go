@@ -146,6 +146,30 @@ func HasPendingParticipant(chatReference string) (bool, error) {
 	return count > 0, nil
 }
 
+// GetPendingInvitesForUser returns all chats where the given user has a PENDING
+// participant status, along with the initiator's username for each invite.
+func GetPendingInvitesForUser(username string) ([]Participant, error) {
+	rows, err := Instance.Query(
+		`SELECT id, username, chatReference, status, createdAt, updatedAt
+		FROM participants WHERE username = $1 AND status = $2`,
+		username, ParticipantStatusPending,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var participants []Participant
+	for rows.Next() {
+		p := Participant{}
+		if scanErr := rows.Scan(&p.Id, &p.Username, &p.ChatReference, &p.Status, &p.CreatedAt, &p.UpdatedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		participants = append(participants, p)
+	}
+	return participants, nil
+}
+
 func DeleteParticipant(username string, chatReference string) (*Participant, error) {
 	participant := &Participant{}
 	rows, err := Instance.Query(

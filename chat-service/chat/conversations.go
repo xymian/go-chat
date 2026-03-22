@@ -108,6 +108,7 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 	NewUserFromConversationsSetup <- socketUser
 	go socketUser.ReadConversations()
 	go sendUnacknowledgedMessagesForAllConversations(socketUser)
+	go replayPendingInvites(socketUser)
 	socketUser.WriteConversations()
 }
 
@@ -309,5 +310,42 @@ func sendUnacknowledgedMessagesForAllConversations(socketUser *Socketuser) {
 		go func() {
 			socketUser.Conversations.sendUnacknowledgedMessages(chatRef, socketUser.Username)
 		}()
+	}
+}
+
+// replayPendingInvites re-sends CHAT_INVITE notifications for any chats where
+// the user is still a PENDING participant. This covers the case where the invite
+// was sent while the user was offline.
+func replayPendingInvites(socketUser *Socketuser) {
+	pendingInvites, err := database.GetPendingInvitesForUser(socketUser.Username)
+	if err != nil {
+		return
+	}
+
+	chatInviteStatus := "CHAT_INVITE"
+	for _, invite := range pendingInvites {
+		// Find the initiator (the other ACCEPTED participant in this chat).
+		allParticipants, pErr := database.GetParticipantsInChat(invite.ChatReference)
+		if pErr != nil {
+			continue
+		}
+		initiator := ""
+		for _, p := range allParticipants {
+			if p.Username != socketUser.Username && p.Status == database.ParticipantStatusAccepted {
+				initiator = p.Username
+				break
+			}
+		}
+		if initiator == "" {
+			continue
+		}
+
+		socketUser.Notify <- database.Message{
+			MessageReference: uuid.NewString(),
+			SenderUsername:   initiator,
+			ChatReference:    invite.ChatReference,
+			MessageStatus:    &chatInviteStatus,
+			SentTimestamp:    invite.CreatedAt,
+		}
 	}
 }
