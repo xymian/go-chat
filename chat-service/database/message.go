@@ -65,15 +65,20 @@ func MaybeInsertAndReturnMostUpToDateMessage(message *Message) (*Message, error)
 		return nil, deleteErr
 	}
 
-	// Check receipt status and update if delivery/seen timestamps are provided
+	// Check receipt status and update if delivery/seen timestamps are provided.
+	// Copy the timestamps onto existingMessage so the forwarded message reflects
+	// the updated state — otherwise the stale pre-update version would be sent
+	// to the other participant and they would never see DELIVERED/SEEN status.
 	if existingMessage.ReceiverUsername != nil && *existingMessage.ReceiverUsername != "" {
 		receipt, _ := GetReceipt(existingMessage.MessageReference, *existingMessage.ReceiverUsername)
 		if receipt != nil {
 			if receipt.DeliveredTimestamp == nil && message.DeliveredTimestamp != nil {
 				UpdateReceiptDelivered(existingMessage.MessageReference, *existingMessage.ReceiverUsername)
+				existingMessage.DeliveredTimestamp = message.DeliveredTimestamp
 			}
 			if receipt.SeenTimestamp == nil && message.SeenTimestamp != nil {
 				UpdateReceiptSeen(existingMessage.MessageReference, *existingMessage.ReceiverUsername)
+				existingMessage.SeenTimestamp = message.SeenTimestamp
 			}
 		}
 	}
