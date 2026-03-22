@@ -33,7 +33,9 @@ services:
       - "50051:50051"
 
   user-service:
-    build: ./user-service
+    build:
+      context: ..
+      dockerfile: go-chat/user-service/Dockerfile
     container_name: user-service
     env_file: 
       - ./user-service/.env
@@ -43,7 +45,9 @@ services:
       - "50052:50052"
 
   chat-service:
-    build: ./chat-service
+    build:
+      context: ..
+      dockerfile: go-chat/chat-service/Dockerfile
     container_name: chat-service
     env_file:
       - ./chat-service/.env

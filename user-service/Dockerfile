@@ -2,14 +2,15 @@ FROM golang:1.24.9-alpine AS builder
 
 WORKDIR /user-service
 
-COPY go.mod go.sum ./
+COPY go-chat-protos /go-chat-protos
+COPY go-chat/user-service/go.mod go-chat/user-service/go.sum ./
 
 RUN go mod download
 
-COPY . .
+COPY go-chat/user-service .
 
-COPY database ./database
-COPY .env .env
+COPY go-chat/user-service/database ./database
+COPY go-chat/user-service/.env .env
 
 RUN go build -o user-service
 
