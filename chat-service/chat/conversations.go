@@ -7,22 +7,24 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/te6lim/go-chat/chat-service/service"
 	"github.com/te6lim/go-chat/chat-service/database"
 	"github.com/te6lim/go-chat/chat-service/models"
+	"github.com/te6lim/go-chat/chat-service/service"
 
 	pb "github.com/te6lim/go-chat-protos/userpb"
 )
 
 type Conversations struct {
-	PublicConn      *websocket.Conn
-	Chats           map[string]bool
-	IReceiveMessage chan database.Message
+	Conn   *websocket.Conn
+	Chats  map[string]bool
+	Notify chan database.Message
 }
 
-func SetUpPublicSocket(username string) {
+func SetupConversationsSocket(username string) {
 	endpoint := fmt.Sprintf("/conversations/%s", username)
 	service.Router.HandleFunc(endpoint, HandleConversations)
 }
@@ -53,7 +55,15 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	socketUser, createErr := CreateSocketUser(user, AWAY)
+	convsResp, convsErr := service.UserService.GetUserConversations(
+		context.Background(),
+		&pb.UserRequest{UserId: username},
+	)
+	if convsErr != nil {
+		convsResp = &pb.UserConversationsResponse{}
+	}
+
+	socketUser, createErr := CreateSocketUser(user, convsResp.Conversations, AWAY)
 	if createErr != nil {
 		w.WriteHeader(http.StatusNotFound)
 		response := models.Response[string]{
@@ -68,34 +78,65 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	socketUser.Conversations.IReceiveMessage = make(chan database.Message)
-	socketUser.Conversations.PublicConn = conn
+	socketUser.Conversations.Notify = make(chan database.Message)
+	socketUser.Conversations.Conn = conn
+
+	// Restore any hidden conversations that have unread messages so they
+	// reappear in the user's conversation list on reconnect.
+	chatsWithUnread, _ := database.GetChatsWithUnreadForUser(username)
+	for _, c := range chatsWithUnread {
+		if !socketUser.Chats[c.ChatReference] {
+			_, _ = service.UserService.AddUserConversation(
+				context.Background(),
+				&pb.AddUserConversationRequest{
+					UserId:        socketUser.UserId,
+					ChatReference: c.ChatReference,
+					ChatType:      string(c.ChatType),
+				},
+			)
+			socketUser.Chats[c.ChatReference] = true
+		}
+	}
 
 	defer func() {
-		socketUser.PublicConn.Close()
+		socketUser.Conn.Close()
 		fmt.Println("conversations socket closed")
-		LoggedOutUser <- socketUser
+		LoggedOutFromConversations <- socketUser
 	}()
 
 	socketUser.Activity = AWAY
 	NewUserFromConversationsSetup <- socketUser
-	go socketUser.ReadFromPublicSocket()
-	go sendUnacknowledgedMessagesForAllUserCoversations(socketUser)
-	socketUser.WriteToPublicSocket()
+	go socketUser.ReadConversations()
+	go sendUnacknowledgedMessagesForAllConversations(socketUser)
+	go replayPendingInvites(socketUser)
+	go replayRevokedInvites(socketUser)
+	socketUser.WriteConversations()
 }
 
-func (user *Socketuser) ReadFromPublicSocket() {
+func (user *Socketuser) ReadConversations() {
 	defer func() {
-		user.PublicConn.Close()
+		user.Conn.Close()
 		fmt.Println("conversations socket closed")
-		LoggedOutUser <- user
+		LoggedOutFromConversations <- user
 	}()
 
 	for {
 		message := database.Message{}
-		err := user.PublicConn.ReadJSON(&message)
+		err := user.Conn.ReadJSON(&message)
 		if err != nil {
 			return
+		}
+
+		// Handle invite responses before any room forwarding.
+		if message.MessageStatus != nil {
+			switch *message.MessageStatus {
+			case "ACCEPT_INVITE":
+				acceptInvite(user, message)
+				continue
+			case "DECLINE_INVITE":
+				declineInvite(user, message)
+				continue
+			}
 		}
 
 		var upToDateMessage *database.Message = &message
@@ -122,16 +163,134 @@ func (user *Socketuser) ReadFromPublicSocket() {
 	}
 }
 
-func (user *Socketuser) WriteToPublicSocket() {
+func acceptInvite(user *Socketuser, message database.Message) {
+	chatRef := message.ChatReference
+	invitee := user.Username
+
+	myParticipant, _ := database.GetParticipant(invitee, chatRef)
+	if myParticipant == nil || myParticipant.Status != database.ParticipantStatusPending {
+		return
+	}
+
+	allParticipants, _ := database.GetParticipantsInChat(chatRef)
+	initiatorUsername := ""
+	for _, p := range allParticipants {
+		if p.Username != invitee {
+			initiatorUsername = p.Username
+			break
+		}
+	}
+
+	if _, err := database.UpdateParticipantStatus(invitee, chatRef, database.ParticipantStatusAccepted); err != nil {
+		return
+	}
+
+	// Register the conversation in user-service for the invitee now that they accepted.
+	inviteeUser, uErr := service.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: invitee})
+	if uErr == nil && inviteeUser != nil {
+		initiatorUser, iErr := service.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: initiatorUsername})
+		if iErr == nil && initiatorUser != nil {
+			_, _ = service.UserService.AddUserConversation(context.Background(), &pb.AddUserConversationRequest{
+				UserId:        inviteeUser.Id,
+				ChatReference: chatRef,
+				ChatType:      "private",
+				OtherUserId:   initiatorUser.Id,
+			})
+		}
+	}
+
+	// Track the chat in the invitee's in-memory map.
+	user.Chats[chatRef] = true
+
+	// Notify the initiator.
+	acceptedStatus := "INVITE_ACCEPTED"
+	activeInitiator := GetActiveUser(initiatorUsername)
+	if activeInitiator != nil && activeInitiator.Notify != nil {
+		initiator := initiatorUsername
+		activeInitiator.Notify <- database.Message{
+			MessageReference: uuid.NewString(),
+			SenderUsername:   invitee,
+			ReceiverUsername: &initiator,
+			ChatReference:    chatRef,
+			MessageStatus:    &acceptedStatus,
+			SentTimestamp:    time.Now().Format(time.RFC3339),
+		}
+	}
+
+	// Ensure the room socket endpoint is registered so both users can now connect.
+	SetupRoomSocket(invitee, initiatorUsername, chatRef)
+}
+
+func declineInvite(user *Socketuser, message database.Message) {
+	chatRef := message.ChatReference
+	invitee := user.Username
+
+	myParticipant, _ := database.GetParticipant(invitee, chatRef)
+	if myParticipant == nil || myParticipant.Status != database.ParticipantStatusPending {
+		return
+	}
+
+	allParticipants, _ := database.GetParticipantsInChat(chatRef)
+	initiatorUsername := ""
+	for _, p := range allParticipants {
+		if p.Username != invitee {
+			initiatorUsername = p.Username
+			break
+		}
+	}
+
+	for _, p := range allParticipants {
+		database.DeleteParticipant(p.Username, chatRef)
+	}
+	database.DeleteChat(chatRef)
+
+	if initiatorUsername == "" {
+		return
+	}
+
+	initiatorUser, iErr := service.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: initiatorUsername})
+	if iErr != nil || initiatorUser == nil {
+		return
+	}
+
+	_, _ = service.UserService.RemoveUserConversation(context.Background(), &pb.RemoveUserConversationRequest{
+		UserId:        initiatorUser.Id,
+		ChatReference: chatRef,
+	})
+
+	activeInitiator := GetActiveUser(initiatorUsername)
+	if activeInitiator == nil {
+		return
+	}
+
+	if activeInitiator.Chats != nil {
+		delete(activeInitiator.Chats, chatRef)
+	}
+
+	declinedStatus := "INVITE_DECLINED"
+	if activeInitiator.Notify != nil {
+		initiator := initiatorUsername
+		activeInitiator.Notify <- database.Message{
+			MessageReference: uuid.NewString(),
+			SenderUsername:   invitee,
+			ReceiverUsername: &initiator,
+			ChatReference:    chatRef,
+			MessageStatus:    &declinedStatus,
+			SentTimestamp:    time.Now().Format(time.RFC3339),
+		}
+	}
+}
+
+func (user *Socketuser) WriteConversations() {
 	defer func() {
-		user.PublicConn.Close()
+		user.Conn.Close()
 		fmt.Println("conversations socket closed")
-		LoggedOutUser <- user
+		LoggedOutFromConversations <- user
 	}()
 
 	for {
-		msg := <- user.IReceiveMessage
-		err := user.PublicConn.WriteJSON(msg)
+		msg := <-user.Notify
+		err := user.Conn.WriteJSON(msg)
 		if err != nil {
 			fmt.Println("Connection error: ", err)
 			return
@@ -140,21 +299,83 @@ func (user *Socketuser) WriteToPublicSocket() {
 }
 
 func (conversations *Conversations) sendUnacknowledgedMessages(chatRef string, user string) error {
-	messages, err := database.GetAllUnacknowledgedMessages(chatRef, user)
+	messages, err := database.GetMessagesWithIncompleteReceipts(chatRef, user)
 	if err != nil {
 		return err
 	}
 
 	for _, message := range messages {
-		conversations.IReceiveMessage <- message
+		conversations.Notify <- message
 	}
 	return nil
 }
 
-func sendUnacknowledgedMessagesForAllUserCoversations(socketUser *Socketuser) {
+func sendUnacknowledgedMessagesForAllConversations(socketUser *Socketuser) {
 	for chatRef := range socketUser.Chats {
 		go func() {
 			socketUser.Conversations.sendUnacknowledgedMessages(chatRef, socketUser.Username)
 		}()
+	}
+}
+
+// replayPendingInvites re-sends CHAT_INVITE notifications for any chats where
+// the user is still a PENDING participant. This covers the case where the invite
+// was sent while the user was offline.
+func replayPendingInvites(socketUser *Socketuser) {
+	pendingInvites, err := database.GetPendingInvitesForUser(socketUser.Username)
+	if err != nil {
+		return
+	}
+
+	chatInviteStatus := "CHAT_INVITE"
+	for _, invite := range pendingInvites {
+		// Find the initiator (the other ACCEPTED participant in this chat).
+		allParticipants, pErr := database.GetParticipantsInChat(invite.ChatReference)
+		if pErr != nil {
+			continue
+		}
+		initiator := ""
+		for _, p := range allParticipants {
+			if p.Username != socketUser.Username && p.Status == database.ParticipantStatusAccepted {
+				initiator = p.Username
+				break
+			}
+		}
+		if initiator == "" {
+			continue
+		}
+
+		inviteeUsername := socketUser.Username
+		socketUser.Notify <- database.Message{
+			MessageReference: uuid.NewString(),
+			SenderUsername:   initiator,
+			ReceiverUsername: &inviteeUsername,
+			ChatReference:    invite.ChatReference,
+			MessageStatus:    &chatInviteStatus,
+			SentTimestamp:    invite.CreatedAt,
+		}
+	}
+}
+
+// replayRevokedInvites delivers INVITE_REVOKED for any invites that were
+// revoked while the user was offline, then cleans up the stored records.
+func replayRevokedInvites(socketUser *Socketuser) {
+	revoked, err := database.GetRevokedInvitesForUser(socketUser.Username)
+	if err != nil || len(revoked) == 0 {
+		return
+	}
+
+	revokedStatus := "INVITE_REVOKED"
+	for _, r := range revoked {
+		invitee := socketUser.Username
+		socketUser.Notify <- database.Message{
+			MessageReference: uuid.NewString(),
+			SenderUsername:   r.InitiatorUsername,
+			ReceiverUsername: &invitee,
+			ChatReference:    r.ChatReference,
+			MessageStatus:    &revokedStatus,
+			SentTimestamp:    r.RevokedAt,
+		}
+		database.DeleteRevokedInvite(socketUser.Username, r.ChatReference)
 	}
 }

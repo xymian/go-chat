@@ -1,0 +1,1 @@
+ALTER TABLE messages ADD COLUMN is_backed_up BOOLEAN DEFAULT FALSE;

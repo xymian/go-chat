@@ -1,0 +1,2 @@
+ALTER TABLE users DROP COLUMN IF EXISTS chatReferences;
+ALTER TABLE users DROP COLUMN IF EXISTS groupChatReferences;

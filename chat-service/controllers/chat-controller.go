@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/te6lim/go-chat/chat-service/chat"
 	"github.com/te6lim/go-chat/chat-service/database"
+	"github.com/te6lim/go-chat/chat-service/middleware"
 	"github.com/te6lim/go-chat/chat-service/models"
 	"github.com/te6lim/go-chat/chat-service/service"
 	"github.com/te6lim/go-chat/chat-service/util"
@@ -21,10 +23,20 @@ type addChatReferenceRequest struct {
 	Other string `json:"other"`
 }
 
-func SetupPublicSocket(w http.ResponseWriter, r *http.Request) {
+type createGroupChatRequest struct {
+	Name         string   `json:"name"`
+	Participants []string `json:"participants"`
+}
+
+type addGroupMemberRequest struct {
+	ChatReference string `json:"chatReference"`
+	Username      string `json:"username"`
+}
+
+func SetupConversationsSocket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := mux.Vars(r)["username"]
-	chat.SetUpPublicSocket(username)
+	chat.SetupConversationsSocket(username)
 	response := models.Response[string]{
 		Data:         nil,
 		Message:      "",
@@ -52,74 +64,6 @@ func SetupRoomSocket(w http.ResponseWriter, r *http.Request) {
 		IsSuccessful: true,
 	}
 	res, _ := json.Marshal(response)
-	w.Write(res)
-}
-
-func GetUnacknowledgedMessages(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	chatRef := mux.Vars(r)["chatId"]
-	username := mux.Vars(r)["username"]
-	var response interface{}
-	messages, err := database.GetAllUnacknowledgedMessages(chatRef, username)
-	if err != nil {
-		response = models.Response[[]database.Message]{
-			Data:         &messages,
-			Message:      "no unacknowledged messages",
-			Error:        err.Error(),
-			StatusCode:   http.StatusNotFound,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusNotFound)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-	response = models.Response[[]database.Message]{
-		Data:         &messages,
-		Message:      "",
-		Error:        "",
-		StatusCode:   http.StatusOK,
-		IsSuccessful: true,
-	}
-	res, _ := json.Marshal(response)
-	w.WriteHeader(http.StatusOK)
-	w.Write(res)
-}
-
-func AcknowledgeMessages(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var ackRequest = &models.AckRequest{}
-	var response interface{}
-	err := util.ParseBody(r, ackRequest)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	messages, err := database.AcknowledgeMessages(
-		ackRequest.ChatReference, ackRequest.Username, ackRequest.From, ackRequest.To,
-	)
-	if err != nil {
-		response = models.Response[[]database.Message]{
-			Data:         &messages,
-			Message:      "",
-			Error:        err.Error(),
-			StatusCode:   http.StatusNotFound,
-			IsSuccessful: false,
-		}
-		w.WriteHeader(http.StatusNotFound)
-		res, _ := json.Marshal(response)
-		w.Write(res)
-		return
-	}
-	response = models.Response[[]database.Message]{
-		Data:         &messages,
-		Message:      fmt.Sprintf("%v messages acknowledged", len(messages)),
-		Error:        "",
-		StatusCode:   http.StatusOK,
-		IsSuccessful: true,
-	}
-	res, _ := json.Marshal(response)
-	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 }
 
@@ -420,9 +364,12 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 	if cErr == nil {
 		if chatRef == nil {
 			ref := uuid.NewString()
+
+			// Initiator is immediately accepted.
 			_, pErr := database.InsertParticipant(database.Participant{
 				Username:      request.User,
 				ChatReference: ref,
+				Status:        database.ParticipantStatusAccepted,
 			})
 			if pErr != nil {
 				response = models.Response[string]{
@@ -438,9 +385,11 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// Invited user starts as PENDING — must accept before messaging.
 			_, otherErr := database.InsertParticipant(database.Participant{
 				Username:      request.Other,
 				ChatReference: ref,
+				Status:        database.ParticipantStatusPending,
 			})
 			if otherErr != nil {
 				response = models.Response[string]{
@@ -456,7 +405,7 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			chat, chatErr := database.InsertChat(database.Chat{
+			newChat, chatErr := database.InsertChat(database.Chat{
 				ChatReference: ref,
 			})
 			if chatErr != nil {
@@ -473,19 +422,13 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			_, err := service.UserService.AddConversation(context.Background(), &pb.AddChatRequest{
-				User: &pb.UserResponse{
-					Id:             uint64(user.Id),
-					Username:       user.Username,
-					PasswordHash:   user.PasswordHash,
-					ChatReferences: user.ChatReferences,
-					CreatedAt:      user.CreatedAt,
-					UpdatedAt:      user.UpdatedAt,
-				},
-				Chat: &pb.Chat{
-					Username: otheruser.Username,
-					ChatRef:  chat.ChatReference,
-				},
+			// Only register the conversation for the initiator.
+			// The invited user's conversation is registered upon acceptance.
+			_, err := service.UserService.AddUserConversation(context.Background(), &pb.AddUserConversationRequest{
+				UserId:        uint64(user.Id),
+				ChatReference: newChat.ChatReference,
+				ChatType:      "private",
+				OtherUserId:   otheruser.Id,
 			})
 
 			if err != nil {
@@ -502,13 +445,28 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// Notify the invited user via their conversations socket if they are online.
+			chatInviteStatus := "CHAT_INVITE"
+			activeOther := chat.GetActiveUser(request.Other)
+			if activeOther != nil && activeOther.Notify != nil {
+				other := request.Other
+				activeOther.Notify <- database.Message{
+					MessageReference: uuid.NewString(),
+					SenderUsername:   request.User,
+					ReceiverUsername: &other,
+					ChatReference:    newChat.ChatReference,
+					MessageStatus:    &chatInviteStatus,
+					SentTimestamp:    time.Now().Format(time.RFC3339),
+				}
+			}
+
 			response = models.Response[models.NewChat]{
 				Data: &models.NewChat{
 					User:          request.User,
 					Other:         request.Other,
-					ChatReference: chat.ChatReference,
+					ChatReference: newChat.ChatReference,
 				},
-				Message:      "",
+				Message:      "invitation sent — waiting for " + request.Other + " to accept",
 				Error:        "",
 				StatusCode:   http.StatusOK,
 				IsSuccessful: true,
@@ -518,19 +476,11 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 			w.Write(res)
 			return
 		} else {
-			_, err := service.UserService.AddConversation(context.Background(), &pb.AddChatRequest{
-				User: &pb.UserResponse{
-					Id:             uint64(user.Id),
-					Username:       user.Username,
-					PasswordHash:   user.PasswordHash,
-					ChatReferences: user.ChatReferences,
-					CreatedAt:      user.CreatedAt,
-					UpdatedAt:      user.UpdatedAt,
-				},
-				Chat: &pb.Chat{
-					Username: otheruser.Username,
-					ChatRef:  *chatRef,
-				},
+			_, err := service.UserService.AddUserConversation(context.Background(), &pb.AddUserConversationRequest{
+				UserId:        uint64(user.Id),
+				ChatReference: *chatRef,
+				ChatType:      "private",
+				OtherUserId:   otheruser.Id,
 			})
 
 			if err != nil {
@@ -578,3 +528,727 @@ func AddChatReference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func CreateGroupChat(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var request createGroupChatRequest
+	var response interface{}
+
+	err := util.ParseBody(r, &request)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "invalid request body",
+			Error:        err.Error(),
+			StatusCode:   http.StatusBadRequest,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Get the creator from the JWT context
+	creator, ok := r.Context().Value(middleware.ContextKeyUsername).(string)
+	if !ok || creator == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "could not identify the requesting user",
+			Error:        "unauthorized",
+			StatusCode:   http.StatusUnauthorized,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Build full participant list (creator + invited members)
+	allParticipants := []string{creator}
+	for _, p := range request.Participants {
+		if p != creator {
+			allParticipants = append(allParticipants, p)
+		}
+	}
+
+	if len(allParticipants) < 3 {
+		w.WriteHeader(http.StatusBadRequest)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "a group chat requires at least 3 participants (you + 2 others)",
+			Error:        "",
+			StatusCode:   http.StatusBadRequest,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Validate that all participants exist via gRPC
+	validatedUsers := make(map[string]*pb.UserResponse)
+	for _, username := range allParticipants {
+		user, uErr := service.UserService.GetUser(
+			context.Background(), &pb.UserRequest{UserId: username},
+		)
+		if uErr != nil || user == nil || len(user.Username) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			errMsg := ""
+			if uErr != nil {
+				errMsg = uErr.Error()
+			}
+			response = models.Response[string]{
+				Data:         nil,
+				Message:      "user " + username + " does not exist",
+				Error:        errMsg,
+				StatusCode:   http.StatusNotFound,
+				IsSuccessful: false,
+			}
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
+		}
+		validatedUsers[username] = user
+	}
+
+	// Generate a new chat reference
+	chatRef := uuid.NewString()
+
+	// Insert the chat record with type "group"
+	var chatName *string
+	if request.Name != "" {
+		chatName = &request.Name
+	}
+	newChat, chatErr := database.InsertChat(database.Chat{
+		ChatReference: chatRef,
+		ChatType:      database.ChatTypeGroup,
+		Name:          chatName,
+	})
+	if chatErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "could not create group chat",
+			Error:        chatErr.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Insert participants
+	for _, username := range allParticipants {
+		_, pErr := database.InsertParticipant(database.Participant{
+			Username:      username,
+			ChatReference: newChat.ChatReference,
+		})
+		if pErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			response = models.Response[string]{
+				Data:         nil,
+				Message:      "could not add participant " + username,
+				Error:        pErr.Error(),
+				StatusCode:   http.StatusInternalServerError,
+				IsSuccessful: false,
+			}
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
+		}
+	}
+
+	// Register the group chat reference on each participant via gRPC
+	for _, username := range allParticipants {
+		user := validatedUsers[username]
+		_, grpcErr := service.UserService.AddUserConversation(
+			context.Background(),
+			&pb.AddUserConversationRequest{
+				UserId:        user.Id,
+				ChatReference: newChat.ChatReference,
+				ChatType:      "group",
+			},
+		)
+		if grpcErr != nil {
+			fmt.Println("failed to register group chat ref for", username, ":", grpcErr)
+		}
+	}
+
+	// Notify invited users (everyone except the creator) via their public socket
+	groupInviteStatus := "GROUP_INVITE"
+	for _, username := range allParticipants {
+		if username == creator {
+			continue
+		}
+		activeUser := chat.GetActiveUser(username)
+		if activeUser != nil && activeUser.Notify != nil {
+			activeUser.Notify <- database.Message{
+				MessageReference: uuid.NewString(),
+				SenderUsername:   creator,
+				ChatReference:    newChat.ChatReference,
+				MessageStatus:    &groupInviteStatus,
+				SentTimestamp:    time.Now().Format(time.RFC3339),
+			}
+		}
+	}
+
+	// Setup the room socket for this group chat
+	chat.SetupRoomSocket(creator, "", newChat.ChatReference)
+
+	// Return success
+	response = models.Response[models.NewGroupChat]{
+		Data: &models.NewGroupChat{
+			ChatReference: newChat.ChatReference,
+			Name:          newChat.Name,
+			Participants:  allParticipants,
+		},
+		Message:      "group chat created successfully",
+		Error:        "",
+		StatusCode:   http.StatusCreated,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusCreated)
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}
+
+func AddGroupMember(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var request addGroupMemberRequest
+	var response interface{}
+
+	err := util.ParseBody(r, &request)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "invalid request body",
+			Error:        err.Error(),
+			StatusCode:   http.StatusBadRequest,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Get the requester from the JWT context
+	requester, ok := r.Context().Value(middleware.ContextKeyUsername).(string)
+	if !ok || requester == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "could not identify the requesting user",
+			Error:        "unauthorized",
+			StatusCode:   http.StatusUnauthorized,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Validate chat exists and is a group chat
+	groupChat, chatErr := database.GetChat(request.ChatReference)
+	if chatErr != nil || groupChat == nil {
+		w.WriteHeader(http.StatusNotFound)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "chat not found",
+			Error:        "",
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	if groupChat.ChatType != database.ChatTypeGroup {
+		w.WriteHeader(http.StatusBadRequest)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "members can only be added to group chats",
+			Error:        "",
+			StatusCode:   http.StatusBadRequest,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Validate requester is a member of this group
+	requesterParticipant, _ := database.GetParticipant(requester, request.ChatReference)
+	if requesterParticipant == nil {
+		w.WriteHeader(http.StatusForbidden)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "you are not a member of this group chat",
+			Error:        "",
+			StatusCode:   http.StatusForbidden,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Validate the new user exists via gRPC
+	newUser, uErr := service.UserService.GetUser(
+		context.Background(), &pb.UserRequest{UserId: request.Username},
+	)
+	if uErr != nil || newUser == nil || len(newUser.Username) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		errMsg := ""
+		if uErr != nil {
+			errMsg = uErr.Error()
+		}
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "user " + request.Username + " does not exist",
+			Error:        errMsg,
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Check if the user is already a participant
+	existingParticipant, _ := database.GetParticipant(request.Username, request.ChatReference)
+	if existingParticipant != nil {
+		w.WriteHeader(http.StatusConflict)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      request.Username + " is already a member of this group",
+			Error:        "",
+			StatusCode:   http.StatusConflict,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Insert participant
+	_, pErr := database.InsertParticipant(database.Participant{
+		Username:      request.Username,
+		ChatReference: request.ChatReference,
+	})
+	if pErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "could not add participant",
+			Error:        pErr.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Register the group chat reference on the user via gRPC
+	_, grpcErr := service.UserService.AddUserConversation(
+		context.Background(),
+		&pb.AddUserConversationRequest{
+			UserId:        newUser.Id,
+			ChatReference: request.ChatReference,
+			ChatType:      "group",
+		},
+	)
+	if grpcErr != nil {
+		fmt.Println("failed to register group chat ref for", request.Username, ":", grpcErr)
+	}
+
+	// Notify the new member via their public socket
+	groupInviteStatus := "GROUP_INVITE"
+	activeUser := chat.GetActiveUser(request.Username)
+	if activeUser != nil && activeUser.Notify != nil {
+		activeUser.Notify <- database.Message{
+			MessageReference: uuid.NewString(),
+			SenderUsername:   requester,
+			ChatReference:    request.ChatReference,
+			MessageStatus:    &groupInviteStatus,
+			SentTimestamp:    time.Now().Format(time.RFC3339),
+		}
+	}
+
+	// Fetch updated participant list for the response
+	participants, _ := database.GetParticipantsInChat(request.ChatReference)
+	participantNames := []string{}
+	for _, p := range participants {
+		participantNames = append(participantNames, p.Username)
+	}
+
+	response = models.Response[models.NewGroupChat]{
+		Data: &models.NewGroupChat{
+			ChatReference: request.ChatReference,
+			Name:          groupChat.Name,
+			Participants:  participantNames,
+		},
+		Message:      request.Username + " added to group",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}
+
+func GetUserConversations(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	username := mux.Vars(r)["username"]
+	if username == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	summaries, err := database.GetConversationsForUser(username)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "could not fetch conversations",
+			Error:        err.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	response := models.Response[[]database.ConversationSummary]{
+		Data:         &summaries,
+		Message:      "conversations fetched",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}
+
+func DeleteConversation(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	username, ok := r.Context().Value(middleware.ContextKeyUsername).(string)
+	if !ok || username == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "could not identify the requesting user",
+			Error:        "unauthorized",
+			StatusCode:   http.StatusUnauthorized,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	chatRef := mux.Vars(r)["chatReference"]
+
+	user, uErr := service.UserService.GetUser(context.Background(), &pb.UserRequest{UserId: username})
+	if uErr != nil || user == nil {
+		w.WriteHeader(http.StatusNotFound)
+		errMsg := ""
+		if uErr != nil {
+			errMsg = uErr.Error()
+		}
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "user not found",
+			Error:        errMsg,
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Check whether this is a pending invite the caller initiated — if so, revoke it.
+	myParticipant, _ := database.GetParticipant(username, chatRef)
+	if myParticipant != nil && myParticipant.Status == database.ParticipantStatusAccepted {
+		hasPending, _ := database.HasPendingParticipant(chatRef)
+		if hasPending {
+			allParticipants, _ := database.GetParticipantsInChat(chatRef)
+			inviteeUsername := ""
+			for _, p := range allParticipants {
+				if p.Username != username && p.Status == database.ParticipantStatusPending {
+					inviteeUsername = p.Username
+					break
+				}
+			}
+
+			// Delete participants and chat record.
+			for _, p := range allParticipants {
+				database.DeleteParticipant(p.Username, chatRef)
+			}
+			database.DeleteChat(chatRef)
+
+			// Remove from initiator's user-service conversations.
+			service.UserService.RemoveUserConversation(context.Background(), &pb.RemoveUserConversationRequest{
+				UserId:        user.Id,
+				ChatReference: chatRef,
+			})
+
+			// Remove from initiator's in-memory map.
+			if activeInitiator := chat.GetActiveUser(username); activeInitiator != nil && activeInitiator.Chats != nil {
+				delete(activeInitiator.Chats, chatRef)
+			}
+
+			// Notify the invitee (or store for offline replay).
+			if inviteeUsername != "" {
+				revokedStatus := "INVITE_REVOKED"
+				invitee := inviteeUsername
+				activeInvitee := chat.GetActiveUser(inviteeUsername)
+				if activeInvitee != nil && activeInvitee.Notify != nil {
+					activeInvitee.Notify <- database.Message{
+						MessageReference: uuid.NewString(),
+						SenderUsername:   username,
+						ReceiverUsername: &invitee,
+						ChatReference:    chatRef,
+						MessageStatus:    &revokedStatus,
+						SentTimestamp:    time.Now().Format(time.RFC3339),
+					}
+					// Delivered live — no need to persist.
+				} else {
+					// Invitee is offline — store for replay on reconnect.
+					database.StoreRevokedInvite(inviteeUsername, username, chatRef)
+				}
+			}
+
+			response := models.Response[string]{
+				Data:         nil,
+				Message:      "invitation revoked",
+				Error:        "",
+				StatusCode:   http.StatusOK,
+				IsSuccessful: true,
+			}
+			w.WriteHeader(http.StatusOK)
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
+		}
+	}
+
+	_, grpcErr := service.UserService.RemoveUserConversation(
+		context.Background(),
+		&pb.RemoveUserConversationRequest{
+			UserId:        user.Id,
+			ChatReference: chatRef,
+		},
+	)
+	if grpcErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "could not delete conversation",
+			Error:        grpcErr.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// If the user is currently connected via the conversations socket (AWAY),
+	// remove the chat from their in-memory map so messages don't trigger
+	// a restore until a new message actually arrives.
+	activeUser := chat.GetActiveUser(username)
+	if activeUser != nil && activeUser.Chats != nil {
+		delete(activeUser.Chats, chatRef)
+	}
+
+	response := models.Response[string]{
+		Data:         nil,
+		Message:      "conversation deleted",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}
+
+func RemoveGroupMember(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var request addGroupMemberRequest
+	var response interface{}
+
+	err := util.ParseBody(r, &request)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "invalid request body",
+			Error:        err.Error(),
+			StatusCode:   http.StatusBadRequest,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Get the requester from the JWT context
+	requester, ok := r.Context().Value(middleware.ContextKeyUsername).(string)
+	if !ok || requester == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "could not identify the requesting user",
+			Error:        "unauthorized",
+			StatusCode:   http.StatusUnauthorized,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Validate chat exists and is a group chat
+	groupChat, chatErr := database.GetChat(request.ChatReference)
+	if chatErr != nil || groupChat == nil {
+		w.WriteHeader(http.StatusNotFound)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "chat not found",
+			Error:        "",
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	if groupChat.ChatType != database.ChatTypeGroup {
+		w.WriteHeader(http.StatusBadRequest)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "members can only be removed from group chats",
+			Error:        "",
+			StatusCode:   http.StatusBadRequest,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Validate requester is a member of this group
+	requesterParticipant, _ := database.GetParticipant(requester, request.ChatReference)
+	if requesterParticipant == nil {
+		w.WriteHeader(http.StatusForbidden)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "you are not a member of this group chat",
+			Error:        "",
+			StatusCode:   http.StatusForbidden,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Validate the target user is actually a participant
+	targetParticipant, _ := database.GetParticipant(request.Username, request.ChatReference)
+	if targetParticipant == nil {
+		w.WriteHeader(http.StatusNotFound)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      request.Username + " is not a member of this group",
+			Error:        "",
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Delete participant
+	_, pErr := database.DeleteParticipant(request.Username, request.ChatReference)
+	if pErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "could not remove participant",
+			Error:        pErr.Error(),
+			StatusCode:   http.StatusInternalServerError,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	// Deactivate the group chat reference on the user via gRPC
+	targetUser, uErr := service.UserService.GetUser(
+		context.Background(), &pb.UserRequest{UserId: request.Username},
+	)
+	if uErr == nil && targetUser != nil {
+		_, grpcErr := service.UserService.RemoveUserConversation(
+			context.Background(),
+			&pb.RemoveUserConversationRequest{
+				UserId:        targetUser.Id,
+				ChatReference: request.ChatReference,
+			},
+		)
+		if grpcErr != nil {
+			fmt.Println("failed to deactivate group chat ref for", request.Username, ":", grpcErr)
+		}
+	}
+
+	// Notify the removed user via their public socket
+	groupRemoveStatus := "GROUP_REMOVED"
+	activeUser := chat.GetActiveUser(request.Username)
+	if activeUser != nil && activeUser.Notify != nil {
+		activeUser.Notify <- database.Message{
+			MessageReference: uuid.NewString(),
+			SenderUsername:   requester,
+			ChatReference:    request.ChatReference,
+			MessageStatus:    &groupRemoveStatus,
+			SentTimestamp:    time.Now().Format(time.RFC3339),
+		}
+	}
+
+	// Fetch updated participant list for the response
+	participants, _ := database.GetParticipantsInChat(request.ChatReference)
+	participantNames := []string{}
+	for _, p := range participants {
+		participantNames = append(participantNames, p.Username)
+	}
+
+	response = models.Response[models.NewGroupChat]{
+		Data: &models.NewGroupChat{
+			ChatReference: request.ChatReference,
+			Name:          groupChat.Name,
+			Participants:  participantNames,
+		},
+		Message:      request.Username + " removed from group",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}
+

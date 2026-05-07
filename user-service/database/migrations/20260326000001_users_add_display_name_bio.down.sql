@@ -1,0 +1,3 @@
+ALTER TABLE users
+    DROP COLUMN IF EXISTS displayName,
+    DROP COLUMN IF EXISTS bio;

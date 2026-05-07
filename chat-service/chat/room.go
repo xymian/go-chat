@@ -18,6 +18,7 @@ import (
 
 type Room struct {
 	Id               string
+	ChatType         database.ChatType
 	leave            chan *Socketuser
 	join             chan *Socketuser
 	participants     map[string]bool
@@ -27,9 +28,10 @@ type Room struct {
 var Rooms map[string]*Room = make(map[string]*Room)
 var AddRoom chan *Room = make(chan *Room)
 
-func CreateRoom(roomId string) *Room {
+func CreateRoom(roomId string, chatType database.ChatType) *Room {
 	room := &Room{
 		Id:               roomId,
+		ChatType:         chatType,
 		leave:            make(chan *Socketuser),
 		join:             make(chan *Socketuser),
 		participants:     make(map[string]bool),
@@ -51,15 +53,9 @@ func (room *Room) Run() {
 			fmt.Println("User", user.Username, " joined the room")
 
 		case user := <-room.leave:
-			if ActiveSocketUsers[user.Username] != nil {
-				if ActiveSocketUsers[user.Username].PublicConn != nil {
-					ActiveSocketUsers[user.Username].Activity = AWAY
-				} else {
-					LoggedOutUser <- user
-				}
-			}
 			room.participants[user.Username] = false
 			delete(room.participants, user.Username)
+			LoggedOutFromRoom <- user
 			if len(room.participants) == 0 {
 				fmt.Println("User", user.Username, " left the room")
 				delete(Rooms, room.Id)
@@ -67,17 +63,39 @@ func (room *Room) Run() {
 			fmt.Println("User", user.Username, " left the room")
 
 		case message := <-room.ForwardedMessage:
-			receiver := ActiveSocketUsers[message.ReceiverUsername]
-			//room.Tracer.Trace("receiver on conversations: ", receiver)
-			if receiver != nil {
-				if receiver.Activity == AWAY {
-					receiver.IReceiveMessage <- message
-					//room.Tracer.Trace("Message sent through conversation socket: ", message.TextMessage, " to User", receiver.Username)
+			// For presence messages in private chats, notify the intended
+			// recipient if they are AWAY (conversations socket only). The
+			// client always sets ReceiverUsername on presence messages.
+			if message.PresenceStatus != nil && room.ChatType == database.ChatTypePrivate && message.ReceiverUsername != nil {
+				receiver := GetActiveUser(*message.ReceiverUsername)
+				if receiver != nil && receiver.Activity == AWAY && receiver.Notify != nil {
+					receiver.Notify <- message
 				}
 			}
+
 			for username := range room.participants {
-				ActiveSocketUsers[username].ReceiveMessage <- message
-				//room.Tracer.Trace("Forwarded message: ", message.TextMessage, " to User", username)
+				receiver := GetActiveUser(username)
+				if receiver != nil {
+					if receiver.Activity == AWAY {
+						// If the conversation was hidden by this user, restore it
+						// before delivering the new message so it reappears in
+						// their conversation list.
+						if !receiver.Chats[message.ChatReference] {
+							_, _ = service.UserService.AddUserConversation(
+								context.Background(),
+								&pb.AddUserConversationRequest{
+									UserId:        receiver.UserId,
+									ChatReference: message.ChatReference,
+									ChatType:      string(room.ChatType),
+								},
+							)
+							receiver.Chats[message.ChatReference] = true
+						}
+						receiver.Notify <- message
+					} else {
+						receiver.IncomingMessage <- message
+					}
+				}
 			}
 		}
 	}
@@ -102,12 +120,25 @@ func (user *Socketuser) ReadMessages(room *Room) {
 
 		switch {
 		case newMessage.PresenceStatus == nil && newMessage.MessageStatus == nil:
+			// Block real messages until all participants have accepted the invite.
+			hasPending, pendingErr := database.HasPendingParticipant(newMessage.ChatReference)
+			if pendingErr == nil && hasPending {
+				pendingStatus := "INVITE_PENDING"
+				user.PrivateConn.WriteJSON(database.Message{
+					MessageReference: newMessage.MessageReference,
+					ChatReference:    newMessage.ChatReference,
+					SenderUsername:   newMessage.SenderUsername,
+					MessageStatus:    &pendingStatus,
+					SentTimestamp:    newMessage.SentTimestamp,
+				})
+				continue
+			}
 			upToDateMessage, insertErr = database.MaybeInsertAndReturnMostUpToDateMessage(&newMessage)
 		}
 
 		if insertErr != nil {
 			fmt.Println(err)
-			if (upToDateMessage != nil) {
+			if upToDateMessage != nil {
 				room := Rooms[upToDateMessage.ChatReference]
 				delete(Rooms, room.Id)
 			}
@@ -125,7 +156,7 @@ func (user *Socketuser) WriteMessages(room *Room) {
 		fmt.Println("done receiving")
 		room.leave <- user
 	}()
-	for message := range user.ReceiveMessage {
+	for message := range user.IncomingMessage {
 		if room.participants[user.Username] {
 			user.PrivateConn.WriteJSON(message)
 		} else {
@@ -139,16 +170,14 @@ func (user *Socketuser) LeaveRoom(room *Room) {
 }
 
 func (room *Room) JoinRoom(user *Socketuser) error {
-	if !room.participants[user.Username] {
-		if len(room.participants) < 2 {
-			room.join <- user
-			return nil
-		} else {
-			return errors.New("room is full. please create another room with this user")
-		}
-	} else {
+	if room.participants[user.Username] {
 		return errors.New("user is already in the room")
 	}
+	if room.ChatType == database.ChatTypePrivate && len(room.participants) >= 2 {
+		return errors.New("room is full. please create another room with this user")
+	}
+	room.join <- user
+	return nil
 }
 
 func HandleRoom(w http.ResponseWriter, r *http.Request) {
@@ -180,15 +209,53 @@ func HandleRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newUser, createErr := CreateSocketUser(user, ONLINE)
+	convsResp, convsErr := service.UserService.GetUserConversations(
+		context.Background(),
+		&pb.UserRequest{UserId: username},
+	)
+	if convsErr != nil {
+		convsResp = &pb.UserConversationsResponse{}
+	}
+
+	newUser, createErr := CreateSocketUser(user, convsResp.Conversations, ONLINE)
 	if createErr != nil {
 		w.WriteHeader(http.StatusNotFound)
 		log.Fatal("error creating socket user")
 	}
 
+	// Verify the user is an accepted participant in this chat.
+	participant, participantErr := database.GetParticipant(username, chatRef)
+	if participantErr != nil || participant == nil || participant.Status != database.ParticipantStatusAccepted {
+		w.WriteHeader(http.StatusForbidden)
+		response := models.Response[string]{
+			Data:         nil,
+			Message:      "you are not a participant in this chat",
+			Error:        "forbidden",
+			StatusCode:   http.StatusForbidden,
+			IsSuccessful: false,
+		}
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
 	room := Rooms[chatRef]
 	if room == nil {
-		room = CreateRoom(chatRef)
+		chat, chatErr := database.GetChat(chatRef)
+		if chatErr != nil || chat == nil {
+			w.WriteHeader(http.StatusNotFound)
+			response := models.Response[string]{
+				Data:         nil,
+				Message:      "chat not found",
+				Error:        "invalid chat reference",
+				StatusCode:   http.StatusNotFound,
+				IsSuccessful: false,
+			}
+			res, _ := json.Marshal(response)
+			w.Write(res)
+			return
+		}
+		room = CreateRoom(chatRef, chat.ChatType)
 		AddRoom <- room
 		go room.Run()
 	}
@@ -209,7 +276,7 @@ func HandleRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 func (room *Room) sendUnacknowledgedMessages(chatRef string, user string) error {
-	messages, err := database.GetAllUnacknowledgedMessages(chatRef, user)
+	messages, err := database.GetMessagesWithIncompleteReceipts(chatRef, user)
 	if err != nil {
 		return err
 	}

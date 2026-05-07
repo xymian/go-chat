@@ -2,15 +2,16 @@ FROM golang:1.24.9-alpine AS builder
 
 WORKDIR /chat-service
 
-COPY go.sum go.mod ./
+COPY go-chat-protos /go-chat-protos
+COPY go-chat/chat-service/go.sum go-chat/chat-service/go.mod ./
 
-RUN go mod download
+RUN sed -i 's|=> .*go-chat-protos|=> /go-chat-protos|' go.mod && go mod download
 
-COPY . .
-COPY .env .env
-COPY database ./database
+COPY go-chat/chat-service .
+COPY go-chat/chat-service/.env .env
+COPY go-chat/chat-service/database ./database
 
-RUN go build -o chat-service
+RUN sed -i 's|=> .*go-chat-protos|=> /go-chat-protos|' go.mod && go build -o chat-service
 
 FROM alpine:latest
 

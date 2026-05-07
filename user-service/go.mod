@@ -15,6 +15,8 @@ require (
 	google.golang.org/protobuf v1.36.10
 )
 
+replace github.com/te6lim/go-chat-protos => /Users/te6lim/go-development/go-chat-protos
+
 require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect

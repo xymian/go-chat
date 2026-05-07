@@ -1,8 +1,8 @@
 package chat
 
 import (
-	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/gorilla/websocket"
 	"github.com/te6lim/go-chat/chat-service/database"
@@ -10,42 +10,73 @@ import (
 	pb "github.com/te6lim/go-chat-protos/userpb"
 )
 
-var ActiveSocketUsers = make(map[string]*Socketuser)
-var NewUserFromRoomSetup chan *Socketuser = make(chan *Socketuser)
+var (
+	activeUsersMu    sync.RWMutex
+	activeSocketUsers = make(map[string]*Socketuser)
+)
+
+var NewUserFromRoomSetup          chan *Socketuser = make(chan *Socketuser)
 var NewUserFromConversationsSetup chan *Socketuser = make(chan *Socketuser)
-var LoggedOutUser chan *Socketuser = make(chan *Socketuser)
-var AwayUser chan *Socketuser = make(chan *Socketuser)
+var LoggedOutFromRoom             chan *Socketuser = make(chan *Socketuser)
+var LoggedOutFromConversations    chan *Socketuser = make(chan *Socketuser)
+var AwayUser                      chan *Socketuser = make(chan *Socketuser)
+
+// GetActiveUser safely reads a user from the active users map.
+func GetActiveUser(username string) *Socketuser {
+	activeUsersMu.RLock()
+	defer activeUsersMu.RUnlock()
+	return activeSocketUsers[username]
+}
+
+func setActiveUser(username string, u *Socketuser) {
+	activeUsersMu.Lock()
+	defer activeUsersMu.Unlock()
+	activeSocketUsers[username] = u
+}
+
+func removeActiveUser(username string) {
+	activeUsersMu.Lock()
+	defer activeUsersMu.Unlock()
+	delete(activeSocketUsers, username)
+}
+
+func activeUsersCount() int {
+	activeUsersMu.RLock()
+	defer activeUsersMu.RUnlock()
+	return len(activeSocketUsers)
+}
 
 type PrivateChat struct {
-	PrivateConn    *websocket.Conn
-	ReceiveMessage chan database.Message
+	PrivateConn     *websocket.Conn
+	IncomingMessage chan database.Message
 }
 
 type Socketuser struct {
 	PrivateChat
 	*Conversations
+	UserId   uint64
 	Username string
 	Activity PresenceStatus
 }
 
-func CreateSocketUser(user *pb.UserResponse, activity PresenceStatus) (*Socketuser, error) {
+func CreateSocketUser(user *pb.UserResponse, convs []*pb.UserConversation, activity PresenceStatus) (*Socketuser, error) {
 	conversations := &Conversations{
 		Chats: map[string]bool{},
 	}
-	conversationMap := map[int64]string{}
-	err := json.Unmarshal([]byte(user.ChatReferences), &conversationMap)
-	if err != nil {
-		return nil, err
+
+	for _, c := range convs {
+		if c.Visible {
+			conversations.Chats[c.ChatReference] = true
+		}
 	}
-	for _, chatRef := range conversationMap {
-		conversations.Chats[chatRef] = true
-	}
+
 	return &Socketuser{
+		UserId:   user.Id,
 		Username: user.Username,
 		Activity: activity,
 
 		PrivateChat: PrivateChat{
-			ReceiveMessage: make(chan database.Message),
+			IncomingMessage: make(chan database.Message),
 		},
 
 		Conversations: conversations,
@@ -56,33 +87,55 @@ func ListenForActiveUsers() {
 	for {
 		select {
 		case newUser := <-NewUserFromRoomSetup:
-			activeUser := ActiveSocketUsers[newUser.Username]
+			activeUser := GetActiveUser(newUser.Username)
 			if activeUser != nil {
 				activeUser.PrivateChat = newUser.PrivateChat
 				activeUser.Activity = newUser.Activity
 			} else {
-				ActiveSocketUsers[newUser.Username] = newUser
+				setActiveUser(newUser.Username, newUser)
 				activeUser = newUser
 			}
-
-			fmt.Println("number of users: ", len(ActiveSocketUsers))
+			fmt.Println("number of users:", activeUsersCount())
 			fmt.Println("New User", newUser.Username, " is ", activeUser.Activity.GetStatus())
 
 		case newUser := <-NewUserFromConversationsSetup:
-			activeUser := ActiveSocketUsers[newUser.Username]
+			activeUser := GetActiveUser(newUser.Username)
 			if activeUser != nil {
 				activeUser.Conversations = newUser.Conversations
 				activeUser.Activity = newUser.Activity
 			} else {
-				ActiveSocketUsers[newUser.Username] = newUser
+				setActiveUser(newUser.Username, newUser)
 				activeUser = newUser
 			}
-			fmt.Println("number of users: ", len(ActiveSocketUsers))
+			fmt.Println("number of users:", activeUsersCount())
 			fmt.Println("New User", newUser.Username, " is ", activeUser.Activity.GetStatus())
 
-		case loggedOutUser := <-LoggedOutUser:
-			delete(ActiveSocketUsers, loggedOutUser.Username)
-			fmt.Println("User", loggedOutUser.Username, " logged out")
+		case user := <-LoggedOutFromRoom:
+			active := GetActiveUser(user.Username)
+			if active == nil {
+				break
+			}
+			active.PrivateConn = nil
+			// If still connected via the conversations socket, stay in the
+			// map as AWAY rather than removing the user entirely.
+			if active.Conversations != nil && active.Conversations.Conn != nil {
+				active.Activity = AWAY
+			} else {
+				removeActiveUser(user.Username)
+			}
+			fmt.Println("User", user.Username, " left room")
+
+		case user := <-LoggedOutFromConversations:
+			active := GetActiveUser(user.Username)
+			if active == nil {
+				break
+			}
+			active.Conversations = nil
+			// Only remove the user if the room socket is also gone.
+			if active.PrivateConn == nil {
+				removeActiveUser(user.Username)
+			}
+			fmt.Println("User", user.Username, " disconnected from conversations")
 		}
 	}
 }

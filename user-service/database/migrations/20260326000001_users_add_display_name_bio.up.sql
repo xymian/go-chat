@@ -1,0 +1,3 @@
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS displayName VARCHAR(100) DEFAULT '',
+    ADD COLUMN IF NOT EXISTS bio         TEXT         DEFAULT '';

@@ -16,6 +16,8 @@ require (
 	google.golang.org/grpc v1.77.0
 )
 
+replace github.com/te6lim/go-chat-protos => /Users/te6lim/go-development/go-chat-protos
+
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
