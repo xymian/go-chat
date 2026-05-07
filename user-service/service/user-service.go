@@ -126,6 +126,8 @@ func (server *Server) DeleteUser(ctx context.Context, req *pb.UserRequest) (*pb.
 			Id:           uint64(user.Id),
 			Username:     user.Username,
 			PasswordHash: user.PasswordHash,
+			DisplayName:  user.DisplayName,
+			Bio:          user.Bio,
 			CreatedAt:    user.CreatedAt,
 			UpdatedAt:    user.UpdatedAt,
 		}, nil
@@ -153,6 +155,8 @@ func (server *Server) InsertUser(ctx context.Context, user *pb.UserResponse) (*p
 			Id:           uint64(insertUser.Id),
 			Username:     insertUser.Username,
 			PasswordHash: insertUser.PasswordHash,
+			DisplayName:  insertUser.DisplayName,
+			Bio:          insertUser.Bio,
 			CreatedAt:    insertUser.CreatedAt,
 			UpdatedAt:    insertUser.UpdatedAt,
 		}, nil
@@ -174,6 +178,8 @@ func (server *Server) GetUsers(ctx context.Context, empty *emptypb.Empty) (*pb.U
 				Id:           uint64(user.Id),
 				Username:     user.Username,
 				PasswordHash: user.PasswordHash,
+				DisplayName:  user.DisplayName,
+				Bio:          user.Bio,
 				CreatedAt:    user.CreatedAt,
 				UpdatedAt:    user.UpdatedAt,
 			},
@@ -194,10 +200,31 @@ func (server *Server) GetUser(ctx context.Context, req *pb.UserRequest) (*pb.Use
 			Id:           uint64(user.Id),
 			Username:     user.Username,
 			PasswordHash: user.PasswordHash,
+			DisplayName:  user.DisplayName,
+			Bio:          user.Bio,
 			CreatedAt:    user.CreatedAt,
 			UpdatedAt:    user.UpdatedAt,
 		}, nil
 	}
 
+	return nil, nil
+}
+
+func (server *Server) UpdateUserProfile(ctx context.Context, req *pb.UpdateUserProfileRequest) (*pb.UserResponse, error) {
+	user, err := database.UpdateUserProfile(req.Username, req.DisplayName, req.Bio)
+	if err != nil {
+		return nil, err
+	}
+	if user != nil {
+		return &pb.UserResponse{
+			Id:           uint64(user.Id),
+			Username:     user.Username,
+			PasswordHash: user.PasswordHash,
+			DisplayName:  user.DisplayName,
+			Bio:          user.Bio,
+			CreatedAt:    user.CreatedAt,
+			UpdatedAt:    user.UpdatedAt,
+		}, nil
+	}
 	return nil, nil
 }

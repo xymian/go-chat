@@ -213,6 +213,64 @@ func InsertUser(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
+func UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	username := mux.Vars(r)["username"]
+	var response interface{}
+
+	body := &struct {
+		DisplayName string `json:"displayName"`
+		Bio         string `json:"bio"`
+	}{}
+	if err := util.ParseBody(r, body); err != nil {
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "bad request",
+			Error:        err.Error(),
+			StatusCode:   http.StatusBadRequest,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	user, err := service.UserServer.UpdateUserProfile(context.Background(), &pb.UpdateUserProfileRequest{
+		Username:    username,
+		DisplayName: body.DisplayName,
+		Bio:         body.Bio,
+	})
+	if err != nil || user == nil {
+		msg := "user not found"
+		if err != nil {
+			msg = err.Error()
+		}
+		response = models.Response[string]{
+			Data:         nil,
+			Message:      "could not update profile",
+			Error:        msg,
+			StatusCode:   http.StatusNotFound,
+			IsSuccessful: false,
+		}
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(response)
+		w.Write(res)
+		return
+	}
+
+	response = models.Response[pb.UserResponse]{
+		Data:         user,
+		Message:      "profile updated",
+		Error:        "",
+		StatusCode:   http.StatusOK,
+		IsSuccessful: true,
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(response)
+	w.Write(res)
+}
+
 func Delete(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
 	var response interface{}
