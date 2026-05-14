@@ -116,6 +116,12 @@ func ListenForActiveUsers() {
 			if active == nil {
 				break
 			}
+			// Guard against a stale logout from a previous session being
+			// processed after the user has already reconnected with a new
+			// PrivateConn — only apply the cleanup if the conn matches.
+			if active.PrivateConn != user.PrivateConn {
+				break
+			}
 			active.PrivateConn = nil
 			// If still connected via the conversations socket, stay in the
 			// map as AWAY rather than removing the user entirely.
@@ -129,6 +135,13 @@ func ListenForActiveUsers() {
 		case user := <-LoggedOutFromConversations:
 			active := GetActiveUser(user.Username)
 			if active == nil {
+				break
+			}
+			// Guard against a stale logout from a previous session being
+			// processed after the user has already reconnected with a new
+			// conversations socket — only apply the cleanup if the
+			// Conversations pointer matches the current session.
+			if active.Conversations != user.Conversations {
 				break
 			}
 			active.Conversations = nil
