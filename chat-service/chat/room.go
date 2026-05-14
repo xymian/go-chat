@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/te6lim/go-chat/chat-service/database"
 	"github.com/te6lim/go-chat/chat-service/models"
@@ -21,6 +22,7 @@ type Room struct {
 	ChatType         database.ChatType
 	leave            chan *Socketuser
 	join             chan *Socketuser
+	remove           chan string
 	participants     map[string]bool
 	ForwardedMessage chan database.Message
 }
@@ -34,6 +36,7 @@ func CreateRoom(roomId string, chatType database.ChatType) *Room {
 		ChatType:         chatType,
 		leave:            make(chan *Socketuser),
 		join:             make(chan *Socketuser),
+		remove:           make(chan string),
 		participants:     make(map[string]bool),
 		ForwardedMessage: make(chan database.Message),
 	}
@@ -53,14 +56,17 @@ func (room *Room) Run() {
 			fmt.Println("User", user.Username, " joined the room")
 
 		case user := <-room.leave:
+			// Mark as AWAY (soft presence) rather than deleting so that
+			// messages are still routed to this user's conversations socket
+			// while they are on the conversations screen.
 			room.participants[user.Username] = false
-			delete(room.participants, user.Username)
 			LoggedOutFromRoom <- user
-			if len(room.participants) == 0 {
-				fmt.Println("User", user.Username, " left the room")
-				delete(Rooms, room.Id)
-			}
 			fmt.Println("User", user.Username, " left the room")
+
+		case username := <-room.remove:
+			// Hard removal — user was explicitly kicked (group remove, block).
+			delete(room.participants, username)
+			fmt.Println("User", username, " removed from room")
 
 		case message := <-room.ForwardedMessage:
 			// For presence messages in private chats, notify the intended
@@ -73,40 +79,49 @@ func (room *Room) Run() {
 				}
 			}
 
+			var toRemove []string
 			for username := range room.participants {
 				receiver := GetActiveUser(username)
-				if receiver != nil {
-					if receiver.Activity == AWAY {
-						// If the conversation was hidden by this user, restore it
-						// before delivering the new message so it reappears in
-						// their conversation list.
-						if !receiver.Chats[message.ChatReference] {
-							_, _ = service.UserService.AddUserConversation(
-								context.Background(),
-								&pb.AddUserConversationRequest{
-									UserId:        receiver.UserId,
-									ChatReference: message.ChatReference,
-									ChatType:      string(room.ChatType),
-								},
-							)
-							receiver.Chats[message.ChatReference] = true
-						}
-						receiver.Notify <- message
-					} else {
-						receiver.IncomingMessage <- message
-					}
+				if receiver == nil {
+					// User is fully offline — prune from map lazily.
+					toRemove = append(toRemove, username)
+					continue
 				}
+				if receiver.Activity == AWAY {
+					if receiver.Notify == nil {
+						continue
+					}
+					// If the conversation was hidden by this user, restore it
+					// before delivering the new message so it reappears in
+					// their conversation list.
+					if !receiver.Chats[message.ChatReference] {
+						_, _ = service.UserService.AddUserConversation(
+							context.Background(),
+							&pb.AddUserConversationRequest{
+								UserId:        receiver.UserId,
+								ChatReference: message.ChatReference,
+								ChatType:      string(room.ChatType),
+							},
+						)
+						receiver.Chats[message.ChatReference] = true
+					}
+					receiver.Notify <- message
+				} else if room.participants[username] {
+					receiver.IncomingMessage <- message
+				}
+			}
+			for _, username := range toRemove {
+				delete(room.participants, username)
+			}
+			if len(room.participants) == 0 {
+				delete(Rooms, room.Id)
 			}
 		}
 	}
 }
 
-func (user *Socketuser) ReadMessages(room *Room) {
-	defer func() {
-		user.PrivateConn.Close()
-		fmt.Println("connection closed")
-		room.leave <- user
-	}()
+func (user *Socketuser) ReadMessages(room *Room, disconnect func()) {
+	defer disconnect()
 	for {
 		var newMessage database.Message
 		err := user.PrivateConn.ReadJSON(&newMessage)
@@ -151,16 +166,21 @@ func (user *Socketuser) ReadMessages(room *Room) {
 	}
 }
 
-func (user *Socketuser) WriteMessages(room *Room) {
-	defer func() {
-		fmt.Println("done receiving")
-		room.leave <- user
-	}()
-	for message := range user.IncomingMessage {
-		if room.participants[user.Username] {
-			user.PrivateConn.WriteJSON(message)
-		} else {
-			fmt.Println("You are not in this room")
+func (user *Socketuser) WriteMessages(room *Room, done <-chan struct{}, disconnect func()) {
+	defer disconnect()
+	for {
+		select {
+		case message, ok := <-user.IncomingMessage:
+			if !ok {
+				return
+			}
+			if room.participants[user.Username] {
+				user.PrivateConn.WriteJSON(message)
+			} else {
+				fmt.Println("You are not in this room")
+			}
+		case <-done:
+			return
 		}
 	}
 }
@@ -169,12 +189,26 @@ func (user *Socketuser) LeaveRoom(room *Room) {
 	room.leave <- user
 }
 
+// Remove sends a hard-removal signal for the given username so that room.Run()
+// deletes them from participants immediately. Safe to call from any goroutine.
+func (room *Room) Remove(username string) {
+	room.remove <- username
+}
+
 func (room *Room) JoinRoom(user *Socketuser) error {
 	if room.participants[user.Username] {
 		return errors.New("user is already in the room")
 	}
-	if room.ChatType == database.ChatTypePrivate && len(room.participants) >= 2 {
-		return errors.New("room is full. please create another room with this user")
+	if room.ChatType == database.ChatTypePrivate {
+		activeCount := 0
+		for _, online := range room.participants {
+			if online {
+				activeCount++
+			}
+		}
+		if activeCount >= 2 {
+			return errors.New("room is full. please create another room with this user")
+		}
 	}
 	room.join <- user
 	return nil
@@ -265,14 +299,23 @@ func HandleRoom(w http.ResponseWriter, r *http.Request) {
 	newUser.Activity = ONLINE
 	NewUserFromRoomSetup <- newUser
 
-	defer func() {
-		fmt.Println(username, " disconnected")
-	}()
+	// done signals WriteMessages to exit; disconnect runs exactly once so that
+	// only one goroutine closes the connection and notifies the room.
+	done := make(chan struct{})
+	var once sync.Once
+	disconnect := func() {
+		once.Do(func() {
+			close(done)
+			newUser.PrivateConn.Close()
+			fmt.Println(username, " disconnected")
+			room.leave <- newUser
+		})
+	}
 
 	room.JoinRoom(newUser)
-	go newUser.WriteMessages(room)
+	go newUser.WriteMessages(room, done, disconnect)
 	go room.sendUnacknowledgedMessages(chatRef, username)
-	newUser.ReadMessages(room)
+	newUser.ReadMessages(room, disconnect)
 }
 
 func (room *Room) sendUnacknowledgedMessages(chatRef string, user string) error {

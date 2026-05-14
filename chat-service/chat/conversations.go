@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -98,27 +99,30 @@ func HandleConversations(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	defer func() {
-		socketUser.Conn.Close()
-		fmt.Println("conversations socket closed")
-		LoggedOutFromConversations <- socketUser
-	}()
+	// disconnect runs exactly once regardless of which goroutine (ReadConversations
+	// or WriteConversations) exits first, preventing the nil-pointer panic that
+	// occurs when the second goroutine's defer tries to access Conn after
+	// ListenForActiveUsers has already set active.Conversations = nil.
+	var once sync.Once
+	disconnect := func() {
+		once.Do(func() {
+			socketUser.Conn.Close()
+			fmt.Println("conversations socket closed")
+			LoggedOutFromConversations <- socketUser
+		})
+	}
 
 	socketUser.Activity = AWAY
 	NewUserFromConversationsSetup <- socketUser
-	go socketUser.ReadConversations()
+	go socketUser.ReadConversations(disconnect)
 	go sendUnacknowledgedMessagesForAllConversations(socketUser)
 	go replayPendingInvites(socketUser)
 	go replayRevokedInvites(socketUser)
-	socketUser.WriteConversations()
+	socketUser.WriteConversations(disconnect)
 }
 
-func (user *Socketuser) ReadConversations() {
-	defer func() {
-		user.Conn.Close()
-		fmt.Println("conversations socket closed")
-		LoggedOutFromConversations <- user
-	}()
+func (user *Socketuser) ReadConversations(disconnect func()) {
+	defer disconnect()
 
 	for {
 		message := database.Message{}
@@ -281,12 +285,8 @@ func declineInvite(user *Socketuser, message database.Message) {
 	}
 }
 
-func (user *Socketuser) WriteConversations() {
-	defer func() {
-		user.Conn.Close()
-		fmt.Println("conversations socket closed")
-		LoggedOutFromConversations <- user
-	}()
+func (user *Socketuser) WriteConversations(disconnect func()) {
+	defer disconnect()
 
 	for {
 		msg := <-user.Notify

@@ -867,9 +867,15 @@ func AddGroupMember(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("failed to register group chat ref for", request.Username, ":", grpcErr)
 	}
 
+	// Update the new member's in-memory Chats map so they can receive
+	// messages immediately without waiting for a reconnect.
+	activeUser := chat.GetActiveUser(request.Username)
+	if activeUser != nil && activeUser.Chats != nil {
+		activeUser.Chats[request.ChatReference] = true
+	}
+
 	// Notify the new member via their public socket
 	groupInviteStatus := "GROUP_INVITE"
-	activeUser := chat.GetActiveUser(request.Username)
 	if activeUser != nil && activeUser.Notify != nil {
 		activeUser.Notify <- database.Message{
 			MessageReference: uuid.NewString(),
@@ -1216,9 +1222,18 @@ func RemoveGroupMember(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Evict the user from the in-memory room immediately so they stop
+	// receiving messages, and remove the chat from their Chats map.
+	if room := chat.Rooms[request.ChatReference]; room != nil {
+		room.Remove(request.Username)
+	}
+	activeUser := chat.GetActiveUser(request.Username)
+	if activeUser != nil && activeUser.Chats != nil {
+		delete(activeUser.Chats, request.ChatReference)
+	}
+
 	// Notify the removed user via their public socket
 	groupRemoveStatus := "GROUP_REMOVED"
-	activeUser := chat.GetActiveUser(request.Username)
 	if activeUser != nil && activeUser.Notify != nil {
 		activeUser.Notify <- database.Message{
 			MessageReference: uuid.NewString(),

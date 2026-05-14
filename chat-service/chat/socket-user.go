@@ -76,7 +76,8 @@ func CreateSocketUser(user *pb.UserResponse, convs []*pb.UserConversation, activ
 		Activity: activity,
 
 		PrivateChat: PrivateChat{
-			IncomingMessage: make(chan database.Message),
+			// Buffered so room.Run() is not blocked by a slow or exiting WriteMessages.
+			IncomingMessage: make(chan database.Message, 32),
 		},
 
 		Conversations: conversations,
